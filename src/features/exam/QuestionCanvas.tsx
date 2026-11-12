@@ -32,6 +32,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    containerRef,
     transformStyle,
     isDragging,
   } = useZoomPan({ minZoom: 0.5, maxZoom: 3.0, zoomStep: 0.25, initialZoom: 1.0 });
@@ -46,6 +47,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
     <div className="flex flex-col h-full bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm overflow-hidden">
       {/* Canvas Viewport Area */}
       <div
+        ref={containerRef}
         className={`relative flex-1 min-h-[420px] max-h-[600px] bg-color-6/50 overflow-hidden flex items-center justify-center p-space-4 select-none ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
@@ -122,41 +124,46 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
       </div>
 
       {/* Bottom Image Toolbar: Zoom In, Zoom Out, Original */}
-      <div className="px-space-4 py-space-3 border-t-2 border-color-1 bg-color-7 flex items-center justify-center gap-space-3">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={zoomIn}
-          disabled={zoomLevel >= 3.0}
-          className="flex items-center gap-1"
-          title="Phóng to"
-        >
-          <ZoomIn className="w-4 h-4" />
-          <span>Zoom in</span>
-        </Button>
+      <div className="px-space-4 py-space-3 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
+        <span className="text-text-xs font-bold text-color-1/50 hidden md:inline">
+          Ctrl + Cuộn chuột để phóng to / thu nhỏ
+        </span>
+        <div className="flex items-center gap-space-2 mx-auto md:mx-0">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={zoomIn}
+            disabled={zoomLevel >= 3.0}
+            className="flex items-center gap-1"
+            title="Phóng to (Ctrl + Cuộn chuột lên)"
+          >
+            <ZoomIn className="w-4 h-4" />
+            <span>Zoom in</span>
+          </Button>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={zoomOut}
-          disabled={zoomLevel <= 0.5}
-          className="flex items-center gap-1"
-          title="Thu nhỏ"
-        >
-          <ZoomOut className="w-4 h-4" />
-          <span>Zoom out</span>
-        </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={zoomOut}
+            disabled={zoomLevel <= 0.5}
+            className="flex items-center gap-1"
+            title="Thu nhỏ (Ctrl + Cuộn chuột xuống)"
+          >
+            <ZoomOut className="w-4 h-4" />
+            <span>Zoom out</span>
+          </Button>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={resetZoom}
-          className="flex items-center gap-1"
-          title="Kích thước gốc"
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Original</span>
-        </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={resetZoom}
+            className="flex items-center gap-1"
+            title="Kích thước gốc"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Original</span>
+          </Button>
+        </div>
       </div>
     </div>
   );

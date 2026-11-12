@@ -101,5 +101,33 @@ describe("Exam Review Integration Tests", () => {
     const img = screen.getByRole("img", { name: /câu hỏi 2/i });
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute("src", "/static/exams/MAD101/MAD101%20-%20FA25/Q2.webp");
+
+    // Check zoom controls exist
+    const zoomInBtn = screen.getByRole("button", { name: /zoom in/i });
+    const zoomOutBtn = screen.getByRole("button", { name: /zoom out/i });
+    const originalBtn = screen.getByRole("button", { name: /original/i });
+
+    expect(zoomInBtn).toBeInTheDocument();
+    expect(zoomOutBtn).toBeInTheDocument();
+    expect(originalBtn).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    // Clicking Zoom in increases zoom to 125%
+    fireEvent.click(zoomInBtn);
+    expect(screen.getByText("125%")).toBeInTheDocument();
+
+    // Clicking Original resets zoom to 100%
+    fireEvent.click(originalBtn);
+    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    // Ctrl + scroll wheel up zooms in to 125%
+    const viewport = img.closest(".relative");
+    expect(viewport).not.toBeNull();
+    fireEvent.wheel(viewport!, { ctrlKey: true, deltaY: -100 });
+    expect(screen.getByText("125%")).toBeInTheDocument();
+
+    // Ctrl + scroll wheel down zooms out to 100%
+    fireEvent.wheel(viewport!, { ctrlKey: true, deltaY: 100 });
+    expect(screen.getByText("100%")).toBeInTheDocument();
   });
 });

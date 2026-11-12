@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { Check, X, Bot, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, X, Bot, Users, ChevronDown, ChevronUp, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { resolveImageUrl } from "@/utils/imageUrl";
+import { useZoomPan } from "@/hooks/useZoomPan";
 import type { ReviewQuestionItem as ReviewItemType } from "@/types/review";
 
 export interface QuestionReviewItemProps {
@@ -12,6 +14,19 @@ export interface QuestionReviewItemProps {
 
 export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, index }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const {
+    zoomLevel,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    containerRef,
+    transformStyle,
+    isDragging,
+  } = useZoomPan({ minZoom: 0.5, maxZoom: 3.0, zoomStep: 0.25, initialZoom: 1.0 });
 
   const isUserCorrect = item.isCorrect;
   const userChoice = item.selectedOptions || "Chưa chọn";
@@ -64,15 +79,81 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
         </div>
       </div>
 
-      {/* Question Diagram / Image */}
+      {/* Question Diagram / Image with Zoom & Pan */}
       {resolveImageUrl(item.imageUrl) && (
-        <div className="flex justify-center p-space-3 bg-color-6/50 rounded-2xl border border-color-1/20 overflow-hidden">
-          <img
-            src={resolveImageUrl(item.imageUrl)!}
-            alt={`Câu hỏi ${index + 1}`}
-            className="max-h-64 object-contain rounded-xl"
-            loading="lazy"
-          />
+        <div className="flex flex-col bg-color-6/40 border-2 border-color-1 rounded-2xl overflow-hidden shadow-2xs">
+          {/* Canvas Viewport Area */}
+          <div
+            ref={containerRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            className={`relative flex items-center justify-center min-h-[220px] max-h-[460px] p-space-3 select-none overflow-hidden bg-color-6/30 ${
+              isDragging ? "cursor-grabbing" : "cursor-grab"
+            }`}
+          >
+            {/* Zoom Level Indicator Tag */}
+            <div className="absolute top-space-2 left-space-2 z-10 px-space-2 py-0.5 rounded-full bg-color-7/90 border border-color-1 text-text-xs font-bold shadow-2xs">
+              {Math.round(zoomLevel * 100)}%
+            </div>
+
+            <div style={transformStyle} className="flex items-center justify-center max-w-full max-h-full">
+              <img
+                src={resolveImageUrl(item.imageUrl)!}
+                alt={`Câu hỏi ${index + 1}`}
+                className="max-h-72 w-auto object-contain rounded-xl pointer-events-none drop-shadow-xs"
+                draggable={false}
+                loading="lazy"
+              />
+            </div>
+          </div>
+
+          {/* Bottom Zoom Controls Bar */}
+          <div className="px-space-3 py-1.5 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
+            <span className="text-text-xs font-bold text-color-1/50 hidden sm:inline">
+              Ctrl + Cuộn chuột để phóng to / thu nhỏ
+            </span>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={zoomIn}
+                disabled={zoomLevel >= 3.0}
+                className="flex items-center gap-1 px-space-2 py-1 text-text-xs"
+                title="Phóng to (Ctrl + Cuộn chuột lên)"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+                <span>Zoom in</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={zoomOut}
+                disabled={zoomLevel <= 0.5}
+                className="flex items-center gap-1 px-space-2 py-1 text-text-xs"
+                title="Thu nhỏ (Ctrl + Cuộn chuột xuống)"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+                <span>Zoom out</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={resetZoom}
+                className="flex items-center gap-1 px-space-2 py-1 text-text-xs"
+                title="Khôi phục kích thước gốc"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Original</span>
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

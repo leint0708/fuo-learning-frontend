@@ -132,4 +132,34 @@ describe("QuestionCanvas Component Tests", () => {
     fireEvent.click(retryBtn);
     expect(screen.getByRole("img", { name: /đề thi câu 4/i })).toBeInTheDocument();
   });
+
+  it("supports zoom in and zoom out via Ctrl + scroll wheel", () => {
+    render(
+      <QuestionCanvas
+        questionNumber={1}
+        questionCode="Q1"
+        imageUrl="/static/exams/MAD101/Q1.webp"
+        questionTextFallback="Question 1 text"
+      />
+    );
+
+    // Initial 100%
+    expect(screen.getByText(/100%/)).toBeInTheDocument();
+
+    const img = screen.getByRole("img", { name: /đề thi câu 1/i });
+    const viewport = img.closest(".relative");
+    expect(viewport).not.toBeNull();
+
+    // Wheel up with Ctrl: zoom in to 125%
+    fireEvent.wheel(viewport!, { ctrlKey: true, deltaY: -100 });
+    expect(screen.getByText(/125%/)).toBeInTheDocument();
+
+    // Wheel down with Ctrl: zoom out to 100%
+    fireEvent.wheel(viewport!, { ctrlKey: true, deltaY: 100 });
+    expect(screen.getByText(/100%/)).toBeInTheDocument();
+
+    // Normal wheel without Ctrl does NOT change zoom level
+    fireEvent.wheel(viewport!, { ctrlKey: false, deltaY: -100 });
+    expect(screen.getByText(/100%/)).toBeInTheDocument();
+  });
 });
