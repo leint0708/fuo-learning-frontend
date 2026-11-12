@@ -2,6 +2,19 @@ export type QuestionType = "single_choice" | "multiple_choice";
 export type FeedbackMode = "instant" | "post_exam";
 export type BenchmarkMode = "ai" | "community";
 
+export type AnswerViewMode = "instant" | "review_after_finish";
+export type AnswerSourceMode = "ai_answer" | "community_consensus";
+
+export interface ExamConfigOptions {
+  subjectId: string;
+  subjectCode: string;
+  totalQuestions: number;
+  isTimed: boolean;
+  durationMinutes: number;
+  feedbackMode: AnswerViewMode;
+  benchmarkSource: AnswerSourceMode;
+}
+
 export interface Question {
   questionId: string;
   questionNumber: number;

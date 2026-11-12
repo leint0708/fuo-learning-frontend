@@ -13,12 +13,15 @@ interface ExamUiState {
 
   // Actions
   setQuestionIndex: (index: number) => void;
+  nextQuestion: (totalQuestions: number) => void;
+  prevQuestion: () => void;
   setActivePage: (page: number) => void;
   nextPage: (totalPages: number) => void;
   prevPage: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
   resetZoom: () => void;
+  setZoomLevel: (scale: number) => void;
   setPanPosition: (pos: { x: number; y: number }) => void;
   openAiModal: () => void;
   closeAiModal: () => void;
@@ -32,7 +35,7 @@ interface ExamUiState {
 export const useExamUiStore = create<ExamUiState>((set) => ({
   currentQuestionIndex: 0,
   activePage: 1,
-  zoomLevel: 1.0,
+  zoomLevel: 1.25,
   panPosition: { x: 0, y: 0 },
   isAiModalOpen: false,
   isSubmitConfirmOpen: false,
@@ -40,6 +43,16 @@ export const useExamUiStore = create<ExamUiState>((set) => ({
   benchmarkMode: "ai",
 
   setQuestionIndex: (index: number) => set({ currentQuestionIndex: index }),
+
+  nextQuestion: (totalQuestions: number) =>
+    set((state) => ({
+      currentQuestionIndex: Math.min(state.currentQuestionIndex + 1, totalQuestions - 1),
+    })),
+
+  prevQuestion: () =>
+    set((state) => ({
+      currentQuestionIndex: Math.max(state.currentQuestionIndex - 1, 0),
+    })),
 
   setActivePage: (page: number) => set({ activePage: page }),
 
@@ -65,9 +78,12 @@ export const useExamUiStore = create<ExamUiState>((set) => ({
 
   resetZoom: () =>
     set({
-      zoomLevel: 1.0,
+      zoomLevel: 1.25,
       panPosition: { x: 0, y: 0 },
     }),
+
+  setZoomLevel: (scale: number) =>
+    set({ zoomLevel: Math.max(0.5, Math.min(3.0, Number(scale.toFixed(2)))) }),
 
   setPanPosition: (pos) => set({ panPosition: pos }),
 
@@ -84,7 +100,7 @@ export const useExamUiStore = create<ExamUiState>((set) => ({
     set({
       currentQuestionIndex: 0,
       activePage: 1,
-      zoomLevel: 1.0,
+      zoomLevel: 1.25,
       panPosition: { x: 0, y: 0 },
       isAiModalOpen: false,
       isSubmitConfirmOpen: false,

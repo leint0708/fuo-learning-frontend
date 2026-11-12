@@ -5,6 +5,8 @@ export interface UseZoomPanOptions {
   maxZoom?: number;
   zoomStep?: number;
   initialZoom?: number;
+  onZoomChange?: (zoom: number) => void;
+  onPanChange?: (pan: { x: number; y: number }) => void;
 }
 
 export function useZoomPan(options: UseZoomPanOptions = {}) {
@@ -12,7 +14,9 @@ export function useZoomPan(options: UseZoomPanOptions = {}) {
     minZoom = 0.5,
     maxZoom = 3.0,
     zoomStep = 0.25,
-    initialZoom = 1.0,
+    initialZoom = 1.25,
+    onZoomChange,
+    onPanChange,
   } = options;
 
   const [zoomLevel, setZoomLevel] = useState<number>(initialZoom);
@@ -21,17 +25,27 @@ export function useZoomPan(options: UseZoomPanOptions = {}) {
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const zoomIn = useCallback(() => {
-    setZoomLevel((prev) => Math.min(maxZoom, Number((prev + zoomStep).toFixed(2))));
-  }, [maxZoom, zoomStep]);
+    setZoomLevel((prev) => {
+      const next = Math.min(maxZoom, Number((prev + zoomStep).toFixed(2)));
+      onZoomChange?.(next);
+      return next;
+    });
+  }, [maxZoom, zoomStep, onZoomChange]);
 
   const zoomOut = useCallback(() => {
-    setZoomLevel((prev) => Math.max(minZoom, Number((prev - zoomStep).toFixed(2))));
-  }, [minZoom, zoomStep]);
+    setZoomLevel((prev) => {
+      const next = Math.max(minZoom, Number((prev - zoomStep).toFixed(2)));
+      onZoomChange?.(next);
+      return next;
+    });
+  }, [minZoom, zoomStep, onZoomChange]);
 
   const resetZoom = useCallback(() => {
-    setZoomLevel(1.0);
+    setZoomLevel(initialZoom);
     setPanOffset({ x: 0, y: 0 });
-  }, []);
+    onZoomChange?.(initialZoom);
+    onPanChange?.({ x: 0, y: 0 });
+  }, [initialZoom, onZoomChange, onPanChange]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,10 +58,14 @@ export function useZoomPan(options: UseZoomPanOptions = {}) {
       if (!isDragging) return;
       const dx = e.clientX - dragStart.x;
       const dy = e.clientY - dragStart.y;
-      setPanOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      setPanOffset((prev) => {
+        const next = { x: prev.x + dx, y: prev.y + dy };
+        onPanChange?.(next);
+        return next;
+      });
       setDragStart({ x: e.clientX, y: e.clientY });
     },
-    [isDragging, dragStart]
+    [isDragging, dragStart, onPanChange]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -61,12 +79,14 @@ export function useZoomPan(options: UseZoomPanOptions = {}) {
     zoomIn,
     zoomOut,
     resetZoom,
+    setZoomLevel,
+    setPanOffset,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     transformStyle: {
       transform: `scale(${zoomLevel}) translate3d(${panOffset.x}px, ${panOffset.y}px, 0)`,
-      transformOrigin: "center center",
+      transformOrigin: "top center",
       transition: isDragging ? "none" : "transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
     },
   };

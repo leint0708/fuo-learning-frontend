@@ -1,19 +1,18 @@
 import React, { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, HelpCircle, Play, Sliders } from "lucide-react";
+import { ArrowLeft, Clock, HelpCircle, Sliders } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CustomExamModal } from "./CustomExamModal";
 import { getSubject, getSubjectExams } from "@/api/subjects";
-import { startExamAttempt } from "@/api/attempts";
 
 export const SubjectDetailView: React.FC = () => {
   const { code } = useParams<{ code: string }>();
-  const navigate = useNavigate();
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
-  const [startingExamId, setStartingExamId] = useState<string | null>(null);
+  const [selectedExamId, setSelectedExamId] = useState<string | undefined>(undefined);
+  const [selectedExamMaxQuestions, setSelectedExamMaxQuestions] = useState<number>(50);
 
   const subjectCode = code || "MAD101";
 
@@ -27,16 +26,10 @@ export const SubjectDetailView: React.FC = () => {
     queryFn: () => getSubjectExams(subjectCode),
   });
 
-  const handleStartStandardExam = async (examId: string) => {
-    setStartingExamId(examId);
-    try {
-      const attempt = await startExamAttempt(examId);
-      navigate(`/attempts/${attempt.attemptId}`);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Không thể bắt đầu đề thi.");
-    } finally {
-      setStartingExamId(null);
-    }
+  const handleOpenConfigForExam = (examId?: string, maxQuestions?: number) => {
+    setSelectedExamId(examId);
+    if (maxQuestions) setSelectedExamMaxQuestions(maxQuestions);
+    setIsCustomModalOpen(true);
   };
 
   return (
@@ -72,7 +65,7 @@ export const SubjectDetailView: React.FC = () => {
           <Button
             variant="accent"
             size="lg"
-            onClick={() => setIsCustomModalOpen(true)}
+            onClick={() => handleOpenConfigForExam(exams?.[0]?.id, exams?.[0]?.totalQuestions || 50)}
             className="w-full md:w-auto flex items-center justify-center gap-space-2"
           >
             <Sliders className="w-5 h-5" />
@@ -138,11 +131,10 @@ export const SubjectDetailView: React.FC = () => {
                   <Button
                     variant="primary"
                     size="sm"
-                    isLoading={startingExamId === exam.id}
-                    onClick={() => handleStartStandardExam(exam.id)}
+                    onClick={() => handleOpenConfigForExam(exam.id, exam.totalQuestions)}
                     className="flex items-center gap-1"
                   >
-                    <Play className="w-4 h-4" />
+                    <Sliders className="w-4 h-4" />
                     <span>Làm bài</span>
                   </Button>
                 </div>
@@ -157,8 +149,8 @@ export const SubjectDetailView: React.FC = () => {
         isOpen={isCustomModalOpen}
         onClose={() => setIsCustomModalOpen(false)}
         subjectCode={subjectCode}
-        defaultExamId={exams?.[0]?.id}
-        maxAvailableQuestions={exams?.[0]?.totalQuestions || 50}
+        defaultExamId={selectedExamId || exams?.[0]?.id}
+        maxAvailableQuestions={selectedExamMaxQuestions}
       />
     </div>
   );

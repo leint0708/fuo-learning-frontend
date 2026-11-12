@@ -25,10 +25,6 @@ export const ExamWorkspaceView: React.FC = () => {
   const {
     currentQuestionIndex,
     setQuestionIndex,
-    activePage,
-    setActivePage,
-    nextPage,
-    prevPage,
     isAiModalOpen,
     openAiModal,
     closeAiModal,
@@ -115,13 +111,6 @@ export const ExamWorkspaceView: React.FC = () => {
   const currentQuestion = questions[currentQuestionIndex] || questions[0];
   const totalQuestions = questions.length;
   const answeredCount = Object.keys(userAnswers).length;
-  const totalPages = Math.max(1, Math.ceil(totalQuestions / 25));
-
-  // Sync active page when current question changes
-  useEffect(() => {
-    const expectedPage = Math.floor(currentQuestionIndex / 25) + 1;
-    setActivePage(expectedPage);
-  }, [currentQuestionIndex, setActivePage]);
 
   // Eagerly prefetch real AI explanation for current question without requiring user choice
   useEffect(() => {
@@ -373,11 +362,9 @@ export const ExamWorkspaceView: React.FC = () => {
             questions={sidebarItems}
             activeQuestionIndex={currentQuestionIndex}
             onSelectQuestion={(idx) => setQuestionIndex(idx)}
-            currentPage={activePage}
-            onPrevPage={prevPage}
-            onNextPage={() => nextPage(totalPages)}
+            onPrevQuestion={() => setQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+            onNextQuestion={() => setQuestionIndex(Math.min(totalQuestions - 1, currentQuestionIndex + 1))}
             answeredCount={answeredCount}
-            pageSize={25}
           />
 
           {/* Question Choice Panel */}

@@ -2,39 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { QuestionListSidebar } from "@/features/exam/QuestionListSidebar";
 
-describe("QuestionListSidebar Adaptive Layout Tests", () => {
-  it("renders full-width 'Số câu đã làm' box when total questions <= 25 (single page)", () => {
-    const mockQuestions = Array.from({ length: 20 }, (_, i) => ({
-      id: `q_${i + 1}`,
-      number: i + 1,
-      isAnswered: i < 5,
-      isCurrent: i === 0,
-    }));
-
-    render(
-      <QuestionListSidebar
-        totalQuestions={20}
-        questions={mockQuestions}
-        activeQuestionIndex={0}
-        onSelectQuestion={vi.fn()}
-        currentPage={1}
-        onPrevPage={vi.fn()}
-        onNextPage={vi.fn()}
-        answeredCount={5}
-        // pageSize defaults to 25
-      />
-    );
-
-    // Matches "Số câu đã làm: 5/20"
-    expect(screen.getByText(/Số câu đã làm: 5\/20/)).toBeInTheDocument();
-
-    // Navigation buttons must NOT be present
-    expect(screen.queryByText(/page/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /trang trước/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /trang sau/i })).not.toBeInTheDocument();
-  });
-
-  it("renders 'x/n' and 3-box navigation when total questions > 25 (multi-page, 25 questions per page)", () => {
+describe("QuestionListSidebar Unified Scrollable & Stepping Tests", () => {
+  it("renders all question numbers in a single list regardless of question count", () => {
     const mockQuestions = Array.from({ length: 50 }, (_, i) => ({
       id: `q_${i + 1}`,
       number: i + 1,
@@ -42,75 +11,104 @@ describe("QuestionListSidebar Adaptive Layout Tests", () => {
       isCurrent: i === 0,
     }));
 
-    const handleNextPage = vi.fn();
-    const handlePrevPage = vi.fn();
-
     render(
       <QuestionListSidebar
         totalQuestions={50}
         questions={mockQuestions}
         activeQuestionIndex={0}
         onSelectQuestion={vi.fn()}
-        currentPage={1}
-        onPrevPage={handlePrevPage}
-        onNextPage={handleNextPage}
         answeredCount={15}
-        // pageSize defaults to 25
       />
     );
 
-    // Box 1: "x/n" compact completion box
-    expect(screen.getByText("15/50")).toBeInTheDocument();
+    // Header and completion count
+    expect(screen.getByText("Danh sách câu hỏi")).toBeInTheDocument();
+    expect(screen.getByText("Tổng: 50 câu")).toBeInTheDocument();
+    expect(screen.getByText(/Số câu đã làm: 15\/50/)).toBeInTheDocument();
 
-    // 3-box navigation: "1/2 page", prev button, next button (50 questions = 2 pages)
-    const pageIndicatorText = screen.getByText("1/2 page");
-    expect(pageIndicatorText).toBeInTheDocument();
-    expect(pageIndicatorText.parentElement).toHaveClass("min-w-[76px]");
-    expect(pageIndicatorText.parentElement).toHaveClass("px-space-3");
+    // All questions 1 to 50 must be rendered in DOM without page split
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("25")).toBeInTheDocument();
+    expect(screen.getByText("26")).toBeInTheDocument();
+    expect(screen.getByText("50")).toBeInTheDocument();
 
-    const nextBtn = screen.getByRole("button", { name: /trang sau/i });
-    expect(nextBtn).toBeInTheDocument();
-    expect(nextBtn).toBeEnabled();
-
-    const prevBtn = screen.getByRole("button", { name: /trang trước/i });
-    expect(prevBtn).toBeInTheDocument();
-    expect(prevBtn).toBeDisabled(); // on page 1
-
-    fireEvent.click(nextBtn);
-    expect(handleNextPage).toHaveBeenCalledTimes(1);
+    // Multi-page controls must NOT exist
+    expect(screen.queryByText(/page/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /trang trước/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /trang sau/i })).not.toBeInTheDocument();
   });
 
-  it("slices questions into batches of 25 per page", () => {
-    const mockQuestions = Array.from({ length: 60 }, (_, i) => ({
+  it("handles direct question stepping navigation (Previous / Next)", () => {
+    const mockQuestions = Array.from({ length: 10 }, (_, i) => ({
       id: `q_${i + 1}`,
       number: i + 1,
       isAnswered: false,
-      isCurrent: i === 25,
+      isCurrent: i === 2,
     }));
 
-    // Render Page 2 of a 60-question exam (questions 26-50)
+    const handlePrevQuestion = vi.fn();
+    const handleNextQuestion = vi.fn();
+
     render(
       <QuestionListSidebar
-        totalQuestions={60}
+        totalQuestions={10}
         questions={mockQuestions}
-        activeQuestionIndex={25}
+        activeQuestionIndex={2} // Question 3
         onSelectQuestion={vi.fn()}
-        currentPage={2}
-        onPrevPage={vi.fn()}
-        onNextPage={vi.fn()}
+        onPrevQuestion={handlePrevQuestion}
+        onNextQuestion={handleNextQuestion}
         answeredCount={0}
       />
     );
 
-    // Page indicator displays 2/3 page
-    expect(screen.getByText("2/3 page")).toBeInTheDocument();
+    const prevBtn = screen.getByRole("button", { name: /câu trước/i });
+    const nextBtn = screen.getByRole("button", { name: /câu sau/i });
 
-    // Question 26 should be visible
-    expect(screen.getByText("26")).toBeInTheDocument();
-    // Question 50 should be visible
-    expect(screen.getByText("50")).toBeInTheDocument();
-    // Question 1 (page 1) and Question 55 (page 3) should NOT be rendered
-    expect(screen.queryByText("1")).not.toBeInTheDocument();
-    expect(screen.queryByText("55")).not.toBeInTheDocument();
+    expect(prevBtn).toBeEnabled();
+    expect(nextBtn).toBeEnabled();
+
+    fireEvent.click(nextBtn);
+    expect(handleNextQuestion).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(prevBtn);
+    expect(handlePrevQuestion).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables Previous button on question 1 and Next button on last question", () => {
+    const mockQuestions = Array.from({ length: 10 }, (_, i) => ({
+      id: `q_${i + 1}`,
+      number: i + 1,
+      isAnswered: false,
+      isCurrent: i === 0,
+    }));
+
+    const { rerender } = render(
+      <QuestionListSidebar
+        totalQuestions={10}
+        questions={mockQuestions}
+        activeQuestionIndex={0} // Question 1
+        onSelectQuestion={vi.fn()}
+        answeredCount={0}
+      />
+    );
+
+    // On Q1: Previous disabled, Next enabled
+    expect(screen.getByRole("button", { name: /câu trước/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /câu sau/i })).toBeEnabled();
+
+    // Re-render on last question (index 9)
+    rerender(
+      <QuestionListSidebar
+        totalQuestions={10}
+        questions={mockQuestions}
+        activeQuestionIndex={9} // Question 10
+        onSelectQuestion={vi.fn()}
+        answeredCount={0}
+      />
+    );
+
+    // On Q10: Previous enabled, Next disabled
+    expect(screen.getByRole("button", { name: /câu trước/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /câu sau/i })).toBeDisabled();
   });
 });
