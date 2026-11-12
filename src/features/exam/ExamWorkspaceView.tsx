@@ -291,10 +291,10 @@ export const ExamWorkspaceView: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto w-full px-space-3 sm:px-space-5 py-space-4 flex flex-col gap-space-4 flex-1">
-      {/* Top Header Row matching Sketch: Progress Bar (left), Timer (center-right), Benchmark Badge (right) */}
+      {/* Top Header Row matching Sketch: Progress Bar (left), Timer (center), Benchmark Badge + Submit Button (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-3 items-stretch">
         {/* Progress Bar (Left Column top) */}
-        <div className="lg:col-span-6 bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 shadow-sm flex items-center">
+        <div className="lg:col-span-5 bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 shadow-sm flex items-center min-w-0">
           <ProgressBar
             current={answeredCount}
             total={totalQuestions}
@@ -304,7 +304,7 @@ export const ExamWorkspaceView: React.FC = () => {
 
         {/* Timer Box */}
         <div
-          className={`lg:col-span-2 flex items-center justify-center p-space-3 rounded-2xl border-2 border-color-1 shadow-sm font-bold text-text-sm ${
+          className={`lg:col-span-2 flex items-center justify-center p-space-2 sm:p-space-3 rounded-2xl border-2 border-color-1 shadow-sm font-bold text-text-sm ${
             isWarning
               ? "bg-color-4 text-color-7 animate-pulse border-color-4"
               : "bg-color-7 text-color-1"
@@ -313,15 +313,15 @@ export const ExamWorkspaceView: React.FC = () => {
           <span>{formattedTime}</span>
         </div>
 
-        {/* Benchmark toggle box ("Answers should follow commu or AI opt") */}
-        <div className="lg:col-span-4 flex items-center justify-between px-space-4 py-space-3 rounded-2xl border-2 border-color-1 bg-color-7 shadow-sm">
+        {/* Benchmark toggle box + Submit Button */}
+        <div className="lg:col-span-5 flex items-center justify-between gap-space-2 p-space-2 sm:px-space-3 sm:py-space-2 rounded-2xl border-2 border-color-1 bg-color-7 shadow-sm min-w-0">
           <button
             type="button"
             onClick={() =>
               setBenchmarkMode(benchmarkMode === "ai" ? "community" : "ai")
             }
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 hover:bg-color-2/10 hover:border-color-2 transition-all cursor-pointer shadow-2xs select-none"
-            title="Nhấn để đổi nguồn đối chiếu"
+            className="min-w-0 flex-1 flex items-center gap-1.5 px-space-2 py-1.5 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 hover:bg-color-2/10 hover:border-color-2 transition-all cursor-pointer shadow-2xs select-none"
+            title="Nhấn để đổi nguồn đối chiếu: Theo AI chuẩn / Theo cộng đồng"
           >
             <ShieldCheck className="w-4 h-4 text-color-2 shrink-0" />
             <span className="truncate">
@@ -333,7 +333,7 @@ export const ExamWorkspaceView: React.FC = () => {
             variant="danger"
             size="sm"
             onClick={openSubmitConfirm}
-            className="shrink-0 flex items-center gap-1.5 ml-space-2"
+            className="shrink-0 flex items-center gap-1.5 px-space-2 sm:px-space-3 py-1.5 text-text-xs whitespace-nowrap shadow-xs"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Nộp bài</span>
