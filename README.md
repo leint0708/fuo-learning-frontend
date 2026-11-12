@@ -92,8 +92,7 @@ This application follows a strict design specification detailed in [`DESIGN.md`]
 
 ```text
 fuo-learning-frontend/
-├── public/
-│   └── _redirects              # Cloudflare Pages SPA client-routing rewrite
+├── public/                     # Static assets
 ├── specs/                      # Spec-Kit specifications and task plans
 │   └── 001-exam-practice-app/
 │       ├── spec.md             # Functional requirements & user scenarios
@@ -213,11 +212,7 @@ npm run preview
 
 ### Cloudflare Pages
 
-This application is optimized for deployment on **Cloudflare Pages**. Single Page Application (SPA) client routing is handled via `public/_redirects`:
-
-```text
-/*    /index.html   200
-```
+This application is optimized for deployment on **Cloudflare Pages**, which provides built-in native Single Page Application (SPA) routing for Vite/React applications.
 
 #### Deploying with Wrangler CLI
 
