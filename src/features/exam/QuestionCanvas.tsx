@@ -34,7 +34,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
     handleMouseUp,
     transformStyle,
     isDragging,
-  } = useZoomPan({ minZoom: 0.5, maxZoom: 3.0, zoomStep: 0.25 });
+  } = useZoomPan({ minZoom: 0.5, maxZoom: 3.0, zoomStep: 0.25, initialZoom: 1.0 });
 
   // Reset error state on question change, but preserve user's zoom size & pan position
   React.useEffect(() => {

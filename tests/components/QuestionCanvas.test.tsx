@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { QuestionCanvas } from "@/features/exam/QuestionCanvas";
 
 describe("QuestionCanvas Component Tests", () => {
-  it("renders zoom controls and question tag with initial 125% zoom autofocus", () => {
+  it("renders zoom controls and question tag with initial 100% zoom autofocus", () => {
     render(
       <QuestionCanvas
         questionNumber={1}
@@ -13,7 +13,7 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    expect(screen.getByText(/Câu 1 \(125%\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Câu 1 \(100%\)/)).toBeInTheDocument();
     expect(screen.getByText("Single Choice")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /zoom in/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /zoom out/i })).toBeInTheDocument();
@@ -44,13 +44,13 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    // Initial zoom is 125%
-    expect(screen.getByText(/125%/)).toBeInTheDocument();
+    // Initial zoom is 100%
+    expect(screen.getByText(/100%/)).toBeInTheDocument();
 
-    // Zoom in to 150%
+    // Zoom in to 125%
     const zoomInBtn = screen.getByRole("button", { name: /zoom in/i });
     fireEvent.click(zoomInBtn);
-    expect(screen.getByText(/150%/)).toBeInTheDocument();
+    expect(screen.getByText(/125%/)).toBeInTheDocument();
 
     // Rerender with next question
     rerender(
@@ -62,8 +62,8 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    // Zoom level remains preserved at 150%
-    expect(screen.getByText(/150%/)).toBeInTheDocument();
+    // Zoom level remains preserved at 125%
+    expect(screen.getByText(/125%/)).toBeInTheDocument();
     expect(screen.getByText(/Câu 2/)).toBeInTheDocument();
   });
 
@@ -77,20 +77,20 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    // Initial 125%
-    expect(screen.getByText(/125%/)).toBeInTheDocument();
+    // Initial 100%
+    expect(screen.getByText(/100%/)).toBeInTheDocument();
 
     const zoomInBtn = screen.getByRole("button", { name: /zoom in/i });
     fireEvent.click(zoomInBtn);
 
-    // Zoom level increases to 150%
-    expect(screen.getByText(/150%/)).toBeInTheDocument();
+    // Zoom level increases to 125%
+    expect(screen.getByText(/125%/)).toBeInTheDocument();
 
     const zoomOutBtn = screen.getByRole("button", { name: /zoom out/i });
     fireEvent.click(zoomOutBtn);
 
-    // Zoom level returns to 125%
-    expect(screen.getByText(/125%/)).toBeInTheDocument();
+    // Zoom level returns to 100%
+    expect(screen.getByText(/100%/)).toBeInTheDocument();
   });
 
   it("renders fallback text when imageUrl is null", () => {

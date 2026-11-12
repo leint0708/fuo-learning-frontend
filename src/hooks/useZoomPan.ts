@@ -14,7 +14,7 @@ export function useZoomPan(options: UseZoomPanOptions = {}) {
     minZoom = 0.5,
     maxZoom = 3.0,
     zoomStep = 0.25,
-    initialZoom = 1.25,
+    initialZoom = 1.0,
     onZoomChange,
     onPanChange,
   } = options;

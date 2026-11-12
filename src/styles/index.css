@@ -10,3 +10,28 @@ body {
   color: var(--color-1);
   font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Custom Scrollbar for question grids & dialogs */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-1) var(--color-6);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-6);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-1);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-2);
+}
