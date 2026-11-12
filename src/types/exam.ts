@@ -13,6 +13,8 @@ export interface ExamConfigOptions {
   durationMinutes: number;
   feedbackMode: AnswerViewMode;
   benchmarkSource: AnswerSourceMode;
+  isCustomExam?: boolean;
+  fixedQuestionCount?: number;
 }
 
 export interface Question {

@@ -12,7 +12,8 @@ export const SubjectDetailView: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<string | undefined>(undefined);
-  const [selectedExamMaxQuestions, setSelectedExamMaxQuestions] = useState<number>(50);
+  const [isCustomExamMode, setIsCustomExamMode] = useState<boolean>(true);
+  const [fixedExamQuestions, setFixedExamQuestions] = useState<number>(50);
 
   const subjectCode = code || "MAD101";
 
@@ -26,9 +27,21 @@ export const SubjectDetailView: React.FC = () => {
     queryFn: () => getSubjectExams(subjectCode),
   });
 
-  const handleOpenConfigForExam = (examId?: string, maxQuestions?: number) => {
+  // Calculate total questions available in the subject question bank
+  const totalBankQuestions = exams && exams.length > 0
+    ? Math.max(exams.reduce((sum, e) => sum + e.totalQuestions, 0), 50)
+    : 50;
+
+  const handleOpenNewCustomExam = () => {
+    setSelectedExamId(undefined);
+    setIsCustomExamMode(true);
+    setIsCustomModalOpen(true);
+  };
+
+  const handleOpenStandardExam = (examId: string, questionsCount: number) => {
     setSelectedExamId(examId);
-    if (maxQuestions) setSelectedExamMaxQuestions(maxQuestions);
+    setIsCustomExamMode(false);
+    setFixedExamQuestions(questionsCount);
     setIsCustomModalOpen(true);
   };
 
@@ -65,7 +78,7 @@ export const SubjectDetailView: React.FC = () => {
           <Button
             variant="accent"
             size="lg"
-            onClick={() => handleOpenConfigForExam(exams?.[0]?.id, exams?.[0]?.totalQuestions || 50)}
+            onClick={handleOpenNewCustomExam}
             className="w-full md:w-auto flex items-center justify-center gap-space-2"
           >
             <Sliders className="w-5 h-5" />
@@ -97,7 +110,7 @@ export const SubjectDetailView: React.FC = () => {
             <p className="text-text-sm font-bold text-color-1/70 mb-space-3">
               Chưa có đề thi chuẩn cho môn này.
             </p>
-            <Button variant="primary" onClick={() => setIsCustomModalOpen(true)}>
+            <Button variant="primary" onClick={handleOpenNewCustomExam}>
               Tạo đề thi ngẫu nhiên từ ngân hàng câu hỏi
             </Button>
           </Card>
@@ -131,7 +144,7 @@ export const SubjectDetailView: React.FC = () => {
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => handleOpenConfigForExam(exam.id, exam.totalQuestions)}
+                    onClick={() => handleOpenStandardExam(exam.id, exam.totalQuestions)}
                     className="flex items-center gap-1"
                   >
                     <Sliders className="w-4 h-4" />
@@ -150,7 +163,9 @@ export const SubjectDetailView: React.FC = () => {
         onClose={() => setIsCustomModalOpen(false)}
         subjectCode={subjectCode}
         defaultExamId={selectedExamId || exams?.[0]?.id}
-        maxAvailableQuestions={selectedExamMaxQuestions}
+        maxAvailableQuestions={totalBankQuestions}
+        isCustomExam={isCustomExamMode}
+        fixedQuestionCount={fixedExamQuestions}
       />
     </div>
   );

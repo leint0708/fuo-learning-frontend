@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Sliders, Clock, HelpCircle, Eye, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import type { FeedbackMode, BenchmarkMode } from "@/types/exam";
+import type { FeedbackMode, BenchmarkMode, ExamConfigOptions } from "@/types/exam";
 import { startExamAttempt } from "@/api/attempts";
 import { useExamUiStore } from "@/stores/examUiStore";
 
@@ -13,6 +13,9 @@ export interface CustomExamModalProps {
   subjectCode: string;
   defaultExamId?: string;
   maxAvailableQuestions?: number;
+  isCustomExam?: boolean;
+  fixedQuestionCount?: number;
+  onStartExam?: (config: ExamConfigOptions) => void;
 }
 
 export const CustomExamModal: React.FC<CustomExamModalProps> = ({
@@ -21,12 +24,16 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
   subjectCode,
   defaultExamId,
   maxAvailableQuestions = 50,
+  isCustomExam = true,
+  fixedQuestionCount = 50,
+  onStartExam,
 }) => {
   const navigate = useNavigate();
   const { setFeedbackMode, setBenchmarkMode } = useExamUiStore();
 
   const [questionCount, setQuestionCount] = useState<number>(Math.min(20, maxAvailableQuestions));
   const [durationMinutes, setDurationMinutes] = useState<number>(30);
+  const [customDurationInput, setCustomDurationInput] = useState<string>("");
   const [isUntimed, setIsUntimed] = useState<boolean>(false);
   const [feedbackModeState, setFeedbackModeState] = useState<FeedbackMode>("instant");
   const [benchmarkModeState, setBenchmarkModeState] = useState<BenchmarkMode>("ai");
@@ -41,12 +48,29 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
     setFeedbackMode(feedbackModeState);
     setBenchmarkMode(benchmarkModeState);
 
+    const resolvedQuestionCount = isCustomExam ? questionCount : fixedQuestionCount;
+    const resolvedDuration = isUntimed ? null : durationMinutes;
+
+    if (onStartExam) {
+      onStartExam({
+        subjectId: defaultExamId || `custom-${subjectCode}`,
+        subjectCode,
+        totalQuestions: resolvedQuestionCount,
+        isTimed: !isUntimed,
+        durationMinutes: resolvedDuration ?? 0,
+        feedbackMode: feedbackModeState === "instant" ? "instant" : "review_after_finish",
+        benchmarkSource: benchmarkModeState === "ai" ? "ai_answer" : "community_consensus",
+        isCustomExam,
+        fixedQuestionCount,
+      });
+    }
+
     try {
       // Use existing exam id or default
       const examIdToStart = defaultExamId || `custom-${subjectCode}`;
       const attempt = await startExamAttempt(examIdToStart, {
-        questionCount,
-        durationMinutes: isUntimed ? null : durationMinutes,
+        questionCount: resolvedQuestionCount,
+        durationMinutes: resolvedDuration,
         feedbackMode: feedbackModeState,
         benchmarkMode: benchmarkModeState,
       });
@@ -75,28 +99,48 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
         )}
 
         {/* Question Count Setting */}
-        <div>
-          <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-2">
-            <span className="flex items-center gap-1.5">
-              <HelpCircle className="w-4 h-4 text-color-2" />
-              Số lượng câu hỏi
-            </span>
-            <span className="text-color-2 font-bold">{questionCount} câu</span>
-          </label>
-          <input
-            type="range"
-            min={5}
-            max={Math.max(5, maxAvailableQuestions)}
-            step={5}
-            value={questionCount}
-            onChange={(e) => setQuestionCount(Number(e.target.value))}
-            className="w-full accent-color-2 cursor-pointer h-2 bg-color-6 rounded-lg"
-          />
-          <div className="flex justify-between text-text-xs text-color-1/50 mt-1 font-bold">
-            <span>5 câu</span>
-            <span>Tối đa: {maxAvailableQuestions} câu</span>
+        {isCustomExam ? (
+          <div>
+            <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-2">
+              <span className="flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-color-2" />
+                Số lượng câu hỏi
+              </span>
+              <span className="text-color-2 font-bold">{questionCount} câu</span>
+            </label>
+            <input
+              type="range"
+              role="slider"
+              aria-label="Số lượng câu hỏi"
+              min={5}
+              max={Math.max(5, maxAvailableQuestions)}
+              step={1}
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+              className="w-full accent-color-2 cursor-pointer h-2 bg-color-6 rounded-lg"
+            />
+            <div className="flex justify-between text-text-xs text-color-1/50 mt-1 font-bold">
+              <span>5 câu</span>
+              <span>Tối đa: {maxAvailableQuestions} câu</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div>
+            <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-2">
+              <span className="flex items-center gap-1.5">
+                <HelpCircle className="w-4 h-4 text-color-2" />
+                Số lượng câu hỏi
+              </span>
+              <span className="text-color-2 font-bold">{fixedQuestionCount} câu</span>
+            </label>
+            <div className="p-space-3 bg-color-6/30 border-2 border-color-1 rounded-2xl flex items-center justify-between">
+              <span className="text-text-xs text-color-1/80 font-bold">Đề thi chuẩn học kỳ:</span>
+              <span className="px-space-3 py-1 rounded-full text-text-xs font-bold bg-color-2 text-color-7 border-2 border-color-1 shadow-xs">
+                {fixedQuestionCount} câu hỏi
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Time Limit Setting */}
         <div>
@@ -125,21 +169,71 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
           </div>
 
           {!isUntimed && (
-            <div className="grid grid-cols-4 gap-space-2">
-              {[15, 30, 45, 60].map((mins) => (
-                <button
-                  key={mins}
-                  type="button"
-                  onClick={() => setDurationMinutes(mins)}
-                  className={`py-1.5 rounded-full text-text-xs font-bold border-2 transition-all ${
-                    durationMinutes === mins
-                      ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
-                      : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
-                  }`}
-                >
-                  {mins} phút
-                </button>
-              ))}
+            <div className="space-y-space-3">
+              <div className="grid grid-cols-4 gap-space-2">
+                {[15, 30, 45, 60].map((mins) => {
+                  const isSelected = durationMinutes === mins;
+                  return (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => {
+                        setDurationMinutes(mins);
+                        setCustomDurationInput(String(mins));
+                      }}
+                      className={`py-1.5 rounded-full text-text-xs font-bold border-2 transition-all ${
+                        isSelected
+                          ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
+                          : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
+                      }`}
+                    >
+                      {mins} phút
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Duration Input */}
+              <div className="flex items-center gap-space-2">
+                <span className="text-text-xs font-bold text-color-1/80 shrink-0">
+                  Hoặc tự nhập:
+                </span>
+                <div className="relative flex-1 flex items-center">
+                  <input
+                    type="number"
+                    role="spinbutton"
+                    aria-label="Tùy chỉnh số phút"
+                    min={1}
+                    max={300}
+                    placeholder="Nhập số phút (1 - 300)..."
+                    value={customDurationInput}
+                    onChange={(e) => {
+                      const valStr = e.target.value;
+                      setCustomDurationInput(valStr);
+                      if (valStr === "") return;
+                      const num = Number(valStr);
+                      if (!isNaN(num) && num >= 1 && num <= 300) {
+                        setDurationMinutes(num);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = Number(customDurationInput);
+                      if (isNaN(num) || num < 1 || num > 300) {
+                        const fallback = durationMinutes >= 1 && durationMinutes <= 300 ? durationMinutes : 30;
+                        setDurationMinutes(fallback);
+                        setCustomDurationInput(String(fallback));
+                      } else {
+                        setDurationMinutes(num);
+                        setCustomDurationInput(String(num));
+                      }
+                    }}
+                    className="w-full py-1.5 px-3 rounded-full text-text-xs font-bold border-2 border-color-1 bg-color-7 text-color-1 focus:outline-none focus:border-color-2 focus:ring-1 focus:ring-color-2 shadow-xs"
+                  />
+                  <span className="absolute right-3 text-text-xs font-bold text-color-1/50 pointer-events-none">
+                    phút
+                  </span>
+                </div>
+              </div>
             </div>
           )}
         </div>
