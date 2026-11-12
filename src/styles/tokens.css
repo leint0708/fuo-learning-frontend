@@ -1,0 +1,29 @@
+:root {
+  /* DESIGN.md Color System */
+  --color-1: #000000;
+  --color-2: #394DA2;
+  --color-3: #1D7F5B;
+  --color-4: #D65442;
+  --color-5: #F5BE3F;
+  --color-6: #F3F3F3;
+  --color-7: #FFFFFF;
+
+  /* Spacing Base 8px Scale */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 20px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 56px;
+  --space-7: 80px;
+  --space-8: 259px;
+  --space-9: 399px;
+  --space-10: 719px;
+
+  /* Shapes & Elevation */
+  --radius-full: 9999px;
+  --shadow-sm: rgb(0, 0, 0) 4px 4px 0px 0px;
+
+  /* Motion */
+  --duration-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}

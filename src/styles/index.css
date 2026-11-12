@@ -1,0 +1,12 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: var(--color-6);
+  color: var(--color-1);
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
