@@ -6,7 +6,18 @@ node_modules/
 # Production build outputs
 dist/
 build/
+.wrangler/
+coverage/
 *.tsbuildinfo
+
+# AI & Agent artifacts
+.agents/
+.specify/
+specs/
+.gemini/
+.claude/
+.cursor/
+.windsurf/
 
 # Local Environment Variables
 .env
