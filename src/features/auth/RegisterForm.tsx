@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { registerUser } from "@/api/auth";
 import { useAuthStore } from "@/stores/authStore";
+import { getErrorMessage } from "@/utils/error";
 
 export const RegisterForm: React.FC = () => {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export const RegisterForm: React.FC = () => {
       });
       navigate("/", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng ký không thành công.");
+      setError(getErrorMessage(err, "Đăng ký không thành công."));
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +75,7 @@ export const RegisterForm: React.FC = () => {
         {error && (
           <div className="mb-space-4 p-space-3 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-2xl flex items-center gap-space-2 text-text-xs font-bold">
             <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>{error}</span>
+            <span>{typeof error === "string" ? error : getErrorMessage(error)}</span>
           </div>
         )}
 

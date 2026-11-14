@@ -188,4 +188,58 @@ describe("CustomExamModal", () => {
       expect.objectContaining({ durationMinutes: 90 })
     );
   });
+
+  it("displays human-readable error and never '[object Object]' when startExamAttempt fails", async () => {
+    const { ApiError } = await import("@/api/client");
+    vi.mocked(startExamAttempt).mockRejectedValueOnce(
+      new ApiError(400, "User already has an ongoing active attempt on this exam", {
+        error: {
+          code: "HTTP_400",
+          message: "User already has an ongoing active attempt on this exam",
+        },
+      })
+    );
+
+    render(
+      <BrowserRouter>
+        <CustomExamModal
+          isOpen={true}
+          onClose={vi.fn()}
+          subjectCode="MAD101"
+        />
+      </BrowserRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Bắt đầu làm bài/i }));
+
+    const errorElement = await screen.findByText(
+      "Bạn đang có một bài thi chưa hoàn thành cho đề này."
+    );
+    expect(errorElement).toBeInTheDocument();
+    expect(screen.queryByText("[object Object]")).not.toBeInTheDocument();
+  });
+
+  it("handles non-Error objects gracefully without rendering '[object Object]'", async () => {
+    vi.mocked(startExamAttempt).mockRejectedValueOnce({
+      error: {
+        message: "Exam not found",
+      },
+    });
+
+    render(
+      <BrowserRouter>
+        <CustomExamModal
+          isOpen={true}
+          onClose={vi.fn()}
+          subjectCode="MAD101"
+        />
+      </BrowserRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Bắt đầu làm bài/i }));
+
+    const errorElement = await screen.findByText("Không tìm thấy đề thi.");
+    expect(errorElement).toBeInTheDocument();
+    expect(screen.queryByText("[object Object]")).not.toBeInTheDocument();
+  });
 });

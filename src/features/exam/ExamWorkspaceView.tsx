@@ -17,6 +17,7 @@ import {
   submitAttempt,
   checkInstantAnswer,
 } from "@/api/attempts";
+import { getErrorMessage } from "@/utils/error";
 
 export const ExamWorkspaceView: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -241,7 +242,7 @@ export const ExamWorkspaceView: React.FC = () => {
       closeSubmitConfirm();
       navigate(`/attempts/${safeAttemptId}/review`, { replace: true });
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Nộp bài thi thất bại.");
+      alert(getErrorMessage(err, "Nộp bài thi thất bại."));
     } finally {
       setIsSubmitting(false);
     }
@@ -264,7 +265,9 @@ export const ExamWorkspaceView: React.FC = () => {
         <div className="max-w-md p-space-6 bg-color-7 border-2 border-color-4 text-center rounded-3xl shadow-sm">
           <h3 className="text-text-lg font-bold text-color-4 mb-2">Không thể tải bài thi</h3>
           <p className="text-text-xs text-color-1/70 mb-space-4">
-            Đề thi có thể đã kết thúc hoặc không tìm thấy phiên làm bài hợp lệ.
+            {error
+              ? getErrorMessage(error, "Đề thi có thể đã kết thúc hoặc không tìm thấy phiên làm bài hợp lệ.")
+              : "Đề thi có thể đã kết thúc hoặc không tìm thấy phiên làm bài hợp lệ."}
           </p>
           <Button variant="primary" onClick={() => navigate("/")}>
             Quay về danh sách môn học

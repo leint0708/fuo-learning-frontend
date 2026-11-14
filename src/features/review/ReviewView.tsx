@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { ResultScoreCard } from "./ResultScoreCard";
 import { QuestionReviewItem } from "./QuestionReviewItem";
 import { getAttemptReview } from "@/api/attempts";
+import { getErrorMessage } from "@/utils/error";
 
 export const ReviewView: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -36,7 +37,9 @@ export const ReviewView: React.FC = () => {
         <div className="max-w-md p-space-6 bg-color-7 border-2 border-color-4 text-center rounded-3xl shadow-sm">
           <h3 className="text-text-lg font-bold text-color-4 mb-2">Không tìm thấy kết quả</h3>
           <p className="text-text-xs text-color-1/70 mb-space-4">
-            Bài thi chưa hoàn thành hoặc kết quả không tồn tại.
+            {error
+              ? getErrorMessage(error, "Bài thi chưa hoàn thành hoặc kết quả không tồn tại.")
+              : "Bài thi chưa hoàn thành hoặc kết quả không tồn tại."}
           </p>
           <Button variant="primary" onClick={() => navigate("/")}>
             Quay về danh sách môn học

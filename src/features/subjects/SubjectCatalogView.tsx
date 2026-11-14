@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Sparkles, BookOpen } from "lucide-react";
 import { SubjectCard } from "./SubjectCard";
+import { getErrorMessage } from "@/utils/error";
 import { getSubjects } from "@/api/subjects";
 
 export const SubjectCatalogView: React.FC = () => {
@@ -71,7 +72,7 @@ export const SubjectCatalogView: React.FC = () => {
           </div>
         ) : error ? (
           <div className="text-center p-space-6 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl font-bold">
-            Không thể tải danh sách môn học. Vui lòng thử lại sau.
+            {getErrorMessage(error, "Không thể tải danh sách môn học. Vui lòng thử lại sau.")}
           </div>
         ) : filteredSubjects.length === 0 ? (
           <div className="text-center p-space-8 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm">

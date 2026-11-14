@@ -1,12 +1,20 @@
+import { extractErrorMessageFromData } from "@/utils/error";
+
 export class ApiError extends Error {
   public status: number;
   public details?: unknown;
+  public code?: string;
 
-  constructor(status: number, message: string, details?: unknown) {
-    super(message);
+  constructor(status: number, message: string, details?: unknown, code?: string) {
+    const safeMessage =
+      typeof message === "string" && message.trim() && message !== "[object Object]"
+        ? message.trim()
+        : `Lỗi kết nối máy chủ (${status})`;
+    super(safeMessage);
     this.name = "ApiError";
     this.status = status;
     this.details = details;
+    this.code = code;
   }
 }
 
@@ -37,18 +45,36 @@ export async function apiClient<T>(
   if (!response.ok) {
     let errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
     let details: unknown = null;
+    let code: string | undefined = undefined;
 
     try {
-      const errorJson = await response.json();
-      if (errorJson && typeof errorJson === "object") {
-        errorMessage =
-          (errorJson as { message?: string; error?: string }).message ||
-          (errorJson as { message?: string; error?: string }).error ||
-          errorMessage;
+      const text = await response.text();
+      try {
+        const errorJson = JSON.parse(text);
         details = errorJson;
+
+        if (errorJson && typeof errorJson === "object") {
+          const errObj = errorJson as Record<string, unknown>;
+          if (errObj.error && typeof errObj.error === "object") {
+            const nested = errObj.error as Record<string, unknown>;
+            if (typeof nested.code === "string") {
+              code = nested.code;
+            }
+          }
+        }
+
+        const extracted = extractErrorMessageFromData(errorJson);
+        if (extracted) {
+          errorMessage = extracted;
+        }
+      } catch {
+        // Not JSON: check if plain text error response (ignore HTML responses like default nginx 502)
+        if (text && text.trim() && !text.startsWith("<!DOCTYPE") && !text.startsWith("<html")) {
+          errorMessage = text.trim();
+        }
       }
     } catch {
-      // If response body is not JSON, use default error message
+      // Body reading failed, retain fallback HTTP error
     }
 
     if (response.status === 401) {
@@ -56,7 +82,7 @@ export async function apiClient<T>(
       localStorage.removeItem("fuo_auth_token");
     }
 
-    throw new ApiError(response.status, errorMessage, details);
+    throw new ApiError(response.status, errorMessage, details, code);
   }
 
   // Handle 204 No Content

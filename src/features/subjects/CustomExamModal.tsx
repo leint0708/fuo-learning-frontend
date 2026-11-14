@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sliders, Clock, HelpCircle, Eye, ShieldCheck } from "lucide-react";
+import { Sliders, Clock, HelpCircle, Eye, ShieldCheck, AlertCircle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import type { FeedbackMode, BenchmarkMode, ExamConfigOptions } from "@/types/exam";
 import { startExamAttempt } from "@/api/attempts";
 import { useExamUiStore } from "@/stores/examUiStore";
+import { getErrorMessage } from "@/utils/error";
 
 export interface CustomExamModalProps {
   isOpen: boolean;
@@ -78,7 +79,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
       onClose();
       navigate(`/attempts/${attempt.attemptId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể khởi tạo bài thi.");
+      setError(getErrorMessage(err, "Không thể khởi tạo bài thi. Vui lòng thử lại sau."));
     } finally {
       setIsLoading(false);
     }
@@ -93,8 +94,9 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
     >
       <div className="space-y-space-5">
         {error && (
-          <div className="p-space-3 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-2xl text-text-xs font-bold">
-            {error}
+          <div className="p-space-3 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-2xl text-text-xs font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{typeof error === "string" ? error : getErrorMessage(error)}</span>
           </div>
         )}
 

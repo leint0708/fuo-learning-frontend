@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CustomExamModal } from "./CustomExamModal";
 import { getSubject, getSubjectExams } from "@/api/subjects";
+import { getErrorMessage } from "@/utils/error";
 
 export const SubjectDetailView: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -22,7 +23,7 @@ export const SubjectDetailView: React.FC = () => {
     queryFn: () => getSubject(subjectCode),
   });
 
-  const { data: exams, isLoading: isExamsLoading } = useQuery({
+  const { data: exams, isLoading: isExamsLoading, error: examsError } = useQuery({
     queryKey: ["subjectExams", subjectCode],
     queryFn: () => getSubjectExams(subjectCode),
   });
@@ -104,6 +105,10 @@ export const SubjectDetailView: React.FC = () => {
                 className="h-36 bg-color-7 border-2 border-color-1 rounded-2xl animate-pulse"
               />
             ))}
+          </div>
+        ) : examsError ? (
+          <div className="text-center p-space-6 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl font-bold">
+            {getErrorMessage(examsError, "Không thể tải danh sách đề thi. Vui lòng thử lại sau.")}
           </div>
         ) : !exams || exams.length === 0 ? (
           <Card className="p-space-8 text-center bg-color-7 border-2 border-color-1 shadow-sm">

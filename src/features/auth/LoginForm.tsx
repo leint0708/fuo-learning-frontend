@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { loginUser } from "@/api/auth";
 import { useAuthStore } from "@/stores/authStore";
+import { getErrorMessage } from "@/utils/error";
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export const LoginForm: React.FC = () => {
       });
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng nhập không thành công.");
+      setError(getErrorMessage(err, "Đăng nhập không thành công."));
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +61,7 @@ export const LoginForm: React.FC = () => {
         {error && (
           <div className="mb-space-4 p-space-3 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-2xl flex items-center gap-space-2 text-text-xs font-bold">
             <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>{error}</span>
+            <span>{typeof error === "string" ? error : getErrorMessage(error)}</span>
           </div>
         )}
 
