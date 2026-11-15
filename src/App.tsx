@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useMatch } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
@@ -41,6 +41,9 @@ const PracticeWorkspaceView = lazy(() =>
 
 export const App: React.FC = () => {
   const { initAuth } = useAuthStore();
+  const isPracticeCockpit = Boolean(useMatch("/subjects/:code/practice/:mode"));
+  const isExamCockpit = Boolean(useMatch("/attempts/:attemptId"));
+  const isCockpitRoute = isPracticeCockpit || isExamCockpit;
 
   useEffect(() => {
     initAuth();
@@ -48,7 +51,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-color-6 text-color-1">
-      <Navbar />
+      {!isCockpitRoute && <Navbar />}
       <main className="flex-1 flex flex-col">
         <Suspense
           fallback={
@@ -126,7 +129,7 @@ export const App: React.FC = () => {
           </Routes>
         </Suspense>
       </main>
-      <Footer />
+      {!isCockpitRoute && <Footer />}
     </div>
   );
 };

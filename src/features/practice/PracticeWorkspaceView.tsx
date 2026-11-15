@@ -1,231 +1,117 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Zap, Brain, Trophy, RotateCcw, Home } from "lucide-react";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+import React, { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Zap, Brain, Trophy, RotateCcw, Home, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { PracticeQuestionCard } from "./PracticeQuestionCard";
+import { StudyCockpitShell } from "@/features/workspace/StudyCockpitShell";
+import { CockpitHeader } from "@/features/workspace/CockpitHeader";
+import { QuestionStage } from "@/features/workspace/QuestionStage";
+import { ChoiceOptionList } from "@/features/workspace/ChoiceOptionList";
+import { FeedbackExplanationCard } from "@/features/workspace/FeedbackExplanationCard";
+import { QuestionNavigator } from "@/features/workspace/QuestionNavigator";
+import { ShortcutHelpModal } from "@/features/workspace/ShortcutHelpModal";
+import { AiAnswerModal } from "@/features/exam/AiAnswerModal";
 import { CramBatchModal } from "./CramBatchModal";
 import { LearnRoundSummaryModal } from "./LearnRoundSummaryModal";
-import { useCramSession } from "@/hooks/useCramSession";
-import { useLearnSession } from "@/hooks/useLearnSession";
-import { getPracticeQuestions, checkPracticeAnswer } from "@/api/practice";
-import { compareAnswers } from "@/utils/answerComparison";
-import { getErrorMessage } from "@/utils/error";
+import { usePracticeWorkspaceAdapter } from "./usePracticeWorkspaceAdapter";
+import { useZoomPan } from "@/hooks/useZoomPan";
+import { useWorkspaceShortcuts } from "@/hooks/useWorkspaceShortcuts";
+import { resolveImageUrl } from "@/utils/imageUrl";
+import type { PracticeMode } from "@/types/practice";
 
-export const PracticeWorkspaceView: React.FC = () => {
-  const { code, mode } = useParams<{ code: string; mode: string }>();
+interface PracticeCockpitSessionProps {
+  subjectCode: string;
+  practiceMode: PracticeMode;
+  onTriggerRemountReset: () => void;
+}
+
+const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
+  subjectCode,
+  practiceMode,
+  onTriggerRemountReset,
+}) => {
   const navigate = useNavigate();
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isMobileNavigatorOpen, setIsMobileNavigatorOpen] = useState(false);
+  const [failedDiagramIds, setFailedDiagramIds] = useState<Record<string, boolean>>({});
 
-  const subjectCode = code || "MAD101";
-  const practiceMode = mode === "learn" ? "learn" : "cram";
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const previousQuestionIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    document.title = `${
-      practiceMode === "cram" ? "Luyện thi cấp tốc" : "Học ghi nhớ"
-    } - ${subjectCode} | FUO Learning`;
-  }, [practiceMode, subjectCode]);
-
-  // Fetch practice questions
-  const {
-    data: questions,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["practiceQuestions", subjectCode],
-    queryFn: () => getPracticeQuestions(subjectCode, 60),
-    staleTime: 5 * 60 * 1000,
+  const zoomPan = useZoomPan({
+    minZoom: 0.5,
+    maxZoom: 3.0,
+    zoomStep: 0.25,
+    initialZoom: 1.0,
   });
 
-  const validQuestions = questions || [];
-
-  // Hooks for both modes (only the active mode is exercised)
-  const cram = useCramSession({
+  const adapter = usePracticeWorkspaceAdapter(
     subjectCode,
-    questions: validQuestions,
-  });
-
-  const learn = useLearnSession({
-    subjectCode,
-    questions: validQuestions,
-  });
-
-  // Current Card & Queue depending on mode
-  const currentCard = practiceMode === "cram" ? cram.currentCard : learn.currentCard;
-  const isSessionCompleted =
-    practiceMode === "cram" ? cram.isSessionCompleted : learn.isSessionCompleted;
-
-  // Active answer submission state
-  const [selectedOptions, setSelectedOptions] = useState<string>("");
-  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
-  const [evaluatedResult, setEvaluatedResult] = useState<{
-    isCorrect: boolean;
-    correctAnswer: string;
-    explanation?: string;
-  } | null>(null);
-
-  // Handle option selection
-  const handleSelectOption = useCallback(
-    (optionKey: string) => {
-      if (!currentCard || evaluatedResult) return;
-
-      const isMulti = currentCard.questionType === "multiple_choice";
-      if (!isMulti) {
-        setSelectedOptions(optionKey);
-      } else {
-        setSelectedOptions((prev) => {
-          if (prev.includes(optionKey)) {
-            return prev.replace(optionKey, "");
-          }
-          return prev + optionKey;
-        });
-      }
-    },
-    [currentCard, evaluatedResult]
+    practiceMode,
+    onTriggerRemountReset
   );
 
-  // Evaluate answer
-  const handleSubmitAnswer = useCallback(
-    async (overrideSelection?: string) => {
-      if (!currentCard || evaluatedResult || isEvaluating) return;
+  const resetPanRef = useRef(zoomPan.setPanOffset);
+  resetPanRef.current = zoomPan.setPanOffset;
 
-      const choiceToEvaluate = overrideSelection || selectedOptions;
-      if (!choiceToEvaluate) return;
+  const activeQuestionId = adapter.currentCard?.questionId ?? "";
+  const hasVisualMedia =
+    Boolean(resolveImageUrl(adapter.currentCard?.imageUrl)) &&
+    !failedDiagramIds[activeQuestionId];
 
-      setIsEvaluating(true);
-
-      try {
-        const result = await checkPracticeAnswer(currentCard.questionId, choiceToEvaluate);
-        const isMatch = result.isCorrect || compareAnswers(choiceToEvaluate, result.correctAnswer);
-
-        const outcome = {
-          isCorrect: isMatch,
-          correctAnswer: result.correctAnswer,
-          explanation: result.aiExplanation,
-        };
-
-        setEvaluatedResult(outcome);
-
-        // Record in respective session engine
-        if (practiceMode === "cram") {
-          cram.recordAnswer(currentCard.questionId, isMatch);
-        } else {
-          learn.recordAnswer(
-            currentCard.questionId,
-            choiceToEvaluate,
-            result.correctAnswer,
-            isMatch,
-            result.aiExplanation
-          );
-        }
-      } catch (err) {
-        // Fallback local grading if network check fails
-        const fallbackCorrect = (currentCard as any).correct_answer || "A";
-        const isMatch = compareAnswers(choiceToEvaluate, fallbackCorrect);
-        const outcome = {
-          isCorrect: isMatch,
-          correctAnswer: fallbackCorrect,
-          explanation: "Kiểm tra offline thành công.",
-        };
-
-        setEvaluatedResult(outcome);
-
-        if (practiceMode === "cram") {
-          cram.recordAnswer(currentCard.questionId, isMatch);
-        } else {
-          learn.recordAnswer(
-            currentCard.questionId,
-            choiceToEvaluate,
-            fallbackCorrect,
-            isMatch
-          );
-        }
-      } finally {
-        setIsEvaluating(false);
-      }
-    },
-    [currentCard, evaluatedResult, isEvaluating, selectedOptions, practiceMode, cram, learn]
-  );
-
-  // Advance to next card
-  const handleNextCard = useCallback(() => {
-    setSelectedOptions("");
-    setEvaluatedResult(null);
-  }, []);
-
-  // Global Keyboard Navigation (Task T028)
+  // Move focus cleanly to question heading and reset diagram pan when advancing to a different card
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input
-      if (
-        document.activeElement?.tagName === "INPUT" ||
-        document.activeElement?.tagName === "TEXTAREA"
-      ) {
-        return;
-      }
+    const activeId = adapter.currentCard?.questionId ?? null;
+    if (previousQuestionIdRef.current !== activeId) {
+      resetPanRef.current({ x: 0, y: 0 });
+    }
+    if (
+      activeId &&
+      previousQuestionIdRef.current &&
+      previousQuestionIdRef.current !== activeId &&
+      headingRef.current
+    ) {
+      headingRef.current.focus();
+    }
+    previousQuestionIdRef.current = activeId;
+  }, [adapter.currentCard?.questionId]);
 
-      // If card feedback is showing: Space or ArrowRight advances
-      if (evaluatedResult) {
-        if (e.key === " " || e.key === "ArrowRight") {
-          e.preventDefault();
-          handleNextCard();
-        }
-        return;
-      }
+  const isEvaluated = adapter.evaluation?.status === "resolved";
+  const currentCard = adapter.currentCard;
 
-      // If answering question: keys 1-8 or A-H select options
-      if (currentCard && !evaluatedResult && !isEvaluating) {
-        const keyUpper = e.key.toUpperCase();
-        const optionKeys = Object.keys(currentCard.options);
+  // Unified workspace keyboard shortcuts
+  useWorkspaceShortcuts({
+    sortedOptionKeys: adapter.sortedOptionKeys,
+    isOptionsLocked:
+      adapter.sessionStatus !== "ready" || isEvaluated || adapter.isEvaluating,
+    isContinueReady: isEvaluated,
+    canSubmitMultiChoice: Boolean(
+      currentCard?.questionType === "multiple_choice" &&
+        adapter.selectedOptions &&
+        !isEvaluated &&
+        !adapter.isEvaluating
+    ),
+    feedbackResolvedAt: adapter.evaluation?.resolvedAt ?? null,
+    hasVisualMedia,
+    isModalOpen:
+      adapter.sessionStatus !== "ready" ||
+      isShortcutHelpOpen ||
+      isAiModalOpen ||
+      (practiceMode === "cram" && adapter.cram.isBatchCompleted) ||
+      (practiceMode === "learn" && adapter.learn.isRoundCompleted),
+    onSelectOption: adapter.selectOption,
+    onSubmitMultiChoice: () => {
+      void adapter.submitCheck();
+    },
+    onContinue: adapter.advanceNext,
+    onZoomIn: zoomPan.zoomIn,
+    onZoomOut: zoomPan.zoomOut,
+    onResetZoom: zoomPan.resetZoom,
+    onOpenShortcuts: () => setIsShortcutHelpOpen(true),
+  });
 
-        // Numeric keys 1-8
-        const num = parseInt(e.key, 10);
-        if (!isNaN(num) && num >= 1 && num <= optionKeys.length) {
-          e.preventDefault();
-          const targetKey = optionKeys[num - 1];
-          if (targetKey) {
-            handleSelectOption(targetKey);
-            if (currentCard.questionType !== "multiple_choice") {
-              handleSubmitAnswer(targetKey);
-            }
-          }
-          return;
-        }
-
-        // Letter keys A-H
-        if (optionKeys.includes(keyUpper)) {
-          e.preventDefault();
-          handleSelectOption(keyUpper);
-          if (currentCard.questionType !== "multiple_choice") {
-            handleSubmitAnswer(keyUpper);
-          }
-          return;
-        }
-
-        // Enter key for multi-choice submit
-        if (e.key === "Enter" && selectedOptions.length > 0) {
-          e.preventDefault();
-          handleSubmitAnswer();
-          return;
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    currentCard,
-    evaluatedResult,
-    isEvaluating,
-    selectedOptions,
-    handleSelectOption,
-    handleSubmitAnswer,
-    handleNextCard,
-  ]);
-
-  if (isLoading) {
+  if (adapter.sessionStatus === "loading") {
     return (
       <div className="max-w-4xl mx-auto w-full px-space-4 py-space-6 flex flex-col gap-space-4">
         <div className="h-14 bg-color-7 border-2 border-color-1 rounded-2xl animate-pulse" />
@@ -234,14 +120,20 @@ export const PracticeWorkspaceView: React.FC = () => {
     );
   }
 
-  if (error || validQuestions.length === 0) {
+  if (adapter.sessionStatus === "error" || adapter.sessionStatus === "empty") {
     return (
       <div className="max-w-xl mx-auto w-full px-space-4 py-space-8 text-center">
-        <Card className="p-space-8 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
-          <h2 className="text-text-lg font-bold text-color-4">
-            {getErrorMessage(error, "Không có câu hỏi luyện tập nào khả dụng cho môn này.")}
-          </h2>
-          <Button variant="primary" onClick={() => navigate(`/subjects/${subjectCode}`)}>
+        <Card className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
+          <h1 className="text-text-lg font-bold text-color-1">
+            {adapter.loadErrorMessage ||
+              "Không có câu hỏi luyện tập nào khả dụng cho môn này."}
+          </h1>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => navigate(`/subjects/${subjectCode}`)}
+            className="min-h-11"
+          >
             Quay lại môn học
           </Button>
         </Card>
@@ -249,35 +141,27 @@ export const PracticeWorkspaceView: React.FC = () => {
     );
   }
 
-  // Session Complete Celebration Screen
-  if (isSessionCompleted) {
+  if (adapter.sessionStatus === "completed") {
     return (
-      <div className="max-w-xl mx-auto w-full px-space-4 py-space-8 text-center animate-in zoom-in-95 duration-fast">
-        <Card className="p-space-8 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
-          <div className="w-20 h-20 rounded-full bg-color-5/20 border-2 border-color-1 flex items-center justify-center shadow-xs">
-            <Trophy className="w-10 h-10 text-color-5" />
+      <div className="max-w-xl mx-auto w-full px-space-4 py-space-8 text-center">
+        <Card className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
+          <div className="w-16 h-16 rounded-full bg-color-5 border-2 border-color-1 flex items-center justify-center text-color-1 shadow-xs">
+            <Trophy className="w-8 h-8" aria-hidden="true" />
           </div>
-          <h1 className="text-text-2xl font-bold text-color-1">
-            Tuyệt vời! Bạn đã hoàn thành toàn bộ bài luyện! 🎓
+          <h1 className="text-text-xl font-bold text-color-1">
+            Tuyệt vời! Bạn đã hoàn thành toàn bộ bài luyện!
           </h1>
-          <p className="text-text-sm text-color-1/70 max-w-md">
+          <p className="text-text-sm font-medium text-color-1 max-w-md">
             {practiceMode === "cram"
-              ? `Bạn đã nhồi nhét thành công ${cram.deckPool.length} câu hỏi của môn ${subjectCode}.`
+              ? `Bạn đã ôn tập cấp tốc thành công ${adapter.cram.deckPool.length} câu hỏi của môn ${subjectCode}.`
               : `Bạn đã ghi nhớ sâu sắc tất cả câu hỏi của môn ${subjectCode} vào bộ nhớ dài hạn.`}
           </p>
           <div className="flex flex-col sm:flex-row gap-space-3 w-full pt-space-2">
             <Button
               variant="secondary"
               size="md"
-              onClick={() => {
-                localStorage.removeItem(
-                  practiceMode === "cram"
-                    ? `fuo_cram_mastered_${subjectCode}`
-                    : `fuo_learn_mastered_${subjectCode}`
-                );
-                window.location.reload();
-              }}
-              className="flex-1 flex items-center justify-center gap-2 border-2 border-color-1 shadow-xs"
+              onClick={adapter.resetPracticeSession}
+              className="min-h-11 flex-1 flex items-center justify-center gap-space-2 border-2 border-color-1 shadow-xs"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Luyện lại từ đầu</span>
@@ -286,7 +170,7 @@ export const PracticeWorkspaceView: React.FC = () => {
               variant="primary"
               size="md"
               onClick={() => navigate(`/subjects/${subjectCode}`)}
-              className="flex-1 flex items-center justify-center gap-2"
+              className="min-h-11 flex-1 flex items-center justify-center gap-space-2"
             >
               <Home className="w-4 h-4" />
               <span>Về trang môn học</span>
@@ -298,110 +182,205 @@ export const PracticeWorkspaceView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto w-full px-space-4 sm:px-space-5 py-space-5 flex flex-col gap-space-5">
-      {/* Top Header Navigation */}
-      <Card className="p-space-3 sm:p-space-4 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-space-3">
-        <div className="flex items-center gap-space-3">
-          <Link
-            to={`/subjects/${subjectCode}`}
-            className="w-11 h-11 inline-flex items-center justify-center rounded-full border-2 border-color-1 bg-color-6 hover:bg-color-7 transition-all shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-color-5 shrink-0"
-            aria-label="Thoát bài luyện tập"
-          >
-            <ArrowLeft className="w-5 h-5 text-color-1" />
-          </Link>
-
-          <div>
+    <StudyCockpitShell
+      hasVisualMedia={hasVisualMedia}
+      header={
+        <CockpitHeader
+          title={adapter.descriptor.title}
+          exitLabel={adapter.descriptor.exitLabel}
+          onExit={() => navigate(adapter.descriptor.exitRoute)}
+          progressLabel={adapter.progressLabel}
+          progressCurrent={adapter.progressCurrent}
+          progressTotal={adapter.progressTotal}
+          modeBadge={{
+            label: `${practiceMode === "cram" ? "Cấp tốc" : "Ghi nhớ"} • ${subjectCode}`,
+            tone: practiceMode === "cram" ? "warning" : "accent",
+          }}
+          statusSlot={
             <div className="flex items-center gap-space-2">
-              <h1 className="text-text-base font-bold text-color-1">
-                {practiceMode === "cram" ? "Luyện thi cấp tốc" : "Học ghi nhớ"}
-              </h1>
-              <Badge variant={practiceMode === "cram" ? "primary" : "warning"}>
-                {subjectCode}
-              </Badge>
+              <span className="text-text-xs font-bold text-color-1 tabular-nums">
+                {adapter.subProgressText}
+              </span>
+              <span className="inline-flex items-center gap-space-1 px-space-3 py-space-1 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 tabular-nums">
+                {practiceMode === "cram" ? (
+                  <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 flex items-center justify-center">
+                    <Zap className="w-3.5 h-3.5" aria-hidden="true" />
+                  </span>
+                ) : (
+                  <Brain className="w-4 h-4 text-color-2" aria-hidden="true" />
+                )}
+                <span>{adapter.statsSummaryLabel}</span>
+              </span>
             </div>
-            <span className="text-text-xs font-bold text-color-1/75 tabular-nums">
-              {practiceMode === "cram"
-                ? `Batch ${cram.batchIndex + 1}/${cram.totalBatches} (${cram.activeQueue.length} câu còn lại trong nhóm)`
-                : `Vòng ${learn.currentRoundNumber} (Câu ${learn.roundPointer + 1}/${learn.roundQueue.length})`}
-            </span>
-          </div>
-        </div>
+          }
+          onOpenShortcuts={() => setIsShortcutHelpOpen(true)}
+        />
+      }
+      stageContent={
+        currentCard ? (
+          <QuestionStage
+            question={currentCard}
+            badgeSlot={adapter.masteryBadge}
+            zoomPan={zoomPan}
+            headingRef={headingRef}
+            onMediaAvailabilityChange={(available) => {
+              if (!activeQuestionId) return;
+              setFailedDiagramIds((prev) => {
+                const currentlyFailed = Boolean(prev[activeQuestionId]);
+                if (currentlyFailed === !available) return prev;
+                return { ...prev, [activeQuestionId]: !available };
+              });
+            }}
+          />
+        ) : null
+      }
+      choiceContent={
+        currentCard ? (
+          <div className="flex flex-col gap-space-4">
+            <ChoiceOptionList
+              options={currentCard.options}
+              selectedOptions={adapter.selectedOptions}
+              questionType={currentCard.questionType}
+              feedbackMode="instant"
+              evaluation={adapter.evaluation}
+              isLocked={isEvaluated}
+              isSubmitting={adapter.isEvaluating}
+              onSelectOption={adapter.selectOption}
+              onSubmitMultiChoice={() => {
+                void adapter.submitCheck();
+              }}
+            />
 
-        {/* Progress & Badge */}
-        <div className="flex items-center gap-space-4 min-w-[200px]">
-          <div className="flex-1">
-            <ProgressBar
-              current={practiceMode === "cram" ? cram.masteredInBatch.size : learn.roundPointer}
-              total={practiceMode === "cram" ? cram.currentBatch.length : learn.roundQueue.length}
-              label={
-                practiceMode === "cram"
-                  ? `${cram.masteredInBatch.size}/${cram.currentBatch.length} câu`
-                  : `${learn.roundPointer}/${learn.roundQueue.length} câu`
-              }
+            <FeedbackExplanationCard
+              evaluation={adapter.evaluation}
+              onContinue={isEvaluated ? adapter.advanceNext : undefined}
+              onRetry={() => {
+                void adapter.retryEvaluation();
+              }}
+              onOpenAiModal={isEvaluated ? () => setIsAiModalOpen(true) : undefined}
             />
           </div>
-
-          <div className="shrink-0 flex items-center gap-1 font-bold text-text-xs text-color-2">
-            {practiceMode === "cram" ? (
-              <Zap className="w-4 h-4 text-color-5 fill-color-5" />
-            ) : (
-              <Brain className="w-4 h-4 text-color-2" />
-            )}
-            <span>
-              {practiceMode === "cram"
-                ? `${cram.masteredIds.size} đã thuộc`
-                : `${learn.graduatedPool.length} thành thạo`}
-            </span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Main Active Question Card */}
-      {currentCard && (
-        <PracticeQuestionCard
-          question={currentCard}
-          selectedOptions={selectedOptions}
-          isEvaluating={isEvaluating}
-          evaluatedResult={evaluatedResult}
-          onSelectOption={handleSelectOption}
-          onSubmitAnswer={(key) => handleSubmitAnswer(key)}
-          onNextCard={handleNextCard}
+        ) : null
+      }
+      navigatorContent={
+        <QuestionNavigator
+          title={practiceMode === "cram" ? "Danh sách thẻ đợt này" : "Nhóm thẻ đang học"}
+          items={adapter.navigatorItems}
+          activeIndex={adapter.activeNavIndex}
+          answeredCount={adapter.answeredCount}
+          totalCount={adapter.totalNavCount}
+          onSelectQuestion={() => undefined}
+          supportsFreeJump={false}
+          isMobileDrawerOpen={isMobileNavigatorOpen}
+          onOpenMobileDrawer={() => setIsMobileNavigatorOpen(true)}
+          onCloseMobileDrawer={() => setIsMobileNavigatorOpen(false)}
         />
-      )}
+      }
+      mobileStatusLabel={`${adapter.subProgressText}`}
+      canPrev={false}
+      canNext={isEvaluated}
+      onNext={adapter.advanceNext}
+      onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
+      mobilePrimaryAction={
+        isEvaluated ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsAiModalOpen(true)}
+            aria-label="Xem giải thích AI"
+            className="min-h-11 inline-flex items-center gap-space-1"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>AI</span>
+          </Button>
+        ) : currentCard?.questionType === "multiple_choice" ? (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!adapter.selectedOptions || adapter.isEvaluating}
+            onClick={() => {
+              void adapter.submitCheck();
+            }}
+            className="min-h-11"
+          >
+            Kiểm tra
+          </Button>
+        ) : null
+      }
+      modals={
+        <>
+          {practiceMode === "cram" && (
+            <CramBatchModal
+              isOpen={adapter.cram.isBatchCompleted}
+              batchNumber={adapter.cram.batchIndex + 1}
+              totalBatches={adapter.cram.totalBatches}
+              batchSize={adapter.cram.currentBatch.length}
+              cumulativeMastered={adapter.cram.masteredIds.size}
+              totalDeckSize={adapter.deckSize}
+              onContinueNextBatch={adapter.continueNextBatch}
+              onFinishSession={() => navigate(`/subjects/${subjectCode}`)}
+            />
+          )}
 
-      {/* Modals */}
-      {practiceMode === "cram" && (
-        <CramBatchModal
-          isOpen={cram.isBatchCompleted}
-          batchNumber={cram.batchIndex + 1}
-          totalBatches={cram.totalBatches}
-          batchSize={cram.currentBatch.length}
-          cumulativeMastered={cram.masteredIds.size}
-          totalDeckSize={validQuestions.length}
-          onContinueNextBatch={() => {
-            cram.nextBatch();
-            handleNextCard();
-          }}
-          onFinishSession={() => navigate(`/subjects/${subjectCode}`)}
-        />
-      )}
+          {practiceMode === "learn" && (
+            <LearnRoundSummaryModal
+              isOpen={adapter.learn.isRoundCompleted}
+              roundDiagnostic={adapter.learn.currentRoundDiagnostic}
+              activePoolCount={adapter.learn.activePool.length}
+              waitingCount={adapter.learn.waitingPool.length}
+              graduatedCount={adapter.learn.graduatedPool.length}
+              totalDeckSize={adapter.deckSize}
+              onContinueNextRound={adapter.continueNextRound}
+              onFinishSession={() => navigate(`/subjects/${subjectCode}`)}
+            />
+          )}
 
-      {practiceMode === "learn" && (
-        <LearnRoundSummaryModal
-          isOpen={learn.isRoundCompleted}
-          roundDiagnostic={learn.currentRoundDiagnostic}
-          activePoolCount={learn.activePool.length}
-          waitingCount={learn.waitingPool.length}
-          graduatedCount={learn.graduatedPool.length}
-          totalDeckSize={validQuestions.length}
-          onContinueNextRound={() => {
-            learn.nextRound();
-            handleNextCard();
-          }}
-          onFinishSession={() => navigate(`/subjects/${subjectCode}`)}
-        />
-      )}
-    </div>
+          {currentCard && (
+            <AiAnswerModal
+              isOpen={isAiModalOpen}
+              onClose={() => setIsAiModalOpen(false)}
+              questionNumber={currentCard.questionNumber}
+              questionText={currentCard.questionText}
+              imageUrl={currentCard.imageUrl}
+              options={currentCard.options}
+              selectedOption={adapter.selectedOptions || null}
+              correctAnswer={adapter.evaluation?.correctAnswer ?? ""}
+              aiExplanation={adapter.evaluation?.aiExplanation ?? ""}
+              optionByOptionAnalysis={adapter.evaluation?.optionByOptionAnalysis ?? undefined}
+            />
+          )}
+
+          <ShortcutHelpModal
+            isOpen={isShortcutHelpOpen}
+            onClose={() => setIsShortcutHelpOpen(false)}
+            mode="practice"
+            hasVisualMedia={hasVisualMedia}
+          />
+        </>
+      }
+    />
+  );
+};
+
+export const PracticeWorkspaceView: React.FC = () => {
+  const { code, mode } = useParams<{ code: string; mode: string }>();
+  const subjectCode = code || "MAD101";
+  const practiceMode: PracticeMode = mode === "learn" ? "learn" : "cram";
+  const [sessionResetCounter, setSessionResetCounter] = useState(0);
+
+  useEffect(() => {
+    document.title = `${
+      practiceMode === "cram" ? "Luyện thi cấp tốc" : "Học ghi nhớ"
+    } - ${subjectCode} | FUO Learning`;
+  }, [practiceMode, subjectCode]);
+
+  return (
+    <PracticeCockpitSession
+      key={`${subjectCode}-${practiceMode}-${sessionResetCounter}`}
+      subjectCode={subjectCode}
+      practiceMode={practiceMode}
+      onTriggerRemountReset={() => setSessionResetCounter((prev) => prev + 1)}
+    />
   );
 };
 

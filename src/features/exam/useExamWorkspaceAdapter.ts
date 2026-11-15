@@ -1,0 +1,586 @@
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  getAttempt,
+  saveAnswer,
+  submitAttempt,
+  checkInstantAnswer,
+} from "@/api/attempts";
+import { useExamTimer } from "@/hooks/useExamTimer";
+import { useExamUiStore } from "@/stores/examUiStore";
+import { getErrorMessage } from "@/utils/error";
+import type { FeedbackMode, Question } from "@/types/exam";
+import type {
+  WorkspaceEvaluationResult,
+  WorkspaceNavigatorItem,
+  WorkspaceSaveStatus,
+  WorkspaceTimerState,
+} from "@/features/workspace/types";
+
+interface CachedInstantResult {
+  isCorrect: boolean;
+  correctAnswer: string;
+  aiExplanation: string;
+  optionByOptionAnalysis?: Record<string, string>;
+}
+
+interface CachedAiRationale {
+  aiChoice: string;
+  aiExplanation: string;
+  optionByOptionAnalysis?: Record<string, string>;
+}
+
+export interface ExamWorkspaceAdapterResult {
+  sessionStatus: "loading" | "error" | "ready";
+  loadErrorMessage: string | null;
+  examTitle: string;
+  questions: Question[];
+  currentQuestion: Question | null;
+  currentIndex: number;
+  totalQuestions: number;
+  answeredCount: number;
+  sortedOptionKeys: string[];
+  selectedOptions: string;
+  feedbackMode: FeedbackMode;
+  evaluation: WorkspaceEvaluationResult | null;
+  saveStatus: WorkspaceSaveStatus;
+  pendingSaveCount: number;
+  timer: WorkspaceTimerState;
+  navigatorItems: WorkspaceNavigatorItem[];
+  isSubmitting: boolean;
+  submitError: string | null;
+  isAiModalOpen: boolean;
+  isSubmitConfirmOpen: boolean;
+  aiModalState: {
+    aiChoice: string | null;
+    aiExplanation: string | null;
+    optionByOptionAnalysis: Record<string, string> | null;
+    isLoading: boolean;
+    errorMessage: string | null;
+  };
+  retryLoad: () => Promise<void>;
+  selectOption: (optionKey: string) => Promise<void>;
+  clearSelection: () => Promise<void>;
+  submitMultiChoiceCheck: () => Promise<void>;
+  retrySave: () => Promise<void>;
+  jumpToQuestion: (index: number) => void;
+  navigatePrev: () => void;
+  navigateNext: () => void;
+  openAiAnalysis: () => void;
+  closeAiAnalysis: () => void;
+  retryAiAnalysis: () => Promise<void>;
+  openSubmitDialog: () => void;
+  closeSubmitDialog: () => void;
+  confirmSubmit: () => Promise<void>;
+}
+
+const DRAFT_STORAGE_PREFIX = "fuo_exam_draft_";
+
+function readDraftMap(storageKey: string): Record<string, string> {
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const safe: Record<string, string> = {};
+    for (const [key, val] of Object.entries(parsed)) {
+      if (typeof val === "string") {
+        safe[key] = val;
+      }
+    }
+    return safe;
+  } catch {
+    return {};
+  }
+}
+
+function writeDraftMap(storageKey: string, draft: Record<string, string>): void {
+  try {
+    if (Object.keys(draft).length === 0) {
+      window.localStorage.removeItem(storageKey);
+    } else {
+      window.localStorage.setItem(storageKey, JSON.stringify(draft));
+    }
+  } catch {
+    // Ignore storage quota or restricted context errors
+  }
+}
+
+/**
+ * Exam attempt adapter connecting attempt persistence, countdown/elapsed timer, instant/post_exam modes,
+ * non-blocking save telemetry, and always-accessible AI rationale without hardcoded answers.
+ */
+export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAdapterResult {
+  const navigate = useNavigate();
+  const draftStorageKey = `${DRAFT_STORAGE_PREFIX}${safeAttemptId}`;
+
+  const {
+    currentQuestionIndex,
+    setQuestionIndex,
+    isAiModalOpen,
+    openAiModal,
+    closeAiModal,
+    isSubmitConfirmOpen,
+    openSubmitConfirm,
+    closeSubmitConfirm,
+    feedbackMode,
+  } = useExamUiStore();
+
+  const {
+    data: attempt,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["attempt", safeAttemptId],
+    queryFn: () => getAttempt(safeAttemptId),
+  });
+
+  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
+  const [instantResults, setInstantResults] = useState<Record<string, CachedInstantResult>>({});
+  const [instantErrors, setInstantErrors] = useState<Record<string, string>>({});
+  const [evaluatingQuestionId, setEvaluatingQuestionId] = useState<string | null>(null);
+
+  const [aiExplanations, setAiExplanations] = useState<Record<string, CachedAiRationale>>({});
+  const [aiLoadingIds, setAiLoadingIds] = useState<Record<string, boolean>>({});
+  const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
+
+  const [saveStatus, setSaveStatus] = useState<WorkspaceSaveStatus>("idle");
+  const [failedSaves, setFailedSaves] = useState<Record<string, string>>({});
+  const failedSavesRef = useRef<Record<string, string>>({});
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const updateFailedSaves = useCallback(
+    (updater: (prev: Record<string, string>) => Record<string, string>) => {
+      const next = updater(failedSavesRef.current);
+      failedSavesRef.current = next;
+      setFailedSaves(next);
+      writeDraftMap(draftStorageKey, next);
+      return next;
+    },
+    [draftStorageKey]
+  );
+
+  // Hydrate initial selections from attempt payload + any recovered offline drafts
+  useEffect(() => {
+    if (attempt?.examTitle) {
+      document.title = `${attempt.examTitle} | FUO Learning`;
+    } else {
+      document.title = "Phòng thi trực tuyến | FUO Learning";
+    }
+
+    if (attempt?.questions) {
+      const initialMap: Record<string, string> = {};
+      attempt.questions.forEach((q) => {
+        if (q.selectedOptions) {
+          initialMap[q.questionId] = q.selectedOptions;
+        }
+      });
+
+      const localDraft = safeAttemptId ? readDraftMap(draftStorageKey) : {};
+      const validIds = new Set(attempt.questions.map((q) => q.questionId));
+      const pendingDrafts: Record<string, string> = {};
+
+      for (const [qId, selected] of Object.entries(localDraft)) {
+        if (!validIds.has(qId)) continue;
+        pendingDrafts[qId] = selected;
+        if (selected) {
+          initialMap[qId] = selected;
+        } else {
+          delete initialMap[qId];
+        }
+      }
+
+      setUserAnswers(initialMap);
+      if (Object.keys(pendingDrafts).length > 0) {
+        failedSavesRef.current = pendingDrafts;
+        setFailedSaves(pendingDrafts);
+        setSaveStatus("error");
+      }
+    }
+  }, [attempt, safeAttemptId, draftStorageKey]);
+
+  const flushFailedSaves = useCallback(async () => {
+    const entries = Object.entries(failedSavesRef.current);
+    if (entries.length === 0) return;
+
+    setSaveStatus("saving");
+    for (const [questionId, selected] of entries) {
+      await saveAnswer(safeAttemptId, questionId, selected);
+      updateFailedSaves((prev) => {
+        const next = { ...prev };
+        delete next[questionId];
+        return next;
+      });
+    }
+    setSaveStatus("saved");
+  }, [safeAttemptId, updateFailedSaves]);
+
+  const confirmSubmit = useCallback(async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await flushFailedSaves();
+      await submitAttempt(safeAttemptId);
+      updateFailedSaves(() => ({}));
+      closeSubmitConfirm();
+      navigate(`/attempts/${safeAttemptId}/review`, { replace: true });
+    } catch (err) {
+      if (Object.keys(failedSavesRef.current).length > 0) {
+        setSaveStatus("error");
+      }
+      setSubmitError(
+        getErrorMessage(err, "Nộp bài thi thất bại. Vui lòng kiểm tra mạng và thử lại.")
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [safeAttemptId, flushFailedSaves, updateFailedSaves, closeSubmitConfirm, navigate]);
+
+  const isUntimed = attempt?.timeRemainingSeconds === null;
+  const { formattedTime, formattedElapsed, isWarning, isExpired } = useExamTimer({
+    initialSeconds: isUntimed ? null : (attempt?.timeRemainingSeconds ?? 3600),
+    isUntimed,
+    onExpire: confirmSubmit,
+  });
+
+  const questions = useMemo(() => attempt?.questions ?? [], [attempt?.questions]);
+  const clampedIndex = Math.min(currentQuestionIndex, Math.max(0, questions.length - 1));
+  const currentQuestion = questions[clampedIndex] ?? null;
+  const totalQuestions = questions.length;
+
+  const answeredCount = useMemo(
+    () => Object.values(userAnswers).filter((val) => val.length > 0).length,
+    [userAnswers]
+  );
+
+  const sortedOptionKeys = useMemo(() => {
+    if (!currentQuestion?.options) return ["A", "B", "C", "D"];
+    const keys = Object.keys(currentQuestion.options);
+    return keys.length > 0 ? [...keys].sort((a, b) => a.localeCompare(b)) : ["A", "B", "C", "D"];
+  }, [currentQuestion]);
+
+  const persistAnswer = useCallback(
+    async (questionId: string, selected: string) => {
+      setSaveStatus("saving");
+      try {
+        await saveAnswer(safeAttemptId, questionId, selected);
+        const remaining = updateFailedSaves((prev) => {
+          if (!(questionId in prev)) return prev;
+          const next = { ...prev };
+          delete next[questionId];
+          return next;
+        });
+        setSaveStatus(Object.keys(remaining).length === 0 ? "saved" : "error");
+      } catch {
+        updateFailedSaves((prev) => ({
+          ...prev,
+          [questionId]: selected,
+        }));
+        setSaveStatus("error");
+      }
+    },
+    [safeAttemptId, updateFailedSaves]
+  );
+
+  const retrySave = useCallback(async () => {
+    try {
+      await flushFailedSaves();
+    } catch {
+      setSaveStatus("error");
+    }
+  }, [flushFailedSaves]);
+
+  const evaluateInstantAnswer = useCallback(async (qId: string, selected: string) => {
+    setEvaluatingQuestionId(qId);
+    setInstantErrors((prev) => {
+      const next = { ...prev };
+      delete next[qId];
+      return next;
+    });
+    try {
+      const result = await checkInstantAnswer(qId, selected);
+      setInstantResults((prev) => ({
+        ...prev,
+        [qId]: {
+          isCorrect: result.isCorrect,
+          correctAnswer: result.correctAnswer,
+          aiExplanation: result.aiExplanation,
+          optionByOptionAnalysis: result.optionByOptionAnalysis,
+        },
+      }));
+      setAiExplanations((prev) => ({
+        ...prev,
+        [qId]: {
+          aiChoice: result.correctAnswer,
+          aiExplanation: result.aiExplanation,
+          optionByOptionAnalysis: result.optionByOptionAnalysis,
+        },
+      }));
+    } catch (err) {
+      setInstantErrors((prev) => ({
+        ...prev,
+        [qId]: getErrorMessage(
+          err,
+          "Không thể kiểm tra đáp án lúc này. Bạn vẫn có thể tiếp tục làm bài."
+        ),
+      }));
+    } finally {
+      setEvaluatingQuestionId((prev) => (prev === qId ? null : prev));
+    }
+  }, []);
+
+  const selectOption = useCallback(
+    async (optionKey: string) => {
+      if (!currentQuestion || isExpired || isSubmitting) return;
+      const qId = currentQuestion.questionId;
+      const isMulti = currentQuestion.questionType === "multiple_choice";
+
+      let newSelected: string;
+      if (isMulti) {
+        const prev = userAnswers[qId] || "";
+        if (prev.includes(optionKey)) {
+          newSelected = prev.split("").filter((k) => k !== optionKey).sort().join("");
+        } else {
+          newSelected = [...prev.split("").filter(Boolean), optionKey].sort().join("");
+        }
+      } else {
+        newSelected = optionKey;
+      }
+
+      setUserAnswers((prev) => {
+        const next = { ...prev };
+        if (newSelected) {
+          next[qId] = newSelected;
+        } else {
+          delete next[qId];
+        }
+        return next;
+      });
+
+      if (feedbackMode === "instant" && !isMulti) {
+        void evaluateInstantAnswer(qId, newSelected);
+      } else if (isMulti && instantResults[qId]) {
+        setInstantResults((prev) => {
+          const next = { ...prev };
+          delete next[qId];
+          return next;
+        });
+      }
+
+      await persistAnswer(qId, newSelected);
+    },
+    [
+      currentQuestion,
+      isExpired,
+      isSubmitting,
+      userAnswers,
+      feedbackMode,
+      instantResults,
+      evaluateInstantAnswer,
+      persistAnswer,
+    ]
+  );
+
+  const clearSelection = useCallback(async () => {
+    if (!currentQuestion || isExpired || isSubmitting) return;
+    const qId = currentQuestion.questionId;
+
+    setUserAnswers((prev) => {
+      const next = { ...prev };
+      delete next[qId];
+      return next;
+    });
+    setInstantResults((prev) => {
+      const next = { ...prev };
+      delete next[qId];
+      return next;
+    });
+
+    await persistAnswer(qId, "");
+  }, [currentQuestion, isExpired, isSubmitting, persistAnswer]);
+
+  const submitMultiChoiceCheck = useCallback(async () => {
+    if (!currentQuestion) return;
+    const qId = currentQuestion.questionId;
+    const selected = userAnswers[qId] || "";
+    if (!selected) return;
+    await evaluateInstantAnswer(qId, selected);
+  }, [currentQuestion, userAnswers, evaluateInstantAnswer]);
+
+  const fetchAiForQuestion = useCallback(
+    async (qId: string, selected: string) => {
+      setAiLoadingIds((prev) => ({ ...prev, [qId]: true }));
+      setAiErrors((prev) => {
+        const next = { ...prev };
+        delete next[qId];
+        return next;
+      });
+
+      try {
+        const res = await checkInstantAnswer(qId, selected);
+        setAiExplanations((prev) => ({
+          ...prev,
+          [qId]: {
+            aiChoice: res.correctAnswer,
+            aiExplanation: res.aiExplanation,
+            optionByOptionAnalysis: res.optionByOptionAnalysis,
+          },
+        }));
+      } catch (err) {
+        setAiErrors((prev) => ({
+          ...prev,
+          [qId]: getErrorMessage(
+            err,
+            "Không thể kết nối dịch vụ AI. Vui lòng thử lại."
+          ),
+        }));
+      } finally {
+        setAiLoadingIds((prev) => ({ ...prev, [qId]: false }));
+      }
+    },
+    []
+  );
+
+  const openAiAnalysis = useCallback(() => {
+    openAiModal();
+    if (!currentQuestion) return;
+    const qId = currentQuestion.questionId;
+    if (!aiExplanations[qId] && !instantResults[qId] && !aiLoadingIds[qId]) {
+      void fetchAiForQuestion(qId, userAnswers[qId] || "");
+    }
+  }, [
+    openAiModal,
+    currentQuestion,
+    aiExplanations,
+    instantResults,
+    aiLoadingIds,
+    fetchAiForQuestion,
+    userAnswers,
+  ]);
+
+  const retryAiAnalysis = useCallback(async () => {
+    if (!currentQuestion) return;
+    const qId = currentQuestion.questionId;
+    await fetchAiForQuestion(qId, userAnswers[qId] || "");
+  }, [currentQuestion, fetchAiForQuestion, userAnswers]);
+
+  const currentInstant = currentQuestion ? instantResults[currentQuestion.questionId] : undefined;
+  const currentInstantError = currentQuestion ? instantErrors[currentQuestion.questionId] : undefined;
+
+  const evaluation: WorkspaceEvaluationResult | null = currentQuestion
+    ? evaluatingQuestionId === currentQuestion.questionId
+      ? {
+          status: "loading",
+          isCorrect: null,
+          correctAnswer: null,
+          aiExplanation: null,
+        }
+      : currentInstant
+        ? {
+            status: "resolved",
+            isCorrect: currentInstant.isCorrect,
+            correctAnswer: currentInstant.correctAnswer,
+            aiExplanation: currentInstant.aiExplanation,
+            optionByOptionAnalysis: currentInstant.optionByOptionAnalysis ?? null,
+          }
+        : currentInstantError
+          ? {
+              status: "error",
+              isCorrect: null,
+              correctAnswer: null,
+              aiExplanation: null,
+              errorMessage: currentInstantError,
+            }
+          : null
+    : null;
+
+  const navigatorItems = useMemo<WorkspaceNavigatorItem[]>(() => {
+    return questions.map((q, idx) => {
+      const isAnswered = Boolean(userAnswers[q.questionId]);
+      const instantCheck = instantResults[q.questionId];
+      return {
+        id: q.questionId,
+        number: idx + 1,
+        isAnswered,
+        isCurrent: idx === clampedIndex,
+        isCorrect:
+          feedbackMode === "instant" && instantCheck ? instantCheck.isCorrect : null,
+      };
+    });
+  }, [questions, userAnswers, instantResults, clampedIndex, feedbackMode]);
+
+  const currentAi = currentQuestion ? aiExplanations[currentQuestion.questionId] : undefined;
+  const aiModalState = {
+    aiChoice: currentInstant?.correctAnswer ?? currentAi?.aiChoice ?? null,
+    aiExplanation: currentInstant?.aiExplanation ?? currentAi?.aiExplanation ?? null,
+    optionByOptionAnalysis:
+      currentInstant?.optionByOptionAnalysis ?? currentAi?.optionByOptionAnalysis ?? null,
+    isLoading: currentQuestion ? Boolean(aiLoadingIds[currentQuestion.questionId]) : false,
+    errorMessage: currentQuestion ? aiErrors[currentQuestion.questionId] ?? null : null,
+  };
+
+  const sessionStatus: ExamWorkspaceAdapterResult["sessionStatus"] = isLoading
+    ? "loading"
+    : error || !currentQuestion
+      ? "error"
+      : "ready";
+
+  return {
+    sessionStatus,
+    loadErrorMessage: error
+      ? getErrorMessage(
+          error,
+          "Đề thi có thể đã kết thúc hoặc không tìm thấy phiên làm bài hợp lệ."
+        )
+      : "Đề thi có thể đã kết thúc hoặc không tìm thấy phiên làm bài hợp lệ.",
+    examTitle: attempt?.examTitle || "Phòng thi trực tuyến",
+    questions,
+    currentQuestion,
+    currentIndex: clampedIndex,
+    totalQuestions,
+    answeredCount,
+    sortedOptionKeys,
+    selectedOptions: currentQuestion ? userAnswers[currentQuestion.questionId] || "" : "",
+    feedbackMode,
+    evaluation,
+    saveStatus,
+    pendingSaveCount: Object.keys(failedSaves).length,
+    timer: {
+      isUntimed,
+      formattedTime,
+      formattedElapsed,
+      isWarning,
+      isExpired,
+    },
+    navigatorItems,
+    isSubmitting,
+    submitError,
+    isAiModalOpen,
+    isSubmitConfirmOpen,
+    aiModalState,
+    retryLoad: async () => {
+      await refetch();
+    },
+    selectOption,
+    clearSelection,
+    submitMultiChoiceCheck,
+    retrySave,
+    jumpToQuestion: (idx) =>
+      setQuestionIndex(Math.max(0, Math.min(totalQuestions - 1, idx))),
+    navigatePrev: () => setQuestionIndex(Math.max(0, clampedIndex - 1)),
+    navigateNext: () => setQuestionIndex(Math.min(totalQuestions - 1, clampedIndex + 1)),
+    openAiAnalysis,
+    closeAiAnalysis: closeAiModal,
+    retryAiAnalysis,
+    openSubmitDialog: () => {
+      setSubmitError(null);
+      openSubmitConfirm();
+    },
+    closeSubmitDialog: closeSubmitConfirm,
+    confirmSubmit,
+  };
+}

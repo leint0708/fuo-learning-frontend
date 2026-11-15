@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { QuestionChoicePanel } from "@/features/exam/QuestionChoicePanel";
 
 describe("QuestionChoicePanel Component Tests", () => {
-  it("renders buttons from A through H and does not render detailed text list", () => {
+  it("renders option buttons with full text list and falls back when options are empty", () => {
     const handleSelect = vi.fn();
     render(
       <QuestionChoicePanel
@@ -14,14 +14,16 @@ describe("QuestionChoicePanel Component Tests", () => {
       />
     );
 
-    // Verify all 8 buttons A through H exist
-    ["A", "B", "C", "D", "E", "F", "G", "H"].forEach((letter) => {
-      expect(screen.getByRole("button", { name: new RegExp(`^${letter}$`) })).toBeInTheDocument();
-    });
+    expect(screen.getByText("Programmed I/O")).toBeInTheDocument();
+    expect(screen.getByText("Memory-mapped I/O")).toBeInTheDocument();
+    expect(screen.getByText("Interrupt")).toBeInTheDocument();
+    expect(screen.getByText("DMA")).toBeInTheDocument();
 
-    // Verify detailed option texts are NOT rendered (deleted as requested)
-    expect(screen.queryByText("Programmed I/O")).not.toBeInTheDocument();
-    expect(screen.queryByText("Memory-mapped I/O")).not.toBeInTheDocument();
+    ["A", "B", "C", "D"].forEach((letter) => {
+      expect(
+        screen.getByRole("button", { name: new RegExp(`Đáp án ${letter}:`, "i") })
+      ).toBeInTheDocument();
+    });
   });
 
   it("calls onSelectOption when clicking an option button", () => {
@@ -34,7 +36,7 @@ describe("QuestionChoicePanel Component Tests", () => {
       />
     );
 
-    const btnB = screen.getByRole("button", { name: /^B$/ });
+    const btnB = screen.getByRole("button", { name: /Đáp án B/i });
     fireEvent.click(btnB);
     expect(handleSelect).toHaveBeenCalledWith("B");
   });
@@ -50,20 +52,18 @@ describe("QuestionChoicePanel Component Tests", () => {
       />
     );
 
-    const btnA = screen.getByRole("button", { name: /^A$/ });
-    const btnB = screen.getByRole("button", { name: /^B$/ });
-    const btnC = screen.getByRole("button", { name: /^C$/ });
-    const btnD = screen.getByRole("button", { name: /^D$/ });
+    const btnA = screen.getByRole("button", { name: /Đáp án A/i });
+    const btnB = screen.getByRole("button", { name: /Đáp án B/i });
+    const btnC = screen.getByRole("button", { name: /Đáp án C/i });
+    const btnD = screen.getByRole("button", { name: /Đáp án D/i });
 
-    // A, C, D should have selected class
     expect(btnA.className).toContain("bg-color-2");
     expect(btnC.className).toContain("bg-color-2");
     expect(btnD.className).toContain("bg-color-2");
-    // B should NOT have selected class
     expect(btnB.className).not.toContain("bg-color-2");
   });
 
-  it("renders 'Kiểm tra' button for multiple choice questions in instant mode", () => {
+  it("renders 'Kiểm tra đáp án' button for multiple choice questions in instant mode", () => {
     const handleCheck = vi.fn();
     render(
       <QuestionChoicePanel
@@ -96,7 +96,7 @@ describe("QuestionChoicePanel Component Tests", () => {
     );
 
     expect(screen.getByText("✓ Chính xác")).toBeInTheDocument();
-    const btnA = screen.getByRole("button", { name: /A/ });
+    const btnA = screen.getByRole("button", { name: /Đáp án A/i });
     expect(btnA.className).toContain("bg-color-3");
   });
 });

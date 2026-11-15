@@ -1,453 +1,496 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Bot, Clock, Send, ShieldCheck, Sparkles } from "lucide-react";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+import {
+  Clock,
+  Send,
+  Sparkles,
+  AlertTriangle,
+  RotateCcw,
+  LogOut,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { QuestionCanvas } from "./QuestionCanvas";
-import { QuestionListSidebar } from "./QuestionListSidebar";
-import { QuestionChoicePanel } from "./QuestionChoicePanel";
+import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
+import { StudyCockpitShell } from "@/features/workspace/StudyCockpitShell";
+import { CockpitHeader } from "@/features/workspace/CockpitHeader";
+import { QuestionStage } from "@/features/workspace/QuestionStage";
+import { ChoiceOptionList } from "@/features/workspace/ChoiceOptionList";
+import { FeedbackExplanationCard } from "@/features/workspace/FeedbackExplanationCard";
+import { QuestionNavigator } from "@/features/workspace/QuestionNavigator";
+import { ShortcutHelpModal } from "@/features/workspace/ShortcutHelpModal";
 import { AiAnswerModal } from "./AiAnswerModal";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
-import { useExamTimer } from "@/hooks/useExamTimer";
-import { useExamUiStore } from "@/stores/examUiStore";
-import {
-  getAttempt,
-  saveAnswer,
-  submitAttempt,
-  checkInstantAnswer,
-} from "@/api/attempts";
-import { getErrorMessage } from "@/utils/error";
+import { useExamWorkspaceAdapter } from "./useExamWorkspaceAdapter";
+import { useZoomPan } from "@/hooks/useZoomPan";
+import { useWorkspaceShortcuts } from "@/hooks/useWorkspaceShortcuts";
+import { resolveImageUrl } from "@/utils/imageUrl";
 
+/**
+ * Unified Exam Operate cockpit built over shared workspace primitives.
+ * Preserves timed/untimed tracking, instant & post_exam modes, live save telemetry,
+ * free question jump, and always-available lazy AI rationale without hardcoded answers.
+ */
 export const ExamWorkspaceView: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
   const navigate = useNavigate();
-
-  const {
-    currentQuestionIndex,
-    setQuestionIndex,
-    isAiModalOpen,
-    openAiModal,
-    closeAiModal,
-    isSubmitConfirmOpen,
-    openSubmitConfirm,
-    closeSubmitConfirm,
-    feedbackMode,
-    benchmarkMode,
-    setBenchmarkMode,
-  } = useExamUiStore();
-
   const safeAttemptId = attemptId || "att_mock_100";
 
-  // Fetch active attempt data
-  const {
-    data: attempt,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ["attempt", safeAttemptId],
-    queryFn: () => getAttempt(safeAttemptId),
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
+  const [isMobileNavigatorOpen, setIsMobileNavigatorOpen] = useState(false);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+  const [failedDiagramIds, setFailedDiagramIds] = useState<Record<string, boolean>>({});
+
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const previousQuestionIdRef = useRef<string | null>(null);
+
+  const zoomPan = useZoomPan({
+    minZoom: 0.5,
+    maxZoom: 3.0,
+    zoomStep: 0.25,
+    initialZoom: 1.0,
   });
 
-  // Local answers state (questionId -> selectedOptions)
-  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
-  // Instant feedback cache (questionId -> { isCorrect, correctAnswer, aiExplanation, analysis })
-  const [instantResults, setInstantResults] = useState<
-    Record<
-      string,
-      {
-        isCorrect: boolean;
-        correctAnswer: string;
-        aiExplanation: string;
-        optionByOptionAnalysis?: Record<string, string>;
-      }
-    >
-  >({});
-  const [aiExplanations, setAiExplanations] = useState<
-    Record<
-      string,
-      {
-        aiChoice: string;
-        aiExplanation: string;
-        optionByOptionAnalysis?: Record<string, string>;
-      }
-    >
-  >({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const resetPanRef = useRef(zoomPan.setPanOffset);
+  resetPanRef.current = zoomPan.setPanOffset;
 
-  // Sync initial answers from loaded attempt
+  const adapter = useExamWorkspaceAdapter(safeAttemptId);
+
+  const activeQuestion = adapter.currentQuestion;
+  const activeQuestionId = activeQuestion?.questionId ?? "";
+  const hasVisualMedia =
+    Boolean(resolveImageUrl(activeQuestion?.imageUrl)) &&
+    !failedDiagramIds[activeQuestionId];
+
   useEffect(() => {
-    if (attempt?.examTitle) {
-      document.title = `${attempt.examTitle} | FUO Learning`;
+    if (adapter.examTitle) {
+      document.title = `${adapter.examTitle} | FUO Learning`;
     } else {
       document.title = "Phòng thi trực tuyến | FUO Learning";
     }
-    if (attempt?.questions) {
-      const initialMap: Record<string, string> = {};
-      attempt.questions.forEach((q) => {
-        if (q.selectedOptions) {
-          initialMap[q.questionId] = q.selectedOptions;
-        }
-      });
-      setUserAnswers(initialMap);
-    }
-  }, [attempt]);
+  }, [adapter.examTitle]);
 
-  // Handle auto-submit on timer expire
-  const handleTimeExpire = useCallback(async () => {
-    setIsSubmitting(true);
-    try {
-      await submitAttempt(safeAttemptId);
-      navigate(`/attempts/${safeAttemptId}/review`, { replace: true });
-    } catch {
-      alert("Hết giờ làm bài! Bài thi đã được tự động nộp.");
-      navigate(`/attempts/${safeAttemptId}/review`, { replace: true });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [safeAttemptId, navigate]);
-
-  // Countdown timer
-  const isUntimed = attempt?.timeRemainingSeconds === null;
-  const { formattedTime, isWarning } = useExamTimer({
-    initialSeconds: isUntimed ? null : (attempt?.timeRemainingSeconds ?? 3600),
-    isUntimed,
-    onExpire: handleTimeExpire,
-  });
-
-  const questions = attempt?.questions || [];
-  const currentQuestion = questions[currentQuestionIndex] || questions[0];
-  const totalQuestions = questions.length;
-  const answeredCount = Object.keys(userAnswers).length;
-
-  // Eagerly prefetch real AI explanation for current question without requiring user choice
   useEffect(() => {
-    if (!currentQuestion) return;
-    const qId = currentQuestion.questionId;
-    if (aiExplanations[qId] || instantResults[qId]) return;
-
-    checkInstantAnswer(qId, "")
-      .then((res) => {
-        setAiExplanations((prev) => ({
-          ...prev,
-          [qId]: {
-            aiChoice: res.correctAnswer,
-            aiExplanation: res.aiExplanation,
-            optionByOptionAnalysis: res.optionByOptionAnalysis,
-          },
-        }));
-      })
-      .catch(() => {
-        // Fallback for offline/mock environments
-        setAiExplanations((prev) => ({
-          ...prev,
-          [qId]: {
-            aiChoice: "C",
-            aiExplanation:
-              "Đáp án đúng là C. Phân tích các bước suy luận toán rời rạc và luật tương đương.",
-          },
-        }));
-      });
-  }, [currentQuestion?.questionId, aiExplanations, instantResults]);
-
-  // Evaluate instant answer against backend/mock
-  const evaluateInstantAnswer = async (qId: string, selected: string) => {
-    try {
-      const result = await checkInstantAnswer(qId, selected);
-      setInstantResults((prev) => ({
-        ...prev,
-        [qId]: {
-          isCorrect: result.isCorrect,
-          correctAnswer: result.correctAnswer,
-          aiExplanation: result.aiExplanation,
-          optionByOptionAnalysis: result.optionByOptionAnalysis,
-        },
-      }));
-      setAiExplanations((prev) => ({
-        ...prev,
-        [qId]: {
-          aiChoice: result.correctAnswer,
-          aiExplanation: result.aiExplanation,
-          optionByOptionAnalysis: result.optionByOptionAnalysis,
-        },
-      }));
-    } catch {
-      // Fallback for mock/offline testing
-      const isMockCorrect = selected === "C" || selected === "ACD";
-      setInstantResults((prev) => ({
-        ...prev,
-        [qId]: {
-          isCorrect: isMockCorrect,
-          correctAnswer: "C",
-          aiExplanation:
-            "Đáp án đúng là C. Phân tích các bước suy luận toán rời rạc và luật tương đương.",
-        },
-      }));
+    const currentId = activeQuestion?.questionId ?? null;
+    if (previousQuestionIdRef.current !== currentId) {
+      resetPanRef.current({ x: 0, y: 0 });
     }
-  };
-
-  // Handle answer choice selection (supporting both single and multiple-choice)
-  const handleSelectOption = async (optionKey: string) => {
-    if (!currentQuestion) return;
-    const qId = currentQuestion.questionId;
-    const isMulti = currentQuestion.questionType === "multiple_choice";
-
-    let newSelected: string;
-    if (isMulti) {
-      const prev = userAnswers[qId] || "";
-      if (prev.includes(optionKey)) {
-        // Toggle off
-        newSelected = prev.split("").filter((k) => k !== optionKey).sort().join("");
-      } else {
-        // Toggle on
-        newSelected = [...prev.split("").filter((k) => k), optionKey].sort().join("");
-      }
-    } else {
-      newSelected = optionKey;
+    if (
+      currentId &&
+      previousQuestionIdRef.current &&
+      previousQuestionIdRef.current !== currentId &&
+      headingRef.current
+    ) {
+      headingRef.current.focus();
     }
+    previousQuestionIdRef.current = currentId;
+  }, [activeQuestion?.questionId]);
 
-    // Update local answers buffer immediately (free re-selection supported)
-    setUserAnswers((prev) => ({
-      ...prev,
-      [qId]: newSelected,
-    }));
-
-    // If single-choice in instant feedback mode, check answer immediately
-    if (feedbackMode === "instant" && !isMulti) {
-      await evaluateInstantAnswer(qId, newSelected);
-    } else if (isMulti && instantResults[qId]) {
-      // If user modified a previously evaluated multi-choice answer, clear instant result until they re-check
-      setInstantResults((prev) => {
-        const next = { ...prev };
-        delete next[qId];
-        return next;
-      });
-    }
-
-    // Persist answer to backend in background
-    try {
-      await saveAnswer(safeAttemptId, qId, newSelected);
-    } catch (e) {
-      console.warn("Background save warning:", e);
-    }
-  };
-
-  // Multiple-choice dedicated check handler in instant mode
-  const handleCheckMultipleChoice = async () => {
-    if (!currentQuestion) return;
-    const qId = currentQuestion.questionId;
-    const selected = userAnswers[qId] || "";
-    if (!selected) return;
-    await evaluateInstantAnswer(qId, selected);
-  };
-
-  // Submit test
-  const handleConfirmSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      await submitAttempt(safeAttemptId);
-      closeSubmitConfirm();
-      navigate(`/attempts/${safeAttemptId}/review`, { replace: true });
-    } catch (err) {
-      alert(getErrorMessage(err, "Nộp bài thi thất bại."));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-color-6">
-        <div className="flex flex-col items-center gap-space-3 p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm">
-          <div className="w-10 h-10 border-4 border-color-2 border-t-transparent rounded-full animate-spin"></div>
-          <p className="font-bold text-text-sm text-color-1">Đang tải phòng thi và câu hỏi...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !currentQuestion) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-space-4">
-        <div className="max-w-md p-space-6 bg-color-7 border-2 border-color-4 text-center rounded-3xl shadow-sm">
-          <h3 className="text-text-lg font-bold text-color-4 mb-2">Không thể tải bài thi</h3>
-          <p className="text-text-xs text-color-1/70 mb-space-4">
-            {error
-              ? getErrorMessage(error, "Đề thi có thể đã kết thúc hoặc không tìm thấy phiên làm bài hợp lệ.")
-              : "Đề thi có thể đã kết thúc hoặc không tìm thấy phiên làm bài hợp lệ."}
-          </p>
-          <Button variant="primary" onClick={() => navigate("/")}>
-            Quay về danh sách môn học
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Build question items for sidebar
-  const sidebarItems = questions.map((q, idx) => {
-    const isAnswered = !!userAnswers[q.questionId];
-    const instantCheck = instantResults[q.questionId];
-    return {
-      id: q.questionId,
-      number: idx + 1,
-      isAnswered,
-      isCurrent: idx === currentQuestionIndex,
-      isCorrect: feedbackMode === "instant" && instantCheck ? instantCheck.isCorrect : null,
-    };
+  useWorkspaceShortcuts({
+    sortedOptionKeys: adapter.sortedOptionKeys,
+    isOptionsLocked:
+      adapter.sessionStatus !== "ready" || adapter.timer.isExpired || adapter.isSubmitting,
+    isContinueReady: false,
+    canSubmitMultiChoice: Boolean(
+      adapter.feedbackMode === "instant" &&
+        activeQuestion?.questionType === "multiple_choice" &&
+        adapter.selectedOptions
+    ),
+    hasVisualMedia,
+    isModalOpen:
+      adapter.sessionStatus !== "ready" ||
+      isShortcutHelpOpen ||
+      isExitConfirmOpen ||
+      adapter.isAiModalOpen ||
+      adapter.isSubmitConfirmOpen ||
+      isMobileNavigatorOpen,
+    onSelectOption: (optionKey) => {
+      void adapter.selectOption(optionKey);
+    },
+    onSubmitMultiChoice: () => {
+      void adapter.submitMultiChoiceCheck();
+    },
+    onPrevQuestion: adapter.navigatePrev,
+    onNextQuestion: adapter.navigateNext,
+    onZoomIn: zoomPan.zoomIn,
+    onZoomOut: zoomPan.zoomOut,
+    onResetZoom: zoomPan.resetZoom,
+    onOpenShortcuts: () => setIsShortcutHelpOpen(true),
   });
 
-  const currentInstant = instantResults[currentQuestion.questionId];
-
-  return (
-    <div className="max-w-7xl mx-auto w-full px-space-3 sm:px-space-5 py-space-4 flex flex-col gap-space-4 flex-1">
-      {/* Top Header Row matching Sketch: Progress Bar (left), Timer (center), Benchmark Badge + Submit Button (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-3 items-stretch">
-        {/* Progress Bar (Left Column top) */}
+  if (adapter.sessionStatus === "loading") {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-color-6 p-space-4">
         <div
+          role="status"
+          aria-live="polite"
           data-impeccable-ignore="hard-offset-shadow"
-          className="lg:col-span-5 bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 shadow-sm flex items-center min-w-0"
+          className="flex flex-col items-center gap-space-3 p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm"
         >
-          <ProgressBar
-            current={answeredCount}
-            total={totalQuestions}
-            label={attempt?.examTitle || "Tiến độ bài thi"}
-          />
-        </div>
-
-        {/* Timer Box */}
-        <div
-          data-impeccable-ignore="hard-offset-shadow"
-          className={`lg:col-span-2 flex items-center justify-center gap-1.5 p-space-2 sm:p-space-3 rounded-2xl border-2 border-color-1 shadow-sm font-bold text-text-sm tabular-nums ${
-            isWarning
-              ? "bg-color-4 text-color-7 animate-pulse border-color-4"
-              : isUntimed
-              ? "bg-color-7 text-color-2"
-              : "bg-color-7 text-color-1"
-          }`}
-          data-testid="exam-timer-box"
-        >
-          <Clock className="w-4 h-4 shrink-0" />
-          <span>{formattedTime}</span>
-        </div>
-
-        {/* Benchmark toggle box + Submit Button */}
-        <div
-          data-impeccable-ignore="hard-offset-shadow"
-          className="lg:col-span-5 flex items-center justify-between gap-space-2 p-space-2 sm:px-space-3 sm:py-space-2 rounded-2xl border-2 border-color-1 bg-color-7 shadow-sm min-w-0"
-        >
-          <button
-            type="button"
-            onClick={() =>
-              setBenchmarkMode(benchmarkMode === "ai" ? "community" : "ai")
-            }
-            className="min-w-0 flex-1 flex items-center gap-1.5 px-space-2 py-1.5 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 hover:bg-color-2/10 hover:border-color-2 transition-all cursor-pointer shadow-2xs select-none outline-none focus-visible:ring-2 focus-visible:ring-color-5"
-            title="Nhấn để đổi nguồn đối chiếu: Theo AI chuẩn / Theo cộng đồng"
-          >
-            <ShieldCheck className="w-4 h-4 text-color-2 shrink-0" />
-            <span className="truncate">
-              Answers: {benchmarkMode === "ai" ? "Theo AI chuẩn" : "Theo cộng đồng"}
-            </span>
-          </button>
-
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={openSubmitConfirm}
-            className="shrink-0 flex items-center gap-1.5 px-space-2 sm:px-space-3 py-1.5 text-text-xs whitespace-nowrap shadow-xs"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Nộp bài</span>
-          </Button>
+          <div className="w-10 h-10 border-4 border-color-2 border-t-transparent rounded-full animate-spin" />
+          <p className="font-bold text-text-sm text-color-1">
+            Đang tải phòng thi và câu hỏi...
+          </p>
         </div>
       </div>
+    );
+  }
 
-      {/* Main Dual-Column Content matching Sketch */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-4 flex-1 items-start">
-        {/* Left Column: Big Question Canvas + Zoom Tools */}
-        <div className="lg:col-span-8 flex flex-col h-full min-h-[500px]">
-          <QuestionCanvas
-            questionNumber={currentQuestionIndex + 1}
-            questionCode={currentQuestion.questionIdCode}
-            questionType={currentQuestion.questionType}
-            imageUrl={currentQuestion.imageUrl}
-            questionTextFallback={currentQuestion.questionText}
-          />
-        </div>
-
-        {/* Right Column: Question List, Question Choice, View AI Answers */}
-        <div className="lg:col-span-4 flex flex-col gap-space-4">
-          {/* Question List Sidebar */}
-          <QuestionListSidebar
-            totalQuestions={totalQuestions}
-            questions={sidebarItems}
-            activeQuestionIndex={currentQuestionIndex}
-            onSelectQuestion={(idx) => setQuestionIndex(idx)}
-            onPrevQuestion={() => setQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
-            onNextQuestion={() => setQuestionIndex(Math.min(totalQuestions - 1, currentQuestionIndex + 1))}
-            answeredCount={answeredCount}
-          />
-
-          {/* Question Choice Panel */}
-          <QuestionChoicePanel
-            options={currentQuestion.options}
-            selectedOptions={userAnswers[currentQuestion.questionId] || null}
-            questionType={currentQuestion.questionType}
-            onSelectOption={handleSelectOption}
-            onCheckAnswer={handleCheckMultipleChoice}
-            feedbackMode={feedbackMode}
-            instantResult={currentInstant}
-          />
-
-          {/* View AI Answers Action Button (Always viewable at all times) */}
-          <div className="bg-color-7 p-space-2 rounded-2xl border-2 border-color-1 shadow-sm text-center">
+  if (adapter.sessionStatus === "error" || !activeQuestion) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-color-6 p-space-4">
+        <Card className="max-w-md w-full p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl text-center shadow-sm flex flex-col gap-space-4">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="flex flex-col items-center gap-space-2"
+          >
+            <div className="w-12 h-12 rounded-full bg-color-4 text-color-1 border-2 border-color-1 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6" aria-hidden="true" />
+            </div>
+            <h1 className="text-text-lg font-bold text-color-1">
+              Không thể tải bài thi
+            </h1>
+            <p className="text-text-xs font-medium text-color-1">
+              {adapter.loadErrorMessage}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-space-2">
             <Button
-              variant="accent"
+              variant="primary"
               size="md"
-              onClick={openAiModal}
-              className="w-full flex items-center justify-center gap-space-2 shadow-xs"
+              onClick={() => {
+                void adapter.retryLoad();
+              }}
+              className="min-h-11 flex-1 inline-flex items-center justify-center gap-space-1"
             >
-              <Bot className="w-5 h-5 text-color-5" />
-              <span className="font-bold">View AI Answers</span>
-              <Sparkles className="w-4 h-4 text-color-5 ml-1" />
+              <RotateCcw className="w-4 h-4" />
+              <span>Thử lại</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => navigate("/")}
+              className="min-h-11 flex-1"
+            >
+              Quay về danh sách môn học
             </Button>
           </div>
-        </div>
+        </Card>
       </div>
+    );
+  }
 
-      {/* Persistent AI Answers Modal */}
-      <AiAnswerModal
-        isOpen={isAiModalOpen}
-        onClose={closeAiModal}
-        questionNumber={currentQuestionIndex + 1}
-        questionCode={currentQuestion.questionIdCode}
-        aiChoice={
-          currentInstant?.correctAnswer ||
-          aiExplanations[currentQuestion.questionId]?.aiChoice ||
-          "C"
-        }
-        aiModel="gemini-3-flash-preview"
-        aiExplanation={
-          currentInstant?.aiExplanation ||
-          aiExplanations[currentQuestion.questionId]?.aiExplanation ||
-          "Bước 1: Xác định điều kiện bài toán.\nBước 2: Áp dụng định lý tương đương logic.\nBước 3: Kết luận phương án đúng."
-        }
-        optionByOptionAnalysis={
-          currentInstant?.optionByOptionAnalysis ||
-          aiExplanations[currentQuestion.questionId]?.optionByOptionAnalysis
-        }
-      />
+  return (
+    <StudyCockpitShell
+      hasVisualMedia={hasVisualMedia}
+      banners={
+        adapter.submitError ? (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="p-space-3 rounded-2xl bg-color-4/15 border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2 text-color-1"
+          >
+            <div className="flex items-center gap-space-2 text-text-xs sm:text-text-sm font-bold">
+              <span className="w-7 h-7 rounded-full bg-color-4 text-color-1 border border-color-1 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4 h-4" aria-hidden="true" />
+              </span>
+              <span>{adapter.submitError}</span>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              isLoading={adapter.isSubmitting}
+              onClick={() => {
+                void adapter.confirmSubmit();
+              }}
+              className="min-h-11 inline-flex items-center gap-space-1"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Thử nộp lại</span>
+            </Button>
+          </div>
+        ) : null
+      }
+      header={
+        <CockpitHeader
+          title={adapter.examTitle}
+          exitLabel="Thoát phòng thi"
+          onExit={() => setIsExitConfirmOpen(true)}
+          progressLabel="Tiến độ bài thi"
+          progressCurrent={adapter.answeredCount}
+          progressTotal={adapter.totalQuestions}
+          modeBadge={{
+            label: adapter.feedbackMode === "instant" ? "Chấm tức thì" : "Thi chuẩn",
+            tone: adapter.feedbackMode === "instant" ? "accent" : "primary",
+          }}
+          saveStatus={adapter.saveStatus}
+          onRetrySave={() => {
+            void adapter.retrySave();
+          }}
+          statusSlot={
+            <div
+              data-testid="exam-timer-box"
+              role={adapter.timer.isWarning ? "status" : undefined}
+              aria-live={adapter.timer.isWarning ? "polite" : undefined}
+              className={`min-h-11 px-space-3 py-space-1 rounded-full border-2 border-color-1 inline-flex items-center gap-space-1 font-bold text-text-xs tabular-nums shrink-0 ${
+                adapter.timer.isWarning
+                  ? "bg-color-4 text-color-1 animate-pulse"
+                  : adapter.timer.isUntimed
+                    ? "bg-color-6 text-color-1"
+                    : "bg-color-7 text-color-1"
+              }`}
+            >
+              <Clock
+                className={`w-4 h-4 shrink-0 ${
+                  adapter.timer.isWarning ? "text-color-1" : "text-color-2"
+                }`}
+                aria-hidden="true"
+              />
+              <span>
+                {adapter.timer.isUntimed
+                  ? `Không giới hạn • ${adapter.timer.formattedElapsed}`
+                  : adapter.timer.formattedTime}
+              </span>
+            </div>
+          }
+          onOpenShortcuts={() => setIsShortcutHelpOpen(true)}
+          primaryActionSlot={
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={adapter.openSubmitDialog}
+              className="min-h-11 inline-flex items-center gap-space-1"
+            >
+              <Send className="w-4 h-4" />
+              <span>Nộp bài</span>
+            </Button>
+          }
+        />
+      }
+      stageContent={
+        <QuestionStage
+          question={activeQuestion}
+          zoomPan={zoomPan}
+          headingRef={headingRef}
+          onMediaAvailabilityChange={(available) => {
+            if (!activeQuestionId) return;
+            setFailedDiagramIds((prev) => {
+              const currentlyFailed = Boolean(prev[activeQuestionId]);
+              if (currentlyFailed === !available) return prev;
+              return { ...prev, [activeQuestionId]: !available };
+            });
+          }}
+        />
+      }
+      choiceContent={
+        <div className="flex flex-col gap-space-4">
+          <ChoiceOptionList
+            options={activeQuestion.options}
+            selectedOptions={adapter.selectedOptions}
+            questionType={activeQuestion.questionType}
+            feedbackMode={adapter.feedbackMode}
+            evaluation={adapter.evaluation}
+            isLocked={adapter.timer.isExpired || adapter.isSubmitting}
+            allowsClear={true}
+            onSelectOption={(key) => {
+              void adapter.selectOption(key);
+            }}
+            onClearSelection={() => {
+              void adapter.clearSelection();
+            }}
+            onSubmitMultiChoice={() => {
+              void adapter.submitMultiChoiceCheck();
+            }}
+          />
 
-      {/* Submit Confirmation Dialog */}
-      <SubmitConfirmModal
-        isOpen={isSubmitConfirmOpen}
-        onClose={closeSubmitConfirm}
-        onConfirm={handleConfirmSubmit}
-        totalQuestions={totalQuestions}
-        answeredCount={answeredCount}
-        timeRemainingFormatted={formattedTime}
-        isSubmitting={isSubmitting}
-      />
-    </div>
+          {adapter.feedbackMode === "instant" && adapter.evaluation && (
+            <FeedbackExplanationCard
+              evaluation={adapter.evaluation}
+              onRetry={() => {
+                void adapter.submitMultiChoiceCheck();
+              }}
+              onOpenAiModal={adapter.openAiAnalysis}
+            />
+          )}
+
+          {!(
+            adapter.feedbackMode === "instant" &&
+            adapter.evaluation?.status === "resolved"
+          ) && (
+            <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
+              <span className="text-text-xs font-bold text-color-1">
+                Phân tích chi tiết & loại trừ đáp án
+              </span>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={adapter.openAiAnalysis}
+                className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
+              >
+                <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 inline-flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                </span>
+                <span>Xem giải thích AI</span>
+              </Button>
+            </div>
+          )}
+        </div>
+      }
+      navigatorContent={
+        <QuestionNavigator
+          title="Danh sách câu hỏi"
+          items={adapter.navigatorItems}
+          activeIndex={adapter.currentIndex}
+          answeredCount={adapter.answeredCount}
+          totalCount={adapter.totalQuestions}
+          onSelectQuestion={(idx) => {
+            adapter.jumpToQuestion(idx);
+            setIsMobileNavigatorOpen(false);
+          }}
+          onPrevQuestion={adapter.navigatePrev}
+          onNextQuestion={adapter.navigateNext}
+          supportsFreeJump={true}
+          isMobileDrawerOpen={isMobileNavigatorOpen}
+          onOpenMobileDrawer={() => setIsMobileNavigatorOpen(true)}
+          onCloseMobileDrawer={() => setIsMobileNavigatorOpen(false)}
+        />
+      }
+      mobileStatusLabel={`${adapter.currentIndex + 1}/${adapter.totalQuestions} • ${adapter.answeredCount} đã làm`}
+      canPrev={adapter.currentIndex > 0}
+      canNext={adapter.currentIndex < adapter.totalQuestions - 1}
+      onPrev={adapter.navigatePrev}
+      onNext={adapter.navigateNext}
+      onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
+      mobilePrimaryAction={
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={adapter.openAiAnalysis}
+          aria-label="Phân tích AI"
+          className="min-h-11 inline-flex items-center gap-space-1"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>AI</span>
+        </Button>
+      }
+      modals={
+        <>
+          <AiAnswerModal
+            isOpen={adapter.isAiModalOpen}
+            onClose={adapter.closeAiAnalysis}
+            questionNumber={adapter.currentIndex + 1}
+            questionCode={activeQuestion.questionIdCode}
+            questionText={activeQuestion.questionText}
+            imageUrl={activeQuestion.imageUrl}
+            options={activeQuestion.options}
+            selectedOption={adapter.selectedOptions || null}
+            aiChoice={adapter.aiModalState.aiChoice}
+            aiModel="gemini-3-flash-preview"
+            aiExplanation={adapter.aiModalState.aiExplanation}
+            optionByOptionAnalysis={adapter.aiModalState.optionByOptionAnalysis}
+            isLoading={adapter.aiModalState.isLoading}
+            errorMessage={adapter.aiModalState.errorMessage}
+            onRetry={() => {
+              void adapter.retryAiAnalysis();
+            }}
+          />
+
+          <Modal
+            isOpen={isExitConfirmOpen}
+            onClose={() => setIsExitConfirmOpen(false)}
+            title="Xác nhận thoát phòng thi"
+            size="sm"
+          >
+            <div className="flex flex-col gap-space-4">
+              <div className="flex items-start gap-space-3 p-space-4 rounded-2xl bg-color-5/25 border-2 border-color-1 text-color-1">
+                <div className="w-10 h-10 rounded-full bg-color-5 text-color-1 border-2 border-color-1 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <div className="flex flex-col gap-space-1">
+                  <p className="text-text-sm font-bold text-color-1">
+                    Bạn có chắc muốn rời khỏi phòng thi lúc này?
+                  </p>
+                  <p className="text-text-xs font-medium text-color-1">
+                    {adapter.timer.isUntimed
+                      ? "Phiên làm bài chưa được nộp. Bạn có thể quay lại tiếp tục sau."
+                      : `Đồng hồ làm bài (${adapter.timer.formattedTime}) vẫn tiếp tục chạy trên hệ thống ngay cả khi bạn rời trang.`}
+                  </p>
+                </div>
+              </div>
+
+              {adapter.pendingSaveCount > 0 && (
+                <div
+                  role="alert"
+                  className="p-space-3 rounded-2xl bg-color-4/15 border-2 border-color-1 text-color-1 flex flex-wrap items-center justify-between gap-space-2"
+                >
+                  <span className="text-text-xs font-bold">
+                    Cảnh báo: Còn {adapter.pendingSaveCount} đáp án chưa đồng bộ lên máy chủ.
+                  </span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      void adapter.retrySave();
+                    }}
+                    className="min-h-11 shrink-0"
+                  >
+                    Lưu lại ngay
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-space-2 pt-space-2 border-t-2 border-color-6">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => {
+                    setIsExitConfirmOpen(false);
+                    navigate("/");
+                  }}
+                  className="min-h-11 inline-flex items-center justify-center gap-space-1"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Rời phòng thi</span>
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => setIsExitConfirmOpen(false)}
+                  className="min-h-11"
+                >
+                  Tiếp tục làm bài
+                </Button>
+              </div>
+            </div>
+          </Modal>
+
+          <SubmitConfirmModal
+            isOpen={adapter.isSubmitConfirmOpen}
+            onClose={adapter.closeSubmitDialog}
+            onConfirm={() => {
+              void adapter.confirmSubmit();
+            }}
+            totalQuestions={adapter.totalQuestions}
+            answeredCount={adapter.answeredCount}
+            timeRemainingFormatted={
+              adapter.timer.isUntimed
+                ? `Không giới hạn (${adapter.timer.formattedElapsed})`
+                : adapter.timer.formattedTime
+            }
+            isSubmitting={adapter.isSubmitting}
+            submitError={adapter.submitError}
+          />
+
+          <ShortcutHelpModal
+            isOpen={isShortcutHelpOpen}
+            onClose={() => setIsShortcutHelpOpen(false)}
+            mode="exam"
+            hasVisualMedia={hasVisualMedia}
+          />
+        </>
+      }
+    />
   );
 };
+
+export default ExamWorkspaceView;

@@ -1,5 +1,6 @@
 import React from "react";
 import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export type ButtonVariant = "primary" | "secondary" | "accent" | "danger" | "ghost" | "choice";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -14,18 +15,22 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   children: React.ReactNode;
 }
 
-export const Button: React.FC<ButtonProps> = ({
-  variant = "primary",
-  size = "md",
-  isLoading = false,
-  isError = false,
-  selected = false,
-  correct = null,
-  disabled = false,
-  className,
-  children,
-  ...props
-}) => {
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      variant = "primary",
+      size = "md",
+      isLoading = false,
+      isError = false,
+      selected = false,
+      correct = null,
+      disabled = false,
+      className,
+      children,
+      ...props
+    },
+    ref
+  ) => {
   const baseStyles =
     "inline-flex items-center justify-center font-bold tracking-wide rounded-full border-2 transition-all duration-fast select-none cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none active:translate-y-0.5";
 
@@ -42,7 +47,7 @@ export const Button: React.FC<ButtonProps> = ({
     if (correct === true) {
       variantStyles = "bg-color-3 text-color-7 border-color-3 shadow-sm";
     } else if (correct === false) {
-      variantStyles = "bg-color-4 text-color-7 border-color-4 shadow-sm";
+      variantStyles = "bg-color-4 text-color-1 border-color-1 shadow-sm";
     } else if (selected) {
       variantStyles = "bg-color-2 text-color-7 border-color-2 shadow-sm";
     } else {
@@ -53,7 +58,7 @@ export const Button: React.FC<ButtonProps> = ({
     switch (variant) {
       case "primary":
         variantStyles =
-          "bg-color-2 text-color-7 border-color-2 shadow-sm hover:bg-opacity-90 hover:border-opacity-90 active:bg-color-1 active:border-color-1";
+          "bg-color-2 text-color-7 border-color-2 shadow-sm hover:bg-color-2/90 hover:border-color-2/90 active:bg-color-1 active:border-color-1";
         break;
       case "secondary":
         variantStyles =
@@ -61,11 +66,11 @@ export const Button: React.FC<ButtonProps> = ({
         break;
       case "accent":
         variantStyles =
-          "bg-color-3 text-color-7 border-color-3 shadow-sm hover:bg-opacity-90 active:bg-color-1";
+          "bg-color-3 text-color-7 border-color-3 shadow-sm hover:bg-color-3/90 active:bg-color-1";
         break;
       case "danger":
         variantStyles =
-          "bg-color-4 text-color-7 border-color-4 shadow-sm hover:bg-opacity-90 active:bg-color-1";
+          "bg-color-4 text-color-1 border-color-1 shadow-sm hover:bg-color-4/90 active:bg-color-1 active:text-color-7";
         break;
       case "ghost":
         variantStyles =
@@ -75,19 +80,22 @@ export const Button: React.FC<ButtonProps> = ({
   }
 
   const errorStyles = isError
-    ? "border-color-4 text-color-4 ring-2 ring-color-4"
+    ? "border-color-4 bg-color-4/15 text-color-1 ring-2 ring-color-4"
     : "";
 
   return (
     <button
+      ref={ref}
       data-impeccable-ignore="hard-offset-shadow"
       disabled={disabled || isLoading}
-      className={clsx(
-        baseStyles,
-        sizeStyles[size],
-        variantStyles,
-        errorStyles,
-        className
+      className={twMerge(
+        clsx(
+          baseStyles,
+          sizeStyles[size],
+          variantStyles,
+          errorStyles,
+          className
+        )
       )}
       {...props}
     >
@@ -120,4 +128,6 @@ export const Button: React.FC<ButtonProps> = ({
       )}
     </button>
   );
-};
+});
+
+Button.displayName = "Button";

@@ -18,7 +18,7 @@ export const Badge: React.FC<BadgeProps> = ({
     default: "bg-color-6 text-color-1 border-color-1",
     primary: "bg-color-2 text-color-7 border-color-2",
     success: "bg-color-3 text-color-7 border-color-3",
-    danger: "bg-color-4 text-color-7 border-color-4",
+    danger: "bg-color-4 text-color-1 border-color-1",
     warning: "bg-color-5 text-color-1 border-color-1",
     neutral: "bg-color-7 text-color-1 border-color-1",
   };

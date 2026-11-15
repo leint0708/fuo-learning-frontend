@@ -50,7 +50,7 @@ describe("PracticeQuestionCard", () => {
     expect(screen.getByText("What is the capital of Vietnam?")).toBeInTheDocument();
     expect(screen.getByText("Hanoi")).toBeInTheDocument();
     expect(screen.getByText("Ho Chi Minh City")).toBeInTheDocument();
-    expect(screen.getByText("Câu 1")).toBeInTheDocument();
+    expect(screen.getByText(/Câu 1/)).toBeInTheDocument();
   });
 
   it("calls onSelectOption when an option is clicked on single-choice question", () => {

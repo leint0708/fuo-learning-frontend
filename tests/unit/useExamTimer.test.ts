@@ -106,5 +106,39 @@ describe("useExamTimer", () => {
       expect(result.current.isExpired).toBe(false);
       expect(onExpire).not.toHaveBeenCalled();
     });
+
+    it("exposes formattedElapsed in untimed mode and does not recreate interval on every tick", () => {
+      const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+      const { result } = renderHook(() =>
+        useExamTimer({
+          initialSeconds: 600,
+          isUntimed: false,
+        })
+      );
+
+      expect(result.current.formattedElapsed).toBe("00:00");
+      const callsBeforeTick = setIntervalSpy.mock.calls.length;
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+
+      expect(result.current.remainingSeconds).toBe(597);
+      // Interval must not be recreated per second during countdown
+      expect(setIntervalSpy.mock.calls.length).toBe(callsBeforeTick);
+
+      const { result: untimed } = renderHook(() =>
+        useExamTimer({
+          initialSeconds: null,
+        })
+      );
+      act(() => {
+        vi.advanceTimersByTime(65000);
+      });
+      expect(untimed.current.formattedTime).toBe("Không giới hạn");
+      expect(untimed.current.formattedElapsed).toBe("01:05");
+
+      setIntervalSpy.mockRestore();
+    });
   });
 });

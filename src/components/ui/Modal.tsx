@@ -23,6 +23,8 @@ export const Modal: React.FC<ModalProps> = ({
   const titleId = useId();
   const modalCardRef = useRef<HTMLDivElement | null>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -43,7 +45,7 @@ export const Modal: React.FC<ModalProps> = ({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -88,7 +90,7 @@ export const Modal: React.FC<ModalProps> = ({
         previousActiveElementRef.current.focus();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -110,24 +112,24 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-space-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-fast overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-space-2 sm:p-space-4 bg-black/60 backdrop-blur-sm transition-opacity duration-fast overflow-y-auto"
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={title ? titleId : undefined}
     >
       <div
         ref={modalCardRef}
         tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
         data-impeccable-ignore="hard-offset-shadow"
         className={clsx(
-          "bg-color-7 text-color-1 w-full rounded-3xl border-2 border-color-1 shadow-sm overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-fast outline-none",
+          "bg-color-7 text-color-1 w-full rounded-3xl border-2 border-color-1 shadow-sm overflow-hidden flex flex-col max-h-[90vh] transition-transform duration-fast outline-none",
           sizeClasses[size]
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-space-5 py-space-4 border-b-2 border-color-1 bg-color-6">
+        <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-3 sm:px-space-5 sm:py-space-4 border-b-2 border-color-1 bg-color-6">
           <h3 id={titleId} className="font-bold text-text-lg truncate">
             {title}
           </h3>
@@ -142,7 +144,7 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-space-5 overflow-y-auto flex-1">{children}</div>
+        <div className="p-space-3 sm:p-space-5 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

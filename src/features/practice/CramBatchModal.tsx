@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Trophy, ArrowRight, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 
 export interface CramBatchModalProps {
   isOpen: boolean;
@@ -17,62 +18,69 @@ export const CramBatchModal: React.FC<CramBatchModalProps> = ({
   isOpen,
   batchNumber,
   totalBatches,
-  batchSize: _batchSize,
+  batchSize,
   cumulativeMastered,
   totalDeckSize,
   onContinueNextBatch,
   onFinishSession,
 }) => {
+  const continueBtnRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
 
+    // Move initial focus inside dialog onto the safe primary continue button
+    if (continueBtnRef.current && typeof continueBtnRef.current.focus === "function") {
+      continueBtnRef.current.focus();
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        onContinueNextBatch();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        onFinishSession();
+      if (e.defaultPrevented) return;
+      if (e.key !== "Enter" && e.key !== " ") return;
+
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (
+        activeEl &&
+        activeEl.tagName === "BUTTON" &&
+        activeEl.dataset.continueAction !== "true"
+      ) {
+        // Respect explicit stop / close button focus so Enter/Space activates it cleanly
+        return;
       }
+
+      e.preventDefault();
+      onContinueNextBatch();
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onContinueNextBatch, onFinishSession]);
-
-  if (!isOpen) return null;
+  }, [isOpen, onContinueNextBatch]);
 
   const percentage = Math.round((cumulativeMastered / Math.max(1, totalDeckSize)) * 100);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="cram-batch-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-space-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-fast"
+    <Modal
+      isOpen={isOpen}
+      onClose={onContinueNextBatch}
+      title={`Hoàn thành Đợt ${batchNumber}/${totalBatches}!`}
+      size="sm"
     >
-      <div
-        data-impeccable-ignore="hard-offset-shadow"
-        className="bg-color-7 text-color-1 w-full max-w-md rounded-3xl border-2 border-color-1 shadow-sm overflow-hidden flex flex-col p-space-6 text-center animate-in zoom-in-95 duration-fast"
-      >
-        {/* Celebration Trophy Icon */}
-        <div className="mx-auto w-16 h-16 rounded-full bg-color-5/20 border-2 border-color-1 flex items-center justify-center text-color-1 mb-space-4 shadow-xs">
-          <Trophy className="w-8 h-8 text-color-5" />
+      <div className="flex flex-col text-center gap-space-4">
+        <div className="mx-auto w-14 h-14 rounded-full bg-color-5 border-2 border-color-1 flex items-center justify-center text-color-1 shadow-xs">
+          <Trophy className="w-7 h-7" aria-hidden="true" />
         </div>
 
-        {/* Milestone Headline */}
-        <h2 id="cram-batch-modal-title" className="text-text-xl font-bold text-color-1 mb-space-1">
-          Hoàn thành Batch {batchNumber}/{totalBatches}! 🎉
-        </h2>
-        <p className="text-text-sm text-color-1/75 mb-space-4">
-          Bạn đã ghi nhớ toàn bộ câu hỏi trong nhóm vừa rồi mà không còn lỗi sai nào.
+        <p className="text-text-sm font-medium text-color-1">
+          Bạn đã ghi nhớ toàn bộ {batchSize} câu hỏi trong đợt vừa rồi mà không còn lỗi sai nào.
         </p>
 
         {/* Progress Card */}
-        <div className="p-space-4 rounded-2xl bg-color-6 border-2 border-color-1 shadow-xs mb-space-5">
-          <div className="flex justify-between items-center text-text-xs font-bold text-color-1 mb-2">
+        <div className="p-space-4 rounded-2xl bg-color-6 border-2 border-color-1 shadow-xs text-left">
+          <div className="flex justify-between items-center text-text-xs font-bold text-color-1 mb-space-2">
             <span>Tiến độ tổng môn học:</span>
-            <span className="text-color-2 font-bold">{cumulativeMastered}/{totalDeckSize} câu</span>
+            <span className="text-color-2 font-bold tabular-nums">
+              {cumulativeMastered}/{totalDeckSize} câu
+            </span>
           </div>
           <div className="w-full bg-color-7 border-2 border-color-1 rounded-full h-3 overflow-hidden">
             <div
@@ -80,7 +88,7 @@ export const CramBatchModal: React.FC<CramBatchModalProps> = ({
               style={{ width: `${percentage}%` }}
             />
           </div>
-          <span className="text-text-xs font-bold text-color-3 mt-1.5 block">
+          <span className="text-text-xs font-bold text-color-1 mt-space-2 block tabular-nums">
             {percentage}% ngân hàng câu hỏi đã thuộc
           </span>
         </div>
@@ -88,12 +96,14 @@ export const CramBatchModal: React.FC<CramBatchModalProps> = ({
         {/* Action Buttons */}
         <div className="flex flex-col gap-space-3">
           <Button
+            ref={continueBtnRef as React.RefObject<HTMLButtonElement>}
+            data-continue-action="true"
             variant="primary"
             size="lg"
             onClick={onContinueNextBatch}
-            className="w-full flex items-center justify-center gap-2"
+            className="min-h-11 w-full flex items-center justify-center gap-space-2"
           >
-            <span>Tiếp tục Batch tiếp theo</span>
+            <span>Tiếp tục Đợt tiếp theo</span>
             <ArrowRight className="w-5 h-5" />
           </Button>
 
@@ -101,13 +111,13 @@ export const CramBatchModal: React.FC<CramBatchModalProps> = ({
             variant="secondary"
             size="md"
             onClick={onFinishSession}
-            className="w-full flex items-center justify-center gap-2 border-2 border-color-1 shadow-xs"
+            className="min-h-11 w-full flex items-center justify-center gap-space-1 border-2 border-color-1 shadow-xs"
           >
             <X className="w-4 h-4" />
             <span>Dừng bài luyện tập</span>
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

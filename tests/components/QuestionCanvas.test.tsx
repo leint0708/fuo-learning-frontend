@@ -14,10 +14,10 @@ describe("QuestionCanvas Component Tests", () => {
     );
 
     expect(screen.getByText(/Câu 1 \(100%\)/)).toBeInTheDocument();
-    expect(screen.getByText("Single Choice")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /zoom in/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /zoom out/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /original/i })).toBeInTheDocument();
+    expect(screen.getByText("Một đáp án")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /phóng to/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /thu nhỏ/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /kích thước gốc/i })).toBeInTheDocument();
   });
 
   it("renders Multiple Choice badge when questionType is multiple_choice", () => {
@@ -31,7 +31,7 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    expect(screen.getByText("Multiple Choice")).toBeInTheDocument();
+    expect(screen.getByText("Nhiều đáp án")).toBeInTheDocument();
   });
 
   it("preserves zoom level when question props change", () => {
@@ -44,15 +44,11 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    // Initial zoom is 100%
     expect(screen.getByText(/100%/)).toBeInTheDocument();
 
-    // Zoom in to 125%
-    const zoomInBtn = screen.getByRole("button", { name: /zoom in/i });
-    fireEvent.click(zoomInBtn);
+    fireEvent.click(screen.getByRole("button", { name: /phóng to/i }));
     expect(screen.getByText(/125%/)).toBeInTheDocument();
 
-    // Rerender with next question
     rerender(
       <QuestionCanvas
         questionNumber={2}
@@ -62,7 +58,6 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    // Zoom level remains preserved at 125%
     expect(screen.getByText(/125%/)).toBeInTheDocument();
     expect(screen.getByText(/Câu 2/)).toBeInTheDocument();
   });
@@ -77,19 +72,12 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    // Initial 100%
     expect(screen.getByText(/100%/)).toBeInTheDocument();
 
-    const zoomInBtn = screen.getByRole("button", { name: /zoom in/i });
-    fireEvent.click(zoomInBtn);
-
-    // Zoom level increases to 125%
+    fireEvent.click(screen.getByRole("button", { name: /phóng to/i }));
     expect(screen.getByText(/125%/)).toBeInTheDocument();
 
-    const zoomOutBtn = screen.getByRole("button", { name: /zoom out/i });
-    fireEvent.click(zoomOutBtn);
-
-    // Zoom level returns to 100%
+    fireEvent.click(screen.getByRole("button", { name: /thu nhỏ/i }));
     expect(screen.getByText(/100%/)).toBeInTheDocument();
   });
 
@@ -116,21 +104,18 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    const img = screen.getByRole("img", { name: /đề thi câu 4/i });
+    const img = screen.getByRole("img", { name: /hình minh họa câu 4/i });
     expect(img).toBeInTheDocument();
 
-    // Trigger image error
     fireEvent.error(img);
 
-    // Fallback card with retry button is displayed
     expect(screen.getByText(/Question 4 fallback text/)).toBeInTheDocument();
-    expect(screen.getByText(/Không thể tải sơ đồ\/hình ảnh từ máy chủ/)).toBeInTheDocument();
+    expect(screen.getByText(/Không tải được hình ảnh \(Q4\)/)).toBeInTheDocument();
     const retryBtn = screen.getByRole("button", { name: /thử tải lại hình ảnh/i });
     expect(retryBtn).toBeInTheDocument();
 
-    // Clicking retry resets error and attempts reload
     fireEvent.click(retryBtn);
-    expect(screen.getByRole("img", { name: /đề thi câu 4/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /hình minh họa câu 4/i })).toBeInTheDocument();
   });
 
   it("supports zoom in and zoom out via Ctrl + scroll wheel", () => {
@@ -143,23 +128,17 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    // Initial 100%
     expect(screen.getByText(/100%/)).toBeInTheDocument();
 
-    const img = screen.getByRole("img", { name: /đề thi câu 1/i });
-    const viewport = img.closest(".relative");
-    expect(viewport).not.toBeNull();
+    const viewport = screen.getByTestId("question-stage-viewport");
 
-    // Wheel up with Ctrl: zoom in to 125%
-    fireEvent.wheel(viewport!, { ctrlKey: true, deltaY: -100 });
+    fireEvent.wheel(viewport, { ctrlKey: true, deltaY: -100 });
     expect(screen.getByText(/125%/)).toBeInTheDocument();
 
-    // Wheel down with Ctrl: zoom out to 100%
-    fireEvent.wheel(viewport!, { ctrlKey: true, deltaY: 100 });
+    fireEvent.wheel(viewport, { ctrlKey: true, deltaY: 100 });
     expect(screen.getByText(/100%/)).toBeInTheDocument();
 
-    // Normal wheel without Ctrl does NOT change zoom level
-    fireEvent.wheel(viewport!, { ctrlKey: false, deltaY: -100 });
+    fireEvent.wheel(viewport, { ctrlKey: false, deltaY: -100 });
     expect(screen.getByText(/100%/)).toBeInTheDocument();
   });
 
@@ -173,10 +152,15 @@ describe("QuestionCanvas Component Tests", () => {
       />
     );
 
-    const img = screen.getByRole("img", { name: /đề thi câu 1/i });
-    const viewport = img.closest(".touch-none") as HTMLElement;
+    const viewport = screen.getByTestId("question-stage-viewport");
+    expect(viewport.className).toContain("touch-pan-y");
+
+    // Zoom in so pan switches to touch-none
+    fireEvent.click(screen.getByRole("button", { name: /phóng to/i }));
+    expect(viewport.className).toContain("touch-none");
+
+    const img = screen.getByRole("img", { name: /hình minh họa câu 1/i });
     const transformWrapper = img.parentElement as HTMLElement;
-    expect(viewport).not.toBeNull();
 
     const dispatchPointer = (
       type: string,
@@ -192,19 +176,17 @@ describe("QuestionCanvas Component Tests", () => {
       fireEvent(viewport, evt);
     };
 
-    // Start pointer drag with pointerId 1
     dispatchPointer("pointerdown", { pointerId: 1, clientX: 100, clientY: 100 });
-    dispatchPointer("pointermove", { pointerId: 1, clientX: 140, clientY: 125 });
+    dispatchPointer("pointermove", { pointerId: 1, clientX: 150, clientY: 125 });
 
-    // A second finger (pointerId 2) landing mid-drag is ignored
+    // Second finger landing without active multi-touch is tracked for pinch but ignored for single pan delta
     dispatchPointer("pointerdown", { pointerId: 2, clientX: 300, clientY: 300 });
     dispatchPointer("pointermove", { pointerId: 2, clientX: 400, clientY: 400 });
 
-    expect(transformWrapper.style.transform).toContain("translate3d(40px, 25px, 0)");
+    expect(transformWrapper.style.transform).toContain("translate3d(40px, 20px, 0)");
 
-    // Cancel gesture (e.g. pointercancel) clears dragging state cleanly
     dispatchPointer("pointercancel", { pointerId: 1 });
     dispatchPointer("pointermove", { pointerId: 1, clientX: 200, clientY: 200 });
-    expect(transformWrapper.style.transform).toContain("translate3d(40px, 25px, 0)");
+    expect(transformWrapper.style.transform).toContain("translate3d(40px, 20px, 0)");
   });
 });

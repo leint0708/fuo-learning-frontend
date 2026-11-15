@@ -11,9 +11,10 @@ describe("Modal Primitive Backdrop", () => {
     );
 
     const dialog = screen.getByRole("dialog");
+    const backdrop = dialog.parentElement;
     expect(dialog).toBeInTheDocument();
-    expect(dialog.className).toContain("bg-black/60");
-    expect(dialog.className).toContain("backdrop-blur-sm");
+    expect(backdrop?.className).toContain("bg-black/60");
+    expect(backdrop?.className).toContain("backdrop-blur-sm");
     expect(screen.getByText("Modal Content")).toBeInTheDocument();
   });
 
@@ -50,7 +51,7 @@ describe("Modal Primitive Backdrop", () => {
     );
 
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(dialog);
+    fireEvent.click(dialog.parentElement!);
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
@@ -90,5 +91,26 @@ describe("Modal Primitive Backdrop", () => {
     // Tab from last element wraps back to first element
     fireEvent.keyDown(window, { key: "Tab", shiftKey: false });
     expect(document.activeElement).toBe(closeBtn);
+  });
+
+  it("does not steal focus away from inner element when onClose prop changes on parent re-renders", () => {
+    const { rerender } = render(
+      <Modal isOpen={true} onClose={() => {}} title="Timer Tick Modal">
+        <button>Stay Focused</button>
+      </Modal>
+    );
+
+    const innerButton = screen.getByRole("button", { name: "Stay Focused" });
+    innerButton.focus();
+    expect(document.activeElement).toBe(innerButton);
+
+    // Simulate 1Hz parent timer tick passing a fresh inline callback
+    rerender(
+      <Modal isOpen={true} onClose={() => {}} title="Timer Tick Modal">
+        <button>Stay Focused</button>
+      </Modal>
+    );
+
+    expect(document.activeElement).toBe(innerButton);
   });
 });

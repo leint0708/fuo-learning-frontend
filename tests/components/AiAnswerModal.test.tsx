@@ -74,4 +74,77 @@ describe("AiAnswerModal Component Tests", () => {
 
     expect(screen.queryByText(/Giải thích chi tiết từ AI/)).not.toBeInTheDocument();
   });
+
+  it("renders loading state without hardcoded fallback answers", () => {
+    render(
+      <AiAnswerModal
+        isOpen={true}
+        onClose={vi.fn()}
+        questionNumber={3}
+        questionCode="Q3"
+        isLoading={true}
+        aiChoice={null}
+        aiExplanation={null}
+      />
+    );
+
+    expect(
+      screen.getByText(/Đang tải phân tích chi tiết từ AI/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Lựa chọn C/i)).not.toBeInTheDocument();
+  });
+
+  it("renders explicit error state with retry action and zero hardcoded fallback", () => {
+    const handleRetry = vi.fn();
+
+    render(
+      <AiAnswerModal
+        isOpen={true}
+        onClose={vi.fn()}
+        questionNumber={4}
+        questionCode="Q4"
+        isLoading={false}
+        errorMessage="Dịch vụ AI tạm thời gián đoạn"
+        onRetry={handleRetry}
+        aiChoice={null}
+        aiExplanation={null}
+      />
+    );
+
+    expect(
+      screen.getByText(/Không thể tải phân tích AI lúc này/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Dịch vụ AI tạm thời gián đoạn/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Lựa chọn C/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Thử lại/i }));
+    expect(handleRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders compact question stem, image thumbnail, and options marking user choice vs AI choice", () => {
+    render(
+      <AiAnswerModal
+        isOpen={true}
+        onClose={vi.fn()}
+        questionNumber={2}
+        questionCode="Q2"
+        questionText="What is the capital of Vietnam?"
+        imageUrl="/static/exams/GEO/Q2.webp"
+        options={{ B: "Hanoi", A: "Hue", C: "Da Nang" }}
+        selectedOption="A"
+        aiChoice="B"
+        aiExplanation="Hanoi is the capital."
+      />
+    );
+
+    expect(screen.getByText("What is the capital of Vietnam?")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Minh họa câu 2/i })).toHaveAttribute(
+      "src",
+      "/static/exams/GEO/Q2.webp"
+    );
+    expect(screen.getByText(/A\. Hue/i)).toBeInTheDocument();
+    expect(screen.getByText(/B\. Hanoi/i)).toBeInTheDocument();
+    expect(screen.getByText("Bạn chọn")).toBeInTheDocument();
+    expect(screen.getByText("AI gợi ý")).toBeInTheDocument();
+  });
 });

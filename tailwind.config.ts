@@ -5,13 +5,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        "color-1": "var(--color-1)",
-        "color-2": "var(--color-2)",
-        "color-3": "var(--color-3)",
-        "color-4": "var(--color-4)",
-        "color-5": "var(--color-5)",
-        "color-6": "var(--color-6)",
-        "color-7": "var(--color-7)",
+        "color-1": "rgb(var(--color-1-rgb) / <alpha-value>)",
+        "color-2": "rgb(var(--color-2-rgb) / <alpha-value>)",
+        "color-3": "rgb(var(--color-3-rgb) / <alpha-value>)",
+        "color-4": "rgb(var(--color-4-rgb) / <alpha-value>)",
+        "color-5": "rgb(var(--color-5-rgb) / <alpha-value>)",
+        "color-6": "rgb(var(--color-6-rgb) / <alpha-value>)",
+        "color-7": "rgb(var(--color-7-rgb) / <alpha-value>)",
       },
       spacing: {
         "space-1": "var(--space-1)",

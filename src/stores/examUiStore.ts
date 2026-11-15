@@ -9,6 +9,10 @@ interface ExamUiState {
   isAiModalOpen: boolean;
   isSubmitConfirmOpen: boolean;
   feedbackMode: FeedbackMode;
+  /**
+   * Retained strictly for CustomExamModal pre-launch configuration compatibility.
+   * Removed from active ExamWorkspaceView Operate header.
+   */
   benchmarkMode: BenchmarkMode;
 
   // Actions

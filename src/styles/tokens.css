@@ -1,12 +1,19 @@
 :root {
   /* DESIGN.md Color System */
   --color-1: #000000;
+  --color-1-rgb: 0 0 0;
   --color-2: #394DA2;
+  --color-2-rgb: 57 77 162;
   --color-3: #1D7F5B;
+  --color-3-rgb: 29 127 91;
   --color-4: #D65442;
+  --color-4-rgb: 214 84 66;
   --color-5: #F5BE3F;
+  --color-5-rgb: 245 190 63;
   --color-6: #F3F3F3;
+  --color-6-rgb: 243 243 243;
   --color-7: #FFFFFF;
+  --color-7-rgb: 255 255 255;
 
   /* Spacing Base 8px Scale */
   --space-1: 8px;
