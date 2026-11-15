@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { SubjectCard } from "./SubjectCard";
+import { ActiveExamsSection } from "./ActiveExamsSection";
 import { Button } from "@/components/ui/Button";
 import { getErrorMessage } from "@/utils/error";
 import { getSubjects } from "@/api/subjects";
@@ -185,6 +186,9 @@ export const SubjectCatalogView: React.FC = () => {
           </form>
         </div>
       </div>
+
+      {/* Active In-Progress Exams */}
+      <ActiveExamsSection />
 
       {/* Quick Resume Strip for Active Subjects */}
       {!isLoading &&

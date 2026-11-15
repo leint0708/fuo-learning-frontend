@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Zap, Brain, Trophy, RotateCcw, Home, Sparkles } from "lucide-react";
+import { Zap, Brain, Trophy, RotateCcw, Home, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StudyCockpitShell } from "@/features/workspace/StudyCockpitShell";
@@ -32,7 +32,6 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
 }) => {
   const navigate = useNavigate();
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isMobileNavigatorOpen, setIsMobileNavigatorOpen] = useState(false);
   const [failedDiagramIds, setFailedDiagramIds] = useState<Record<string, boolean>>({});
 
@@ -79,15 +78,24 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
 
   const isEvaluated = adapter.evaluation?.status === "resolved";
   const currentCard = adapter.currentCard;
+  const canContinue =
+    isEvaluated ||
+    (adapter.feedbackMode === "deferred" &&
+      adapter.selectedOptions.length > 0 &&
+      !adapter.isAdvancingDeferred);
 
   // Unified workspace keyboard shortcuts
   useWorkspaceShortcuts({
     sortedOptionKeys: adapter.sortedOptionKeys,
     isOptionsLocked:
-      adapter.sessionStatus !== "ready" || isEvaluated || adapter.isEvaluating,
-    isContinueReady: isEvaluated,
+      adapter.sessionStatus !== "ready" ||
+      isEvaluated ||
+      adapter.isEvaluating ||
+      adapter.isAdvancingDeferred,
+    isContinueReady: canContinue,
     canSubmitMultiChoice: Boolean(
       currentCard?.questionType === "multiple_choice" &&
+        adapter.feedbackMode === "instant" &&
         adapter.selectedOptions &&
         !isEvaluated &&
         !adapter.isEvaluating
@@ -97,7 +105,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
     isModalOpen:
       adapter.sessionStatus !== "ready" ||
       isShortcutHelpOpen ||
-      isAiModalOpen ||
+      adapter.isAiModalOpen ||
       (practiceMode === "cram" && adapter.cram.isBatchCompleted) ||
       (practiceMode === "learn" && adapter.learn.isRoundCompleted),
     onSelectOption: adapter.selectOption,
@@ -196,6 +204,17 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
             label: `${practiceMode === "cram" ? "Cấp tốc" : "Ghi nhớ"} • ${subjectCode}`,
             tone: practiceMode === "cram" ? "warning" : "accent",
           }}
+          modeToggle={{
+            ariaLabel: "Chế độ chấm điểm",
+            value: adapter.feedbackMode,
+            options: [
+              { value: "instant", label: "Chấm tức thì" },
+              { value: "deferred", label: "Chờ tổng kết" },
+            ],
+            onChange: (value) => {
+              adapter.setFeedbackMode(value === "deferred" ? "deferred" : "instant");
+            },
+          }}
           statusSlot={
             <div className="flex items-center gap-space-2">
               <span className="text-text-xs font-bold text-color-1 tabular-nums">
@@ -241,11 +260,15 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
               options={currentCard.options}
               selectedOptions={adapter.selectedOptions}
               questionType={currentCard.questionType}
-              feedbackMode="instant"
+              feedbackMode={adapter.feedbackMode === "instant" ? "instant" : "post_exam"}
               evaluation={adapter.evaluation}
-              isLocked={isEvaluated}
+              isLocked={isEvaluated || adapter.isAdvancingDeferred}
               isSubmitting={adapter.isEvaluating}
+              allowsClear={adapter.feedbackMode === "deferred"}
               onSelectOption={adapter.selectOption}
+              onClearSelection={
+                adapter.feedbackMode === "deferred" ? adapter.clearSelection : undefined
+              }
               onSubmitMultiChoice={() => {
                 void adapter.submitCheck();
               }}
@@ -257,8 +280,44 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
               onRetry={() => {
                 void adapter.retryEvaluation();
               }}
-              onOpenAiModal={isEvaluated ? () => setIsAiModalOpen(true) : undefined}
             />
+
+            {adapter.feedbackMode === "deferred" &&
+              adapter.selectedOptions.length > 0 &&
+              !isEvaluated && (
+                <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
+                  <span className="text-text-xs font-bold text-color-1">
+                    Đã chọn {adapter.selectedOptions} • Sẵn sàng chuyển câu
+                  </span>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    isLoading={adapter.isAdvancingDeferred}
+                    onClick={adapter.advanceNext}
+                    className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
+                  >
+                    <span>Tiếp tục</span>
+                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                  </Button>
+                </div>
+              )}
+
+            <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
+              <span className="text-text-xs font-bold text-color-1">
+                Phân tích chi tiết &amp; loại trừ đáp án
+              </span>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={adapter.openAiAnalysis}
+                className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
+              >
+                <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 inline-flex items-center justify-center">
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                </span>
+                <span>Xem giải thích AI</span>
+              </Button>
+            </div>
           </div>
         ) : null
       }
@@ -278,34 +337,37 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
       }
       mobileStatusLabel={`${adapter.subProgressText}`}
       canPrev={false}
-      canNext={isEvaluated}
+      canNext={canContinue}
       onNext={adapter.advanceNext}
       onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
       mobilePrimaryAction={
-        isEvaluated ? (
+        <div className="flex items-center gap-space-1">
+          {currentCard?.questionType === "multiple_choice" &&
+            adapter.feedbackMode === "instant" &&
+            !isEvaluated && (
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!adapter.selectedOptions || adapter.isEvaluating}
+                onClick={() => {
+                  void adapter.submitCheck();
+                }}
+                className="min-h-11"
+              >
+                Kiểm tra
+              </Button>
+            )}
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setIsAiModalOpen(true)}
-            aria-label="Xem giải thích AI"
+            onClick={adapter.openAiAnalysis}
+            aria-label="Phân tích AI"
             className="min-h-11 inline-flex items-center gap-space-1"
           >
             <Sparkles className="w-4 h-4" />
             <span>AI</span>
           </Button>
-        ) : currentCard?.questionType === "multiple_choice" ? (
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!adapter.selectedOptions || adapter.isEvaluating}
-            onClick={() => {
-              void adapter.submitCheck();
-            }}
-            className="min-h-11"
-          >
-            Kiểm tra
-          </Button>
-        ) : null
+        </div>
       }
       modals={
         <>
@@ -337,16 +399,21 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
 
           {currentCard && (
             <AiAnswerModal
-              isOpen={isAiModalOpen}
-              onClose={() => setIsAiModalOpen(false)}
+              isOpen={adapter.isAiModalOpen}
+              onClose={adapter.closeAiAnalysis}
               questionNumber={currentCard.questionNumber}
               questionText={currentCard.questionText}
               imageUrl={currentCard.imageUrl}
               options={currentCard.options}
               selectedOption={adapter.selectedOptions || null}
-              correctAnswer={adapter.evaluation?.correctAnswer ?? ""}
-              aiExplanation={adapter.evaluation?.aiExplanation ?? ""}
-              optionByOptionAnalysis={adapter.evaluation?.optionByOptionAnalysis ?? undefined}
+              correctAnswer={adapter.aiModalState.aiChoice ?? ""}
+              aiExplanation={adapter.aiModalState.aiExplanation ?? ""}
+              optionByOptionAnalysis={adapter.aiModalState.optionByOptionAnalysis ?? undefined}
+              isLoading={adapter.aiModalState.isLoading}
+              errorMessage={adapter.aiModalState.errorMessage}
+              onRetry={() => {
+                void adapter.retryAiAnalysis();
+              }}
             />
           )}
 

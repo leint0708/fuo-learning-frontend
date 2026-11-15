@@ -17,10 +17,12 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CustomExamModal } from "./CustomExamModal";
 import { SubjectPracticeActions } from "./SubjectPracticeActions";
+import { ActiveExamsSection } from "./ActiveExamsSection";
 import { getSubject, getSubjectExams } from "@/api/subjects";
 import { startExamAttempt } from "@/api/attempts";
 import { getErrorMessage } from "@/utils/error";
 import { getSubjectLocalProgress } from "@/utils/practiceProgress";
+import { upsertActiveExam } from "@/utils/activeExams";
 
 export const SubjectDetailView: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -90,6 +92,18 @@ export const SubjectDetailView: React.FC = () => {
         durationMinutes,
         feedbackMode: "post_exam",
         benchmarkMode: "ai",
+      });
+      upsertActiveExam({
+        attemptId: attempt.attemptId,
+        examId: attempt.examId,
+        examTitle: attempt.examTitle,
+        subjectCode,
+        totalQuestions: attempt.questions.length,
+        answeredCount: 0,
+        startedAt: attempt.startedAt,
+        expiresAt: attempt.expiresAt,
+        feedbackMode: "post_exam",
+        updatedAt: new Date().toISOString(),
       });
       navigate(`/attempts/${attempt.attemptId}`);
     } catch (err) {
@@ -162,6 +176,8 @@ export const SubjectDetailView: React.FC = () => {
           </div>
         </div>
       </Card>
+
+      <ActiveExamsSection subjectCode={subjectCode} />
 
       {/* Section 1: Smart Practice Hub */}
       <section className="flex flex-col gap-space-3">

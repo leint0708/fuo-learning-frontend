@@ -9,7 +9,7 @@ const mockQuestion: Question = {
   questionIdCode: "Q1",
   questionType: "single_choice",
   questionText: "What is the capital of Vietnam?",
-  imageUrl: "/static/test.png",
+  imageUrl: null,
   options: {
     A: "Hanoi",
     B: "Ho Chi Minh City",
@@ -91,7 +91,7 @@ describe("PracticeQuestionCard", () => {
     expect(handleSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it("renders evaluated result feedback and calls onNextCard when continue is clicked", () => {
+  it("renders compact evaluated result feedback without inline prose and calls onNextCard when continue is clicked", () => {
     const handleNext = vi.fn();
     render(
       <PracticeQuestionCard
@@ -110,7 +110,7 @@ describe("PracticeQuestionCard", () => {
     );
 
     expect(screen.getByText(/Chính xác!/i)).toBeInTheDocument();
-    expect(screen.getByText("Hà Nội là thủ đô của Việt Nam.")).toBeInTheDocument();
+    expect(screen.queryByText("Hà Nội là thủ đô của Việt Nam.")).not.toBeInTheDocument();
 
     const continueBtn = screen.getByRole("button", { name: /Tiếp tục/i });
     fireEvent.click(continueBtn);

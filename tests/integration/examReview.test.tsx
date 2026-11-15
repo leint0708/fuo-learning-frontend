@@ -556,4 +556,88 @@ describe("ExamWorkspaceView Integration Tests", () => {
       ])
     );
   });
+
+  it("supports switching feedbackMode mid-exam via header toggle and opens AI modal before picking an option", async () => {
+    const aiProbeSelections: string[] = [];
+    server.use(
+      http.get("*/api/v1/attempts/:attemptId", ({ params }) => {
+        return HttpResponse.json({
+          attempt_id: params.attemptId,
+          exam_id: "MAD101_SP26_FE",
+          exam_title: "Toggle & AI Probe Exam",
+          status: "in_progress",
+          started_at: new Date().toISOString(),
+          expires_at: null,
+          time_remaining_seconds: 1800,
+          questions: [
+            {
+              question_id: "q_probe_1",
+              question_number: 1,
+              question_id_code: "Q1",
+              question_type: "single_choice",
+              question_text: "Pick a valid statement.",
+              image_url: null,
+              options: { A: "False one", B: "False two", C: "True statement" },
+              selected_options: null,
+            },
+          ],
+        });
+      }),
+      http.post("*/api/v1/questions/:questionId/check", async ({ request }) => {
+        const body = (await request.json()) as { selected_options?: string };
+        aiProbeSelections.push(body.selected_options ?? "");
+        return HttpResponse.json({
+          is_correct: body.selected_options === "C",
+          correct_answer: "C",
+          ai_explanation: "C is the unique valid statement.",
+        });
+      })
+    );
+
+    renderExamWorkspace("att_toggle_probe_1");
+
+    await waitFor(() => {
+      expect(screen.getByText("Pick a valid statement.")).toBeInTheDocument();
+    });
+
+    // Click "Xem giải thích AI" BEFORE selecting any option -> sends safe probe "A" and opens modal
+    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    const aiDialog = await screen.findByRole("dialog", {
+      name: /Giải thích chi tiết từ AI/i,
+    });
+    expect(
+      within(aiDialog).getByText("C is the unique valid statement.")
+    ).toBeInTheDocument();
+    expect(aiProbeSelections).toEqual(["A"]);
+    expect(within(aiDialog).queryByText("Bạn chọn")).not.toBeInTheDocument();
+
+    fireEvent.click(within(aiDialog).getByRole("button", { name: /Đóng cửa sổ/i }));
+
+    // Ensure no option was accidentally selected
+    expect(screen.getByRole("button", { name: /Đáp án A:/i })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+
+    // Toggle header feedbackMode from Thi chuẩn -> Chấm tức thì
+    const instantToggleBtn = screen.getByRole("button", { name: /Chấm tức thì/i });
+    fireEvent.click(instantToggleBtn);
+    expect(instantToggleBtn).toHaveAttribute("aria-pressed", "true");
+
+    // Picking C now triggers instant grading & updates fuo_active_exams
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
+    expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+
+    const stored = JSON.parse(localStorage.getItem("fuo_active_exams") || "[]") as Array<{
+      attemptId: string;
+      subjectCode?: string;
+      answeredCount: number;
+      feedbackMode: string;
+    }>;
+    const probeRecord = stored.find((e) => e.attemptId === "att_toggle_probe_1");
+    expect(probeRecord).toBeDefined();
+    expect(probeRecord?.subjectCode).toBe("MAD101");
+    expect(probeRecord?.answeredCount).toBe(1);
+    expect(probeRecord?.feedbackMode).toBe("instant");
+  });
 });

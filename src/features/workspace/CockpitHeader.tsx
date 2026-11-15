@@ -15,6 +15,12 @@ export interface CockpitHeaderProps {
     label: string;
     tone: "primary" | "accent" | "warning" | "neutral";
   };
+  modeToggle?: {
+    ariaLabel: string;
+    value: string;
+    options: Array<{ value: string; label: string }>;
+    onChange: (value: string) => void;
+  };
   statusSlot?: React.ReactNode;
   saveStatus?: WorkspaceSaveStatus;
   onRetrySave?: () => void;
@@ -33,6 +39,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   progressCurrent,
   progressTotal,
   modeBadge,
+  modeToggle,
   statusSlot,
   saveStatus = "idle",
   onRetrySave,
@@ -73,6 +80,34 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             {title}
           </h1>
         </div>
+
+        {/* Interactive Answer Feedback Mode Switcher */}
+        {modeToggle && (
+          <div
+            role="group"
+            aria-label={modeToggle.ariaLabel}
+            className="inline-flex items-center rounded-full border-2 border-color-1 bg-color-6 p-0.5 gap-0.5 shrink-0 order-4 sm:order-2"
+          >
+            {modeToggle.options.map((opt) => {
+              const isSelected = opt.value === modeToggle.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={isSelected}
+                  onClick={() => modeToggle.onChange(opt.value)}
+                  className={`min-h-11 px-space-3 rounded-full text-text-2xs sm:text-text-xs font-bold transition-colors duration-fast cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-color-5 whitespace-nowrap ${
+                    isSelected
+                      ? "bg-color-2 text-color-7 shadow-2xs"
+                      : "bg-transparent text-color-1 hover:bg-color-7"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Center/Compact Progress */}
         <div className="w-full sm:w-auto sm:min-w-[200px] sm:max-w-[260px] order-3 sm:order-2">

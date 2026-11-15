@@ -103,9 +103,11 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
             </Badge>
           </h2>
 
-          <span className="text-text-xs font-bold text-color-1/75">
-            {question.questionIdCode}
-          </span>
+          {!showInteractiveDiagram && question.questionIdCode && (
+            <span className="text-text-xs font-bold text-color-1/75">
+              {question.questionIdCode}
+            </span>
+          )}
 
           {badgeSlot && <Badge variant={badgeVariant}>{badgeSlot.label}</Badge>}
         </div>
@@ -125,8 +127,8 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
         </span>
       </div>
 
-      {/* Stem Copy (Always Visible & Selectable for Both Text & Diagram Questions) */}
-      {question.questionText && (showInteractiveDiagram || !resolvedSrc) && (
+      {/* Stem Copy (Shown for Text-Only Questions When No Image Is Present) */}
+      {question.questionText && !resolvedSrc && (
         <div className="px-space-4 pt-space-3 pb-space-3 border-b border-color-6 bg-color-7">
           <p className="text-text-sm sm:text-text-base font-bold text-color-1 leading-relaxed whitespace-pre-wrap select-text">
             {question.questionText}

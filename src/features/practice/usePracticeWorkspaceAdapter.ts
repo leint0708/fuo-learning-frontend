@@ -14,6 +14,14 @@ import type {
   WorkspaceSessionDescriptor,
 } from "@/features/workspace/types";
 
+export type PracticeFeedbackMode = "instant" | "deferred";
+
+interface CachedAiRationale {
+  aiChoice: string;
+  aiExplanation: string;
+  optionByOptionAnalysis?: Record<string, string>;
+}
+
 interface PendingEvaluationCommit {
   cardId: string;
   selectedOptions: string;
@@ -30,6 +38,7 @@ export interface PracticeWorkspaceAdapterResult {
   sortedOptionKeys: string[];
   masteryBadge: WorkspaceCardBadge | null;
   selectedOptions: string;
+  feedbackMode: PracticeFeedbackMode;
   evaluation: WorkspaceEvaluationResult | null;
   navigatorItems: WorkspaceNavigatorItem[];
   activeNavIndex: number;
@@ -44,11 +53,24 @@ export interface PracticeWorkspaceAdapterResult {
   learn: ReturnType<typeof useLearnSession>;
   deckSize: number;
   isEvaluating: boolean;
+  isAdvancingDeferred: boolean;
+  isAiModalOpen: boolean;
+  aiModalState: {
+    aiChoice: string | null;
+    aiExplanation: string | null;
+    optionByOptionAnalysis: Record<string, string> | null;
+    isLoading: boolean;
+    errorMessage: string | null;
+  };
+  setFeedbackMode: (mode: PracticeFeedbackMode) => void;
   selectOption: (optionKey: string) => void;
   clearSelection: () => void;
   submitCheck: (overrideSelection?: string) => Promise<void>;
   retryEvaluation: () => Promise<void>;
   advanceNext: () => void;
+  openAiAnalysis: () => void;
+  closeAiAnalysis: () => void;
+  retryAiAnalysis: () => Promise<void>;
   continueNextBatch: () => void;
   continueNextRound: () => void;
   resetPracticeSession: () => void;
@@ -100,9 +122,15 @@ export function usePracticeWorkspaceAdapter(
 
   const [pinnedCard, setPinnedCard] = useState<Question | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<string>("");
+  const [feedbackMode, setFeedbackModeState] = useState<PracticeFeedbackMode>("instant");
   const [evaluation, setEvaluation] = useState<WorkspaceEvaluationResult | null>(null);
   const [pendingCommit, setPendingCommit] = useState<PendingEvaluationCommit | null>(null);
   const [cramMissedIds, setCramMissedIds] = useState<Set<string>>(() => new Set());
+  const [isAdvancingDeferred, setIsAdvancingDeferred] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiExplanations, setAiExplanations] = useState<Record<string, CachedAiRationale>>({});
+  const [aiLoadingIds, setAiLoadingIds] = useState<Record<string, boolean>>({});
+  const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
   const lastAttemptedChoiceRef = useRef<string>("");
 
   // Keep user viewing pinnedCard until advanceNext commits the answer to engine
@@ -175,10 +203,27 @@ export function usePracticeWorkspaceAdapter(
     await submitCheck(choice);
   }, [selectedOptions, submitCheck]);
 
+  const setFeedbackMode = useCallback(
+    (nextMode: PracticeFeedbackMode) => {
+      setFeedbackModeState(nextMode);
+      if (
+        nextMode === "instant" &&
+        selectedOptions &&
+        !evaluation &&
+        currentCard &&
+        currentCard.questionType !== "multiple_choice"
+      ) {
+        void submitCheck(selectedOptions);
+      }
+    },
+    [selectedOptions, evaluation, currentCard, submitCheck]
+  );
+
   const selectOption = useCallback(
     (optionKey: string) => {
       if (!currentCard) return;
       if (evaluation?.status === "loading" || evaluation?.status === "resolved") return;
+      if (isAdvancingDeferred) return;
 
       // Clear previous network error banner when user picks a fresh choice
       if (evaluation?.status === "error") {
@@ -188,7 +233,9 @@ export function usePracticeWorkspaceAdapter(
       const isMulti = currentCard.questionType === "multiple_choice";
       if (!isMulti) {
         setSelectedOptions(optionKey);
-        void submitCheck(optionKey);
+        if (feedbackMode === "instant") {
+          void submitCheck(optionKey);
+        }
         return;
       }
 
@@ -199,46 +246,162 @@ export function usePracticeWorkspaceAdapter(
         return [...(prev + optionKey)].sort((a, b) => a.localeCompare(b)).join("");
       });
     },
-    [currentCard, evaluation?.status, submitCheck]
+    [currentCard, evaluation?.status, isAdvancingDeferred, feedbackMode, submitCheck]
   );
 
   const clearSelection = useCallback(() => {
-    if (evaluation?.status === "loading" || evaluation?.status === "resolved") return;
+    if (evaluation?.status === "loading" || evaluation?.status === "resolved" || isAdvancingDeferred) {
+      return;
+    }
     setSelectedOptions("");
-  }, [evaluation?.status]);
+  }, [evaluation?.status, isAdvancingDeferred]);
 
   const clearCardTransientState = useCallback(() => {
     setPinnedCard(null);
     setPendingCommit(null);
     setSelectedOptions("");
     setEvaluation(null);
+    setIsAiModalOpen(false);
     lastAttemptedChoiceRef.current = "";
   }, []);
 
-  const advanceNext = useCallback(() => {
-    if (evaluation?.status !== "resolved" || !pendingCommit) return;
-
-    if (practiceMode === "cram") {
-      if (!pendingCommit.isCorrect) {
-        setCramMissedIds((prev) => {
-          const next = new Set(prev);
-          next.add(pendingCommit.cardId);
-          return next;
-        });
+  const commitToEngine = useCallback(
+    (commit: PendingEvaluationCommit) => {
+      if (practiceMode === "cram") {
+        if (!commit.isCorrect) {
+          setCramMissedIds((prev) => {
+            const next = new Set(prev);
+            next.add(commit.cardId);
+            return next;
+          });
+        }
+        cram.recordAnswer(commit.cardId, commit.isCorrect);
+      } else {
+        learn.recordAnswer(
+          commit.cardId,
+          commit.selectedOptions,
+          commit.correctAnswer,
+          commit.isCorrect,
+          commit.explanation
+        );
       }
-      cram.recordAnswer(pendingCommit.cardId, pendingCommit.isCorrect);
-    } else {
-      learn.recordAnswer(
-        pendingCommit.cardId,
-        pendingCommit.selectedOptions,
-        pendingCommit.correctAnswer,
-        pendingCommit.isCorrect,
-        pendingCommit.explanation
-      );
+    },
+    [practiceMode, cram, learn]
+  );
+
+  const advanceNext = useCallback(() => {
+    if (evaluation?.status === "resolved" && pendingCommit) {
+      commitToEngine(pendingCommit);
+      clearCardTransientState();
+      return;
     }
 
-    clearCardTransientState();
-  }, [evaluation?.status, pendingCommit, practiceMode, cram, learn, clearCardTransientState]);
+    if (feedbackMode === "deferred" && currentCard && selectedOptions && !isAdvancingDeferred) {
+      const targetCard = currentCard;
+      const choice = selectedOptions;
+      lastAttemptedChoiceRef.current = choice;
+      setIsAdvancingDeferred(true);
+      setEvaluation(null);
+
+      void (async () => {
+        try {
+          const result = await checkPracticeAnswer(targetCard.questionId, choice);
+          const isMatch =
+            result.isCorrect || compareAnswers(choice, result.correctAnswer);
+          commitToEngine({
+            cardId: targetCard.questionId,
+            selectedOptions: choice,
+            correctAnswer: result.correctAnswer,
+            isCorrect: isMatch,
+            explanation: result.aiExplanation,
+          });
+          clearCardTransientState();
+        } catch (err) {
+          setEvaluation({
+            status: "error",
+            isCorrect: null,
+            correctAnswer: null,
+            aiExplanation: null,
+            errorMessage: getErrorMessage(
+              err,
+              "Không thể kết nối máy chủ để ghi nhận câu trả lời. Vui lòng thử lại."
+            ),
+          });
+        } finally {
+          setIsAdvancingDeferred(false);
+        }
+      })();
+    }
+  }, [
+    evaluation?.status,
+    pendingCommit,
+    feedbackMode,
+    currentCard,
+    selectedOptions,
+    isAdvancingDeferred,
+    commitToEngine,
+    clearCardTransientState,
+  ]);
+
+  const fetchAiForQuestion = useCallback(async (qId: string, probeOption: string) => {
+    setAiLoadingIds((prev) => ({ ...prev, [qId]: true }));
+    setAiErrors((prev) => {
+      const next = { ...prev };
+      delete next[qId];
+      return next;
+    });
+
+    try {
+      const res = await checkPracticeAnswer(qId, probeOption);
+      setAiExplanations((prev) => ({
+        ...prev,
+        [qId]: {
+          aiChoice: res.correctAnswer,
+          aiExplanation: res.aiExplanation,
+          optionByOptionAnalysis: res.optionByOptionAnalysis,
+        },
+      }));
+    } catch (err) {
+      setAiErrors((prev) => ({
+        ...prev,
+        [qId]: getErrorMessage(err, "Không thể kết nối dịch vụ AI. Vui lòng thử lại."),
+      }));
+    } finally {
+      setAiLoadingIds((prev) => ({ ...prev, [qId]: false }));
+    }
+  }, []);
+
+  const openAiAnalysis = useCallback(() => {
+    setIsAiModalOpen(true);
+    if (!currentCard) return;
+    const qId = currentCard.questionId;
+    const hasResolvedForCurrentCard =
+      evaluation?.status === "resolved" && pinnedCard?.questionId === qId;
+    if (!hasResolvedForCurrentCard && !aiExplanations[qId] && !aiLoadingIds[qId]) {
+      const probeOption = selectedOptions || sortedOptionKeys[0] || "A";
+      void fetchAiForQuestion(qId, probeOption);
+    }
+  }, [
+    currentCard,
+    evaluation?.status,
+    pinnedCard?.questionId,
+    aiExplanations,
+    aiLoadingIds,
+    selectedOptions,
+    sortedOptionKeys,
+    fetchAiForQuestion,
+  ]);
+
+  const closeAiAnalysis = useCallback(() => {
+    setIsAiModalOpen(false);
+  }, []);
+
+  const retryAiAnalysis = useCallback(async () => {
+    if (!currentCard) return;
+    const qId = currentCard.questionId;
+    const probeOption = selectedOptions || sortedOptionKeys[0] || "A";
+    await fetchAiForQuestion(qId, probeOption);
+  }, [currentCard, selectedOptions, sortedOptionKeys, fetchAiForQuestion]);
 
   const continueNextBatch = useCallback(() => {
     cram.nextBatch();
@@ -371,7 +534,24 @@ export function usePracticeWorkspaceAdapter(
     exitLabel: "Thoát",
     supportsFreeNavigation: false,
     requiresExplicitContinue: true,
-    allowsClearSelection: false,
+    allowsClearSelection: feedbackMode === "deferred",
+  };
+
+  const resolvedForCurrentCard =
+    currentCard &&
+    evaluation?.status === "resolved" &&
+    pinnedCard?.questionId === currentCard.questionId
+      ? evaluation
+      : null;
+  const cachedAi = currentCard ? aiExplanations[currentCard.questionId] : undefined;
+
+  const aiModalState = {
+    aiChoice: resolvedForCurrentCard?.correctAnswer ?? cachedAi?.aiChoice ?? null,
+    aiExplanation: resolvedForCurrentCard?.aiExplanation ?? cachedAi?.aiExplanation ?? null,
+    optionByOptionAnalysis:
+      resolvedForCurrentCard?.optionByOptionAnalysis ?? cachedAi?.optionByOptionAnalysis ?? null,
+    isLoading: currentCard ? Boolean(aiLoadingIds[currentCard.questionId]) : false,
+    errorMessage: currentCard ? aiErrors[currentCard.questionId] ?? null : null,
   };
 
   return {
@@ -384,6 +564,7 @@ export function usePracticeWorkspaceAdapter(
     sortedOptionKeys,
     masteryBadge,
     selectedOptions,
+    feedbackMode,
     evaluation,
     navigatorItems,
     activeNavIndex,
@@ -401,11 +582,18 @@ export function usePracticeWorkspaceAdapter(
     learn,
     deckSize: validQuestions.length,
     isEvaluating: evaluation?.status === "loading",
+    isAdvancingDeferred,
+    isAiModalOpen,
+    aiModalState,
+    setFeedbackMode,
     selectOption,
     clearSelection,
     submitCheck,
     retryEvaluation,
     advanceNext,
+    openAiAnalysis,
+    closeAiAnalysis,
+    retryAiAnalysis,
     continueNextBatch,
     continueNextRound,
     resetPracticeSession,

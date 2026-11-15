@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
@@ -54,27 +54,39 @@ describe("Practice Workflow Integration", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Luyện thi cấp tốc")).toBeInTheDocument();
-      expect(screen.getByText("Single batch card stem")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: /Hình minh họa câu 1/i })).toBeInTheDocument();
+      expect(screen.queryByText("Single batch card stem")).not.toBeInTheDocument();
     });
 
     // Diagram zoom in Practice works
     fireEvent.click(screen.getByRole("button", { name: /Phóng to/i }));
     expect(screen.getByText(/125%/)).toBeInTheDocument();
 
-    // Select wrong option A -> card MUST stay pinned with explanation & optionByOptionAnalysis (no premature CramBatchModal!)
+    // Select wrong option A -> card MUST stay pinned with compact verdict ONLY (no inline prose) & no premature CramBatchModal!
     const optA = await screen.findByText(/Opt A 1/i);
     fireEvent.click(optA);
 
     expect(
       await screen.findByText(/Chưa chính xác — Đáp án đúng: C/i)
     ).toBeInTheDocument();
-    expect(screen.getByText(/Phân tích từng đáp án/i)).toBeInTheDocument();
-    expect(screen.getByText("Đúng theo công thức")).toBeInTheDocument();
+    expect(screen.queryByText(/Phân tích từng đáp án/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Đúng theo công thức")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // Opening on-demand "Xem giải thích AI" button reveals optionByOptionAnalysis & rationale inside AiAnswerModal
+    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    const aiDialog = await screen.findByRole("dialog", {
+      name: /Giải thích chi tiết từ AI/i,
+    });
+    expect(
+      within(aiDialog).getByText(/Phân tích từng phương án lựa chọn/i)
+    ).toBeInTheDocument();
+    expect(within(aiDialog).getByText("Đúng theo công thức")).toBeInTheDocument();
+    fireEvent.click(within(aiDialog).getByRole("button", { name: /Đóng cửa sổ/i }));
 
     // Immediate Space right after evaluation (within 300ms guard) does not accidentally double-advance
     fireEvent.keyDown(window, { key: " " });
-    expect(screen.getByText("Single batch card stem")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Tiếp tục$/i })).toBeInTheDocument();
 
     // Explicit Continue commits answer -> requeues missed card so we try again -> pick C -> pin correct feedback -> Continue -> completes session -> in-state reset clears fuo_card_stats_MAD101
     fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
@@ -97,7 +109,7 @@ describe("Practice Workflow Integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /Luyện lại từ đầu/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Single batch card stem")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: /Hình minh họa câu 1/i })).toBeInTheDocument();
       expect(localStorage.getItem("fuo_card_stats_MAD101")).toBeNull();
       expect(localStorage.getItem("fuo_cram_mastered_MAD101")).toBeNull();
     });
@@ -141,7 +153,13 @@ describe("Practice Workflow Integration", () => {
     expect(
       await screen.findByText(/Chưa chính xác — Đáp án đúng: C/i)
     ).toBeInTheDocument();
-    expect(screen.getByText("Recovered explanation")).toBeInTheDocument();
+    expect(screen.queryByText("Recovered explanation")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    const aiDialog = await screen.findByRole("dialog", {
+      name: /Giải thích chi tiết từ AI/i,
+    });
+    expect(within(aiDialog).getByText("Recovered explanation")).toBeInTheDocument();
   });
 
   it("defers Learn round summary modal until user explicitly advances past the final card", async () => {
@@ -177,5 +195,120 @@ describe("Practice Workflow Integration", () => {
     // Advance opens LearnRoundSummaryModal
     fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
     expect(await screen.findByText(/Tổng kết Vòng 1/i)).toBeInTheDocument();
+  });
+
+  it("allows opening AI explanation before selecting any answer using non-empty probe without marking card answered", async () => {
+    const checkRequests: string[] = [];
+    server.use(
+      http.get("*/api/v1/questions/drills", () => {
+        return HttpResponse.json([
+          {
+            question_id: "probe_q_1",
+            subject_code: "MAD101",
+            question_type: "single_choice",
+            question_text: "Text question before selection",
+            image_url: null,
+            options: { A: "First Opt", B: "Second Opt", C: "Third Opt", D: "Fourth Opt" },
+          },
+        ]);
+      }),
+      http.post("*/api/v1/questions/:questionId/check", async ({ request }) => {
+        const body = (await request.json()) as { selected_options?: string };
+        checkRequests.push(body.selected_options ?? "");
+        return HttpResponse.json({
+          question_id: "probe_q_1",
+          selected_options: body.selected_options ?? "A",
+          correct_answer: "C",
+          is_correct: false,
+          ai_explanation: "AI explanation works before picking an option.",
+        });
+      })
+    );
+
+    renderPractice("/subjects/MAD101/practice/cram");
+    await waitFor(() => {
+      expect(screen.getByText("Text question before selection")).toBeInTheDocument();
+    });
+
+    // Open AI explanation without picking any option
+    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    const aiDialog = await screen.findByRole("dialog", {
+      name: /Giải thích chi tiết từ AI/i,
+    });
+    expect(
+      within(aiDialog).getByText("AI explanation works before picking an option.")
+    ).toBeInTheDocument();
+    expect(checkRequests).toEqual(["A"]);
+    expect(within(aiDialog).queryByText("Bạn chọn")).not.toBeInTheDocument();
+
+    // Closing modal keeps options unlocked and unselected
+    fireEvent.click(within(aiDialog).getByRole("button", { name: /Đóng cửa sổ/i }));
+    expect(screen.getByRole("button", { name: /Đáp án A:/i })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    expect(screen.queryByText(/Chưa chính xác/i)).not.toBeInTheDocument();
+  });
+
+  it("supports switching between Chấm tức thì and Chờ tổng kết mid-session in Practice", async () => {
+    const submittedChoices: string[] = [];
+    server.use(
+      http.get("*/api/v1/questions/drills", () => {
+        return HttpResponse.json([
+          {
+            question_id: "deferred_1",
+            subject_code: "MAD101",
+            question_type: "single_choice",
+            question_text: "Deferred Card One",
+            image_url: null,
+            options: { A: "Choice A1", B: "Choice B1", C: "Choice C1" },
+          },
+          {
+            question_id: "deferred_2",
+            subject_code: "MAD101",
+            question_type: "single_choice",
+            question_text: "Deferred Card Two",
+            image_url: null,
+            options: { A: "Choice A2", B: "Choice B2", C: "Choice C2" },
+          },
+        ]);
+      }),
+      http.post("*/api/v1/questions/:questionId/check", async ({ request }) => {
+        const body = (await request.json()) as { selected_options?: string };
+        submittedChoices.push(body.selected_options ?? "");
+        return HttpResponse.json({
+          question_id: "deferred_1",
+          selected_options: body.selected_options ?? "C",
+          correct_answer: "C",
+          is_correct: body.selected_options === "C",
+          ai_explanation: "Deferred mode rationale.",
+        });
+      })
+    );
+
+    renderPractice("/subjects/MAD101/practice/cram");
+    await waitFor(() => {
+      expect(screen.getByText("Deferred Card One")).toBeInTheDocument();
+    });
+
+    // Switch header toggle to "Chờ tổng kết"
+    const deferredBtn = screen.getByRole("button", { name: /Chờ tổng kết/i });
+    fireEvent.click(deferredBtn);
+    expect(deferredBtn).toHaveAttribute("aria-pressed", "true");
+
+    // Pick A -> change mind to C -> no instant grading badge yet
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
+    expect(submittedChoices).toHaveLength(0);
+    expect(screen.queryByText(/Chưa chính xác/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
+    expect(submittedChoices).toHaveLength(0);
+
+    // Clicking "Tiếp tục" submits C and advances directly to Deferred Card Two
+    fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Deferred Card Two")).toBeInTheDocument();
+    });
+    expect(submittedChoices).toEqual(["C"]);
   });
 });

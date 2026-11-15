@@ -7,6 +7,7 @@ import type { FeedbackMode, BenchmarkMode, ExamConfigOptions } from "@/types/exa
 import { startExamAttempt } from "@/api/attempts";
 import { useExamUiStore } from "@/stores/examUiStore";
 import { getErrorMessage } from "@/utils/error";
+import { upsertActiveExam } from "@/utils/activeExams";
 
 export interface CustomExamModalProps {
   isOpen: boolean;
@@ -74,6 +75,19 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
         durationMinutes: resolvedDuration,
         feedbackMode: feedbackModeState,
         benchmarkMode: benchmarkModeState,
+      });
+
+      upsertActiveExam({
+        attemptId: attempt.attemptId,
+        examId: attempt.examId,
+        examTitle: attempt.examTitle,
+        subjectCode,
+        totalQuestions: attempt.questions.length,
+        answeredCount: 0,
+        startedAt: attempt.startedAt,
+        expiresAt: attempt.expiresAt,
+        feedbackMode: feedbackModeState,
+        updatedAt: new Date().toISOString(),
       });
 
       onClose();

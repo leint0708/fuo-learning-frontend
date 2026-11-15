@@ -10,6 +10,7 @@ import {
 import { useExamTimer } from "@/hooks/useExamTimer";
 import { useExamUiStore } from "@/stores/examUiStore";
 import { getErrorMessage } from "@/utils/error";
+import { inferSubjectCode, removeActiveExam, upsertActiveExam } from "@/utils/activeExams";
 import type { FeedbackMode, Question } from "@/types/exam";
 import type {
   WorkspaceEvaluationResult,
@@ -43,6 +44,7 @@ export interface ExamWorkspaceAdapterResult {
   sortedOptionKeys: string[];
   selectedOptions: string;
   feedbackMode: FeedbackMode;
+  setFeedbackMode: (mode: FeedbackMode) => void;
   evaluation: WorkspaceEvaluationResult | null;
   saveStatus: WorkspaceSaveStatus;
   pendingSaveCount: number;
@@ -125,6 +127,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     openSubmitConfirm,
     closeSubmitConfirm,
     feedbackMode,
+    setFeedbackMode,
   } = useExamUiStore();
 
   const {
@@ -225,6 +228,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     try {
       await flushFailedSaves();
       await submitAttempt(safeAttemptId);
+      removeActiveExam(safeAttemptId);
       updateFailedSaves(() => ({}));
       closeSubmitConfirm();
       navigate(`/attempts/${safeAttemptId}/review`, { replace: true });
@@ -450,7 +454,8 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     if (!currentQuestion) return;
     const qId = currentQuestion.questionId;
     if (!aiExplanations[qId] && !instantResults[qId] && !aiLoadingIds[qId]) {
-      void fetchAiForQuestion(qId, userAnswers[qId] || "");
+      const probeOption = userAnswers[qId] || sortedOptionKeys[0] || "A";
+      void fetchAiForQuestion(qId, probeOption);
     }
   }, [
     openAiModal,
@@ -460,13 +465,35 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     aiLoadingIds,
     fetchAiForQuestion,
     userAnswers,
+    sortedOptionKeys,
   ]);
 
   const retryAiAnalysis = useCallback(async () => {
     if (!currentQuestion) return;
     const qId = currentQuestion.questionId;
-    await fetchAiForQuestion(qId, userAnswers[qId] || "");
-  }, [currentQuestion, fetchAiForQuestion, userAnswers]);
+    const probeOption = userAnswers[qId] || sortedOptionKeys[0] || "A";
+    await fetchAiForQuestion(qId, probeOption);
+  }, [currentQuestion, fetchAiForQuestion, userAnswers, sortedOptionKeys]);
+
+  useEffect(() => {
+    if (!attempt || !safeAttemptId) return;
+    if (attempt.status !== "in_progress" || isExpired) {
+      removeActiveExam(safeAttemptId);
+      return;
+    }
+    upsertActiveExam({
+      attemptId: attempt.attemptId,
+      examId: attempt.examId,
+      examTitle: attempt.examTitle,
+      subjectCode: inferSubjectCode(attempt.examId, attempt.examTitle),
+      totalQuestions: attempt.questions.length,
+      answeredCount,
+      startedAt: attempt.startedAt,
+      expiresAt: attempt.expiresAt,
+      feedbackMode,
+      updatedAt: new Date().toISOString(),
+    });
+  }, [attempt, safeAttemptId, isExpired, answeredCount, feedbackMode]);
 
   const currentInstant = currentQuestion ? instantResults[currentQuestion.questionId] : undefined;
   const currentInstantError = currentQuestion ? instantErrors[currentQuestion.questionId] : undefined;
@@ -546,6 +573,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     sortedOptionKeys,
     selectedOptions: currentQuestion ? userAnswers[currentQuestion.questionId] || "" : "",
     feedbackMode,
+    setFeedbackMode,
     evaluation,
     saveStatus,
     pendingSaveCount: Object.keys(failedSaves).length,

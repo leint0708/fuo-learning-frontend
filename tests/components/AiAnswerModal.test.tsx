@@ -121,7 +121,7 @@ describe("AiAnswerModal Component Tests", () => {
     expect(handleRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("renders compact question stem, image thumbnail, and options marking user choice vs AI choice", () => {
+  it("hides duplicated OCR question text when image thumbnail is rendered and marks user choice vs AI choice", () => {
     render(
       <AiAnswerModal
         isOpen={true}
@@ -137,7 +137,7 @@ describe("AiAnswerModal Component Tests", () => {
       />
     );
 
-    expect(screen.getByText("What is the capital of Vietnam?")).toBeInTheDocument();
+    expect(screen.queryByText("What is the capital of Vietnam?")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Minh họa câu 2/i })).toHaveAttribute(
       "src",
       "/static/exams/GEO/Q2.webp"
@@ -146,5 +146,24 @@ describe("AiAnswerModal Component Tests", () => {
     expect(screen.getByText(/B\. Hanoi/i)).toBeInTheDocument();
     expect(screen.getByText("Bạn chọn")).toBeInTheDocument();
     expect(screen.getByText("AI gợi ý")).toBeInTheDocument();
+  });
+
+  it("renders question stem text in modal when imageUrl is absent", () => {
+    render(
+      <AiAnswerModal
+        isOpen={true}
+        onClose={vi.fn()}
+        questionNumber={3}
+        questionCode="Q3"
+        questionText="What is the capital of Vietnam?"
+        imageUrl={null}
+        options={{ A: "Hue", B: "Hanoi" }}
+        selectedOption="A"
+        aiChoice="B"
+        aiExplanation="Hanoi is the capital."
+      />
+    );
+
+    expect(screen.getByText("What is the capital of Vietnam?")).toBeInTheDocument();
   });
 });

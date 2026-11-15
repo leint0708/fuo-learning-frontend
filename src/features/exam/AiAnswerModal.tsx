@@ -49,7 +49,10 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
   const sortedOptions = options
     ? Object.entries(options).sort(([a], [b]) => a.localeCompare(b))
     : [];
-  const hasQuestionContext = Boolean(questionText || imageUrl || sortedOptions.length > 0);
+  const showQuestionTextInModal = Boolean(questionText && !imageUrl);
+  const hasQuestionContext = Boolean(
+    showQuestionTextInModal || imageUrl || sortedOptions.length > 0
+  );
 
   return (
     <Modal
@@ -61,7 +64,7 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
       <div className="flex flex-col gap-space-4">
         {hasQuestionContext && (
           <div className="p-space-3 sm:p-space-4 rounded-2xl bg-color-6 border-2 border-color-1 flex flex-col gap-space-3">
-            {questionText && (
+            {showQuestionTextInModal && (
               <p className="text-text-xs sm:text-text-sm font-bold text-color-1 whitespace-pre-wrap leading-relaxed">
                 {questionText}
               </p>

@@ -24,8 +24,11 @@ const textQuestion: Question = {
 };
 
 describe("QuestionStage Component Tests", () => {
-  it("applies touch-pan-y at 1.0x zoom and enables touch-none only when zoomLevel > 1", () => {
+  it("applies touch-pan-y at 1.0x zoom, hides redundant Q-code and OCR stem on image cards, and enables touch-none at >1x zoom", () => {
     render(<QuestionStage question={diagramQuestion} />);
+
+    expect(screen.queryByText("Q1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Inspect the state machine diagram below.")).not.toBeInTheDocument();
 
     const viewport = screen.getByTestId("question-stage-viewport");
     expect(viewport.className).toContain("touch-pan-y");

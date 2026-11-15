@@ -219,9 +219,16 @@ export const ExamWorkspaceView: React.FC = () => {
           progressLabel="Tiến độ bài thi"
           progressCurrent={adapter.answeredCount}
           progressTotal={adapter.totalQuestions}
-          modeBadge={{
-            label: adapter.feedbackMode === "instant" ? "Chấm tức thì" : "Thi chuẩn",
-            tone: adapter.feedbackMode === "instant" ? "accent" : "primary",
+          modeToggle={{
+            ariaLabel: "Chế độ chấm điểm",
+            value: adapter.feedbackMode,
+            options: [
+              { value: "instant", label: "Chấm tức thì" },
+              { value: "post_exam", label: "Thi chuẩn" },
+            ],
+            onChange: (value) => {
+              adapter.setFeedbackMode(value === "instant" ? "instant" : "post_exam");
+            },
           }}
           saveStatus={adapter.saveStatus}
           onRetrySave={() => {
@@ -309,31 +316,25 @@ export const ExamWorkspaceView: React.FC = () => {
               onRetry={() => {
                 void adapter.submitMultiChoiceCheck();
               }}
-              onOpenAiModal={adapter.openAiAnalysis}
             />
           )}
 
-          {!(
-            adapter.feedbackMode === "instant" &&
-            adapter.evaluation?.status === "resolved"
-          ) && (
-            <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
-              <span className="text-text-xs font-bold text-color-1">
-                Phân tích chi tiết & loại trừ đáp án
+          <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
+            <span className="text-text-xs font-bold text-color-1">
+              Phân tích chi tiết &amp; loại trừ đáp án
+            </span>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={adapter.openAiAnalysis}
+              className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
+            >
+              <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 inline-flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               </span>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={adapter.openAiAnalysis}
-                className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
-              >
-                <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 inline-flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-                </span>
-                <span>Xem giải thích AI</span>
-              </Button>
-            </div>
-          )}
+              <span>Xem giải thích AI</span>
+            </Button>
+          </div>
         </div>
       }
       navigatorContent={
