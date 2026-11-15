@@ -242,4 +242,43 @@ describe("CustomExamModal", () => {
     expect(errorElement).toBeInTheDocument();
     expect(screen.queryByText("[object Object]")).not.toBeInTheDocument();
   });
+
+  it("launches untimed exam when 'Không giới hạn thời gian' is selected", async () => {
+    vi.mocked(startExamAttempt).mockResolvedValueOnce({
+      attemptId: "att_untimed_1",
+      examId: "exam_1",
+      examTitle: "Untimed Exam",
+      status: "in_progress",
+      startedAt: new Date().toISOString(),
+      expiresAt: null,
+      timeRemainingSeconds: null,
+      questions: [],
+    });
+
+    render(
+      <BrowserRouter>
+        <CustomExamModal
+          isOpen={true}
+          onClose={vi.fn()}
+          subjectCode="MAD101"
+          defaultExamId="exam_1"
+        />
+      </BrowserRouter>
+    );
+
+    // Toggle untimed mode
+    const toggleButton = screen.getByRole("button", { name: "Thi có hẹn giờ" });
+    fireEvent.click(toggleButton);
+    expect(screen.getByRole("button", { name: /Không giới hạn thời gian/i })).toBeInTheDocument();
+
+    // Click start exam
+    fireEvent.click(screen.getByRole("button", { name: /Bắt đầu làm bài/i }));
+
+    expect(startExamAttempt).toHaveBeenCalledWith(
+      "exam_1",
+      expect.objectContaining({
+        durationMinutes: null,
+      })
+    );
+  });
 });

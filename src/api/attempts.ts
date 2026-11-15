@@ -18,16 +18,33 @@ export interface StartAttemptOptions {
 
 export async function startExamAttempt(
   examId: string,
-  _options?: StartAttemptOptions
+  options?: StartAttemptOptions
 ): Promise<AttemptSession> {
+  const payload: Record<string, unknown> = {};
+  if (options) {
+    if (options.questionCount !== undefined) {
+      payload.question_count = options.questionCount;
+    }
+    if (options.durationMinutes !== undefined) {
+      payload.duration_minutes = options.durationMinutes;
+      payload.is_timed = options.durationMinutes !== null;
+    }
+    if (options.feedbackMode !== undefined) {
+      payload.feedback_mode = options.feedbackMode;
+    }
+    if (options.benchmarkMode !== undefined) {
+      payload.benchmark_mode = options.benchmarkMode;
+    }
+  }
+
   const data = await apiClient<{
     attempt_id: string;
     exam_id: string;
     exam_title: string;
     status: string;
     started_at: string;
-    expires_at: string;
-    time_remaining_seconds: number;
+    expires_at: string | null;
+    time_remaining_seconds: number | null;
     questions: Array<{
       question_id: string;
       question_number: number;
@@ -40,6 +57,7 @@ export async function startExamAttempt(
     }>;
   }>(`/api/v1/exams/${encodeURIComponent(examId)}/attempts`, {
     method: "POST",
+    body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined,
   });
 
   return {
@@ -70,8 +88,8 @@ export async function getAttempt(attemptId: string): Promise<AttemptSession> {
     exam_title: string;
     status: string;
     started_at: string;
-    expires_at: string;
-    time_remaining_seconds: number;
+    expires_at: string | null;
+    time_remaining_seconds: number | null;
     questions: Array<{
       question_id: string;
       question_number: number;

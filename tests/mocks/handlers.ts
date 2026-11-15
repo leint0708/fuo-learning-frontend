@@ -97,8 +97,19 @@ export const handlers = [
   }),
 
   // Attempts handlers
-  http.post("*/api/v1/exams/:examId/attempts", ({ params }) => {
+  http.post("*/api/v1/exams/:examId/attempts", async ({ request, params }) => {
     const { examId } = params;
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
+    const isUntimed = body?.is_timed === false || body?.duration_minutes === null;
+    const durationMinutes = isUntimed ? null : (body?.duration_minutes ?? 60);
+    const timeRemainingSeconds = isUntimed ? null : durationMinutes! * 60;
+
     return HttpResponse.json(
       {
         attempt_id: "att_mock_100",
@@ -106,8 +117,8 @@ export const handlers = [
         exam_title: "Discrete Mathematics FA25",
         status: "in_progress",
         started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-        time_remaining_seconds: 3600,
+        expires_at: isUntimed ? null : new Date(Date.now() + (timeRemainingSeconds ?? 3600) * 1000).toISOString(),
+        time_remaining_seconds: timeRemainingSeconds,
         questions: [
           {
             question_id: "q_1",
@@ -220,24 +231,29 @@ export const handlers = [
   }),
 
   // Drills
-  http.get("*/api/v1/questions/drills", () => {
-    return HttpResponse.json([
-      {
-        question_id: "drill_1",
-        subject_code: "MAD101",
-        question_type: "single_choice",
-        question_text: "Topical drill question 1",
-        image_url: "/static/exams/MAD101/Q1.webp",
-        options: { A: "Opt A", B: "Opt B", C: "Opt C", D: "Opt D" },
-      },
-    ]);
+  http.get("*/api/v1/questions/drills", ({ request }) => {
+    const url = new URL(request.url);
+    const countParam = parseInt(url.searchParams.get("count") || "15", 10);
+    const count = isNaN(countParam) ? 15 : Math.max(countParam, 1);
+
+    const questions = Array.from({ length: Math.min(count, 20) }, (_, i) => ({
+      question_id: `drill_${i + 1}`,
+      subject_code: "MAD101",
+      question_type: "single_choice",
+      question_text: `Topical drill question ${i + 1}`,
+      image_url: "/static/exams/MAD101/Q1.webp",
+      options: { A: `Opt A ${i + 1}`, B: `Opt B ${i + 1}`, C: `Opt C ${i + 1}`, D: `Opt D ${i + 1}` },
+    }));
+
+    return HttpResponse.json(questions);
   }),
 
-  http.post("*/api/v1/questions/:questionId/check", async ({ request }) => {
+  http.post("*/api/v1/questions/:questionId/check", async ({ params, request }) => {
+    const { questionId } = params;
     const body = (await request.json()) as { selected_options: string };
     const isCorrect = body.selected_options === "C";
     return HttpResponse.json({
-      question_id: "drill_1",
+      question_id: questionId,
       selected_options: body.selected_options,
       correct_answer: "C",
       is_correct: isCorrect,

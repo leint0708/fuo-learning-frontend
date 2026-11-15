@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { Bot, Clock, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
 import { QuestionCanvas } from "./QuestionCanvas";
@@ -103,8 +103,10 @@ export const ExamWorkspaceView: React.FC = () => {
   }, [safeAttemptId, navigate]);
 
   // Countdown timer
+  const isUntimed = attempt?.timeRemainingSeconds === null;
   const { formattedTime, isWarning } = useExamTimer({
-    initialSeconds: attempt?.timeRemainingSeconds ?? 3600,
+    initialSeconds: isUntimed ? null : (attempt?.timeRemainingSeconds ?? 3600),
+    isUntimed,
     onExpire: handleTimeExpire,
   });
 
@@ -307,12 +309,16 @@ export const ExamWorkspaceView: React.FC = () => {
 
         {/* Timer Box */}
         <div
-          className={`lg:col-span-2 flex items-center justify-center p-space-2 sm:p-space-3 rounded-2xl border-2 border-color-1 shadow-sm font-bold text-text-sm ${
+          className={`lg:col-span-2 flex items-center justify-center gap-1.5 p-space-2 sm:p-space-3 rounded-2xl border-2 border-color-1 shadow-sm font-bold text-text-sm ${
             isWarning
               ? "bg-color-4 text-color-7 animate-pulse border-color-4"
+              : isUntimed
+              ? "bg-color-7 text-color-2"
               : "bg-color-7 text-color-1"
           }`}
+          data-testid="exam-timer-box"
         >
+          <Clock className="w-4 h-4 shrink-0" />
           <span>{formattedTime}</span>
         </div>
 

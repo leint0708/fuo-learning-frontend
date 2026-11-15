@@ -1,0 +1,138 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { useCramSession } from "@/hooks/useCramSession";
+import type { Question } from "@/types/exam";
+
+const createMockQuestions = (count: number): Question[] => {
+  return Array.from({ length: count }, (_, i) => ({
+    questionId: `q_${i + 1}`,
+    questionNumber: i + 1,
+    questionIdCode: `Q${i + 1}`,
+    questionType: "single_choice",
+    questionText: `Question ${i + 1} text`,
+    imageUrl: null,
+    options: { A: "A", B: "B", C: "C", D: "D" },
+  }));
+};
+
+describe("useCramSession hook", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  it("initializes with first batch of 10 cards and Fisher-Yates shuffle", () => {
+    const questions = createMockQuestions(25);
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    expect(result.current.deckPool.length).toBe(25);
+    expect(result.current.currentBatch.length).toBe(10);
+    expect(result.current.activeQueue.length).toBe(10);
+    expect(result.current.batchIndex).toBe(0);
+    expect(result.current.totalBatches).toBe(3);
+    expect(result.current.isBatchCompleted).toBe(false);
+    expect(result.current.isSessionCompleted).toBe(false);
+  });
+
+  it("removes correctly answered card from active queue and tracks batch progress", () => {
+    const questions = createMockQuestions(10);
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    const firstCard = result.current.currentCard;
+    expect(firstCard).toBeDefined();
+
+    act(() => {
+      result.current.recordAnswer(firstCard!.questionId, true);
+    });
+
+    expect(result.current.masteredInBatch.has(firstCard!.questionId)).toBe(true);
+    expect(result.current.activeQueue.length).toBe(9);
+    expect(result.current.activeQueue.find((c) => c.questionId === firstCard!.questionId)).toBeUndefined();
+  });
+
+  it("re-inserts incorrectly answered card with near-distance jitter (2-4 cards ahead)", () => {
+    const questions = createMockQuestions(10);
+    // Mock Math.random to return predictable jitter (e.g., 0.5 -> J = 2 + floor(0.5 * 3) = 3)
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    const failedCard = result.current.currentCard!;
+
+    act(() => {
+      result.current.recordAnswer(failedCard.questionId, false);
+    });
+
+    // Failed card must NOT be mastered
+    expect(result.current.masteredInBatch.has(failedCard.questionId)).toBe(false);
+    // Failed card must still be in the active queue
+    expect(result.current.activeQueue.some((c) => c.questionId === failedCard.questionId)).toBe(true);
+
+    vi.restoreAllMocks();
+  });
+
+  it("handles single card remaining in batch when answered incorrectly without crashing", () => {
+    const questions = createMockQuestions(1);
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    const singleCard = result.current.currentCard!;
+
+    act(() => {
+      result.current.recordAnswer(singleCard.questionId, false);
+    });
+
+    expect(result.current.activeQueue.length).toBe(1);
+    expect(result.current.currentCard?.questionId).toBe(singleCard.questionId);
+    expect(result.current.isBatchCompleted).toBe(false);
+  });
+
+  it("triggers batch completion when all 10 cards are mastered and advances to next batch", () => {
+    const questions = createMockQuestions(15);
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    // Answer all 10 cards in the current batch correctly
+    for (let i = 0; i < 10; i++) {
+      const card = result.current.currentCard;
+      if (card) {
+        act(() => {
+          result.current.recordAnswer(card.questionId, true);
+        });
+      }
+    }
+
+    expect(result.current.isBatchCompleted).toBe(true);
+
+    // Advance to next batch
+    act(() => {
+      result.current.nextBatch();
+    });
+
+    expect(result.current.batchIndex).toBe(1);
+    expect(result.current.currentBatch.length).toBe(5);
+    expect(result.current.activeQueue.length).toBe(5);
+    expect(result.current.isBatchCompleted).toBe(false);
+  });
+});

@@ -52,8 +52,9 @@ export interface AttemptSession {
   examTitle: string;
   status: AttemptStatus;
   startedAt: string;
-  expiresAt: string;
-  timeRemainingSeconds: number;
+  expiresAt: string | null;
+  timeRemainingSeconds: number | null;
+  isUntimed?: boolean;
   questions: Question[];
 }
 

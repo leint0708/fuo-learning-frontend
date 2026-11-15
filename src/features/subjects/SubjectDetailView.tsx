@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CustomExamModal } from "./CustomExamModal";
+import { SubjectPracticeActions } from "./SubjectPracticeActions";
 import { getSubject, getSubjectExams } from "@/api/subjects";
 import { getErrorMessage } from "@/utils/error";
 
@@ -32,6 +33,25 @@ export const SubjectDetailView: React.FC = () => {
   const totalBankQuestions = exams && exams.length > 0
     ? Math.max(exams.reduce((sum, e) => sum + e.totalQuestions, 0), 50)
     : 50;
+
+  // Retrieve mastered question counts from localStorage
+  const cramMasteredCount = React.useMemo(() => {
+    try {
+      const stored = localStorage.getItem(`fuo_cram_mastered_${subjectCode}`);
+      return stored ? JSON.parse(stored).length : 0;
+    } catch {
+      return 0;
+    }
+  }, [subjectCode]);
+
+  const learnGraduatedCount = React.useMemo(() => {
+    try {
+      const stored = localStorage.getItem(`fuo_learn_mastered_${subjectCode}`);
+      return stored ? JSON.parse(stored).length : 0;
+    } catch {
+      return 0;
+    }
+  }, [subjectCode]);
 
   const handleOpenNewCustomExam = () => {
     setSelectedExamId(undefined);
@@ -60,7 +80,7 @@ export const SubjectDetailView: React.FC = () => {
       </div>
 
       {/* Header Info Banner */}
-      <Card className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-space-5">
+      <Card className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-space-5">
         <div>
           <div className="flex items-center gap-space-2 mb-space-2">
             <h1 className="text-text-xl font-bold text-color-1">{subjectCode}</h1>
@@ -74,16 +94,23 @@ export const SubjectDetailView: React.FC = () => {
           </p>
         </div>
 
-        {/* Custom Exam Action */}
-        <div className="shrink-0">
+        {/* Action Controls: Practice Modes (Cram & Learn) + Custom Exam */}
+        <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-space-4">
+          <SubjectPracticeActions
+            subjectCode={subjectCode}
+            totalBankQuestions={totalBankQuestions}
+            cramMasteredCount={cramMasteredCount}
+            learnGraduatedCount={learnGraduatedCount}
+          />
+
           <Button
-            variant="accent"
-            size="lg"
+            variant="secondary"
+            size="md"
             onClick={handleOpenNewCustomExam}
-            className="w-full md:w-auto flex items-center justify-center gap-space-2"
+            className="flex items-center justify-center gap-space-2 border-2 border-color-1 shadow-xs hover:shadow-sm"
           >
-            <Sliders className="w-5 h-5" />
-            <span>Tùy chỉnh đề luyện thi mới</span>
+            <Sliders className="w-4 h-4" />
+            <span>Tùy chỉnh đề thi</span>
           </Button>
         </div>
       </Card>

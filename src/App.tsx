@@ -13,6 +13,7 @@ import { SubjectCatalogView } from "@/features/subjects/SubjectCatalogView";
 import { SubjectDetailView } from "@/features/subjects/SubjectDetailView";
 import { ExamWorkspaceView } from "@/features/exam/ExamWorkspaceView";
 import { ReviewView } from "@/features/review/ReviewView";
+import { PracticeWorkspaceView } from "@/features/practice/PracticeWorkspaceView";
 
 export const App: React.FC = () => {
   const { initAuth } = useAuthStore();
@@ -44,6 +45,14 @@ export const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <SubjectDetailView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/subjects/:code/practice/:mode"
+            element={
+              <ProtectedRoute>
+                <PracticeWorkspaceView />
               </ProtectedRoute>
             }
           />
