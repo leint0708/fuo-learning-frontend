@@ -57,11 +57,8 @@ export const SubjectDetailView: React.FC = () => {
   // Calculate total questions available in the subject question bank
   const totalBankQuestions =
     exams && exams.length > 0
-      ? Math.max(
-          exams.reduce((sum, e) => sum + e.totalQuestions, 0),
-          50
-        )
-      : 50;
+      ? exams.reduce((sum, e) => sum + e.totalQuestions, 0)
+      : 0;
 
   // Retrieve mastered question counts from localStorage
   const cramMasteredCount = React.useMemo(() => {

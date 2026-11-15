@@ -37,6 +37,7 @@ export default {
         sans: ["Space Grotesk", "ui-sans-serif", "sans-serif"],
       },
       fontSize: {
+        "text-2xs": ["12px", { lineHeight: "16px" }],
         "text-xs": ["16px", { lineHeight: "24px" }],
         "text-sm": ["18px", { lineHeight: "28px" }],
         "text-base": ["20px", { lineHeight: "32px" }],

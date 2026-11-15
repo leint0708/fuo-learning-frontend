@@ -62,8 +62,8 @@ export const SubjectPracticeActions: React.FC<SubjectPracticeActionsProps> = ({
       >
         <div>
           <div className="flex items-center justify-between gap-space-2 mb-space-3">
-            <div className="w-10 h-10 rounded-full bg-color-5/20 border-2 border-color-1 flex items-center justify-center text-color-1 shadow-xs shrink-0">
-              <Zap className="w-5 h-5 text-color-5 fill-color-5" />
+            <div className="w-10 h-10 rounded-full bg-color-5 border-2 border-color-1 flex items-center justify-center text-color-1 shadow-xs shrink-0">
+              <Zap className="w-5 h-5 text-color-1 fill-color-1" />
             </div>
             <Badge variant="warning">Ôn tập siêu tốc</Badge>
           </div>
@@ -104,7 +104,7 @@ export const SubjectPracticeActions: React.FC<SubjectPracticeActionsProps> = ({
             aria-describedby={`cram-status-${subjectCode}`}
             className="w-full flex items-center justify-center gap-space-2 shadow-xs hover:shadow-sm"
           >
-            <Zap className="w-4 h-4 text-color-5 fill-color-5" />
+            <Zap className="w-4 h-4 text-color-7 fill-color-7" />
             <span>Bắt đầu luyện ngay</span>
             <ArrowRight className="w-4 h-4 ml-auto" />
           </Button>
