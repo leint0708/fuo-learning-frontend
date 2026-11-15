@@ -65,4 +65,30 @@ describe("Modal Primitive Backdrop", () => {
     fireEvent.click(screen.getByText("Click Inside"));
     expect(handleClose).not.toHaveBeenCalled();
   });
+
+  it("links dialog aria-labelledby to the modal heading and traps Tab focus", () => {
+    render(
+      <Modal isOpen={true} onClose={vi.fn()} title="Keyboard Trap Modal">
+        <button>First Action</button>
+        <button>Last Action</button>
+      </Modal>
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Keyboard Trap Modal" });
+    expect(dialog).toBeInTheDocument();
+
+    const closeBtn = screen.getByRole("button", { name: /đóng cửa sổ/i });
+    const lastActionBtn = screen.getByRole("button", { name: "Last Action" });
+
+    // Initial focus goes to the first focusable element inside the modal (Close button)
+    expect(document.activeElement).toBe(closeBtn);
+
+    // Shift+Tab from first element wraps to last element
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(lastActionBtn);
+
+    // Tab from last element wraps back to first element
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: false });
+    expect(document.activeElement).toBe(closeBtn);
+  });
 });

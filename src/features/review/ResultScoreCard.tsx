@@ -51,25 +51,25 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
       </div>
 
       <h2 className="text-text-xl font-bold text-color-1 mb-space-1">{examTitle}</h2>
-      <p className="text-text-xs text-color-1/70 mb-space-5">
+      <p className="text-text-xs text-color-1/75 mb-space-5">
         Tiêu chuẩn vượt qua môn: tối thiểu 70.0% tổng điểm
       </p>
 
       {/* Score Grid Breakdown */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-3 pt-space-4 border-t-2 border-color-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-3 pt-space-4 border-t-2 border-color-6 tabular-nums">
         <div className="p-space-3 bg-color-6 rounded-2xl border border-color-1/30">
-          <div className="text-text-xs font-bold text-color-1/60 flex items-center justify-center gap-1">
+          <div className="text-text-xs font-bold text-color-1/75 flex items-center justify-center gap-space-1">
             <Award className="w-4 h-4 text-color-2" /> Điểm số
           </div>
-          <div className="text-text-xl font-bold text-color-2 mt-1">
+          <div className="text-text-xl font-bold text-color-2 mt-space-1">
             {totalScore.toFixed(1)}/10
           </div>
         </div>
 
         <div className="p-space-3 bg-color-6 rounded-2xl border border-color-1/30">
-          <div className="text-text-xs font-bold text-color-1/60">Tỷ lệ chính xác</div>
+          <div className="text-text-xs font-bold text-color-1/75">Tỷ lệ chính xác</div>
           <div
-            className={`text-text-xl font-bold mt-1 ${
+            className={`text-text-xl font-bold mt-space-1 ${
               isPassed ? "text-color-3" : "text-color-4"
             }`}
           >
@@ -78,19 +78,19 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
         </div>
 
         <div className="p-space-3 bg-color-6 rounded-2xl border border-color-1/30">
-          <div className="text-text-xs font-bold text-color-1/60 flex items-center justify-center gap-1">
+          <div className="text-text-xs font-bold text-color-1/75 flex items-center justify-center gap-space-1">
             <HelpCircle className="w-4 h-4 text-color-5" /> Số câu đúng
           </div>
-          <div className="text-text-xl font-bold text-color-1 mt-1">
+          <div className="text-text-xl font-bold text-color-1 mt-space-1">
             {correctCount}/{totalQuestions}
           </div>
         </div>
 
         <div className="p-space-3 bg-color-6 rounded-2xl border border-color-1/30">
-          <div className="text-text-xs font-bold text-color-1/60 flex items-center justify-center gap-1">
+          <div className="text-text-xs font-bold text-color-1/75 flex items-center justify-center gap-space-1">
             <Clock className="w-4 h-4 text-color-1" /> Thời gian làm
           </div>
-          <div className="text-text-xl font-bold text-color-1 mt-1">
+          <div className="text-text-xl font-bold text-color-1 mt-space-1">
             {minutes}p {seconds}s
           </div>
         </div>

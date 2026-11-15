@@ -77,6 +77,11 @@ export const ExamWorkspaceView: React.FC = () => {
 
   // Sync initial answers from loaded attempt
   useEffect(() => {
+    if (attempt?.examTitle) {
+      document.title = `${attempt.examTitle} | FUO Learning`;
+    } else {
+      document.title = "Phòng thi trực tuyến | FUO Learning";
+    }
     if (attempt?.questions) {
       const initialMap: Record<string, string> = {};
       attempt.questions.forEach((q) => {
@@ -299,7 +304,10 @@ export const ExamWorkspaceView: React.FC = () => {
       {/* Top Header Row matching Sketch: Progress Bar (left), Timer (center), Benchmark Badge + Submit Button (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-3 items-stretch">
         {/* Progress Bar (Left Column top) */}
-        <div className="lg:col-span-5 bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 shadow-sm flex items-center min-w-0">
+        <div
+          data-impeccable-ignore="hard-offset-shadow"
+          className="lg:col-span-5 bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 shadow-sm flex items-center min-w-0"
+        >
           <ProgressBar
             current={answeredCount}
             total={totalQuestions}
@@ -309,7 +317,8 @@ export const ExamWorkspaceView: React.FC = () => {
 
         {/* Timer Box */}
         <div
-          className={`lg:col-span-2 flex items-center justify-center gap-1.5 p-space-2 sm:p-space-3 rounded-2xl border-2 border-color-1 shadow-sm font-bold text-text-sm ${
+          data-impeccable-ignore="hard-offset-shadow"
+          className={`lg:col-span-2 flex items-center justify-center gap-1.5 p-space-2 sm:p-space-3 rounded-2xl border-2 border-color-1 shadow-sm font-bold text-text-sm tabular-nums ${
             isWarning
               ? "bg-color-4 text-color-7 animate-pulse border-color-4"
               : isUntimed
@@ -323,13 +332,16 @@ export const ExamWorkspaceView: React.FC = () => {
         </div>
 
         {/* Benchmark toggle box + Submit Button */}
-        <div className="lg:col-span-5 flex items-center justify-between gap-space-2 p-space-2 sm:px-space-3 sm:py-space-2 rounded-2xl border-2 border-color-1 bg-color-7 shadow-sm min-w-0">
+        <div
+          data-impeccable-ignore="hard-offset-shadow"
+          className="lg:col-span-5 flex items-center justify-between gap-space-2 p-space-2 sm:px-space-3 sm:py-space-2 rounded-2xl border-2 border-color-1 bg-color-7 shadow-sm min-w-0"
+        >
           <button
             type="button"
             onClick={() =>
               setBenchmarkMode(benchmarkMode === "ai" ? "community" : "ai")
             }
-            className="min-w-0 flex-1 flex items-center gap-1.5 px-space-2 py-1.5 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 hover:bg-color-2/10 hover:border-color-2 transition-all cursor-pointer shadow-2xs select-none"
+            className="min-w-0 flex-1 flex items-center gap-1.5 px-space-2 py-1.5 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 hover:bg-color-2/10 hover:border-color-2 transition-all cursor-pointer shadow-2xs select-none outline-none focus-visible:ring-2 focus-visible:ring-color-5"
             title="Nhấn để đổi nguồn đối chiếu: Theo AI chuẩn / Theo cộng đồng"
           >
             <ShieldCheck className="w-4 h-4 text-color-2 shrink-0" />

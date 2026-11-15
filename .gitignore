@@ -11,7 +11,9 @@ coverage/
 *.tsbuildinfo
 
 # AI & Agent artifacts
+.agent/
 .agents/
+.impeccable/
 .specify/
 specs/
 .gemini/

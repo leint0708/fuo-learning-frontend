@@ -1,14 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Sparkles, BookOpen } from "lucide-react";
+import { Search, Sparkles, BookOpen, X, RotateCcw } from "lucide-react";
 import { SubjectCard } from "./SubjectCard";
+import { Button } from "@/components/ui/Button";
 import { getErrorMessage } from "@/utils/error";
 import { getSubjects } from "@/api/subjects";
 
 export const SubjectCatalogView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: subjects, isLoading, error } = useQuery({
+  useEffect(() => {
+    document.title = "Danh sách môn học | FUO Learning";
+  }, []);
+
+  const { data: subjects, isLoading, error, refetch } = useQuery({
     queryKey: ["subjects"],
     queryFn: getSubjects,
   });
@@ -22,29 +27,43 @@ export const SubjectCatalogView: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto w-full px-space-4 sm:px-space-5 py-space-6 flex flex-col gap-space-6">
       {/* Banner */}
-      <div className="bg-color-2 text-color-7 rounded-3xl p-space-6 sm:p-space-7 border-2 border-color-1 shadow-sm relative overflow-hidden">
+      <div
+        data-impeccable-ignore="hard-offset-shadow"
+        className="bg-color-2 text-color-7 rounded-3xl p-space-6 sm:p-space-7 border-2 border-color-1 shadow-sm relative overflow-hidden"
+      >
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-space-3 py-1 rounded-full bg-color-5 text-color-1 font-bold text-text-xs border border-color-1 mb-space-3 shadow-xs">
+          <div className="inline-flex items-center gap-space-2 px-space-3 py-space-1 rounded-full bg-color-5 text-color-1 font-bold text-text-xs border border-color-1 mb-space-3 shadow-xs">
             <Sparkles className="w-4 h-4" />
             <span>Ngân hàng đề thi trắc nghiệm học thuật</span>
           </div>
           <h1 className="text-text-xl sm:text-text-2xl font-bold mb-space-2 leading-tight">
             Luyện thi đại học & chứng chỉ thông minh
           </h1>
-          <p className="text-text-sm text-color-6/90 mb-space-4">
+          <p className="text-text-sm text-color-6/95 mb-space-4">
             Đề thi trắc nghiệm kèm giải thích chi tiết từ mô hình AI, hỗ trợ phản hồi tức thì và đo lường sự đồng thuận cộng đồng.
           </p>
 
           {/* Search bar */}
           <div className="relative max-w-md">
-            <Search className="absolute left-space-3 top-1/2 -translate-y-1/2 w-5 h-5 text-color-1/50" />
+            <Search className="absolute left-space-3 top-1/2 -translate-y-1/2 w-5 h-5 text-color-1/75 pointer-events-none" />
             <input
-              type="text"
+              type="search"
+              aria-label="Tìm kiếm môn học"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm môn học (vd: MAD101, OSG202)..."
-              className="w-full pl-10 pr-space-4 py-space-2 rounded-full border-2 border-color-1 bg-color-7 text-color-1 placeholder-color-1/40 outline-none focus-visible:ring-4 focus-visible:ring-color-5 shadow-xs text-text-sm"
+              className="w-full pl-10 pr-11 py-space-2 rounded-full border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 outline-none focus-visible:ring-4 focus-visible:ring-color-5 shadow-xs text-text-sm"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Xóa từ khóa tìm kiếm"
+                className="absolute right-space-1 top-1/2 -translate-y-1/2 w-9 h-9 inline-flex items-center justify-center rounded-full text-color-1/75 hover:text-color-1 hover:bg-color-6 transition-colors duration-fast cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -56,7 +75,7 @@ export const SubjectCatalogView: React.FC = () => {
             <BookOpen className="w-6 h-6 text-color-2" />
             <span>Danh sách môn học</span>
           </h2>
-          <span className="text-text-xs font-bold text-color-1/60">
+          <span className="text-text-xs font-bold text-color-1/75 tabular-nums">
             {filteredSubjects.length} môn học khả dụng
           </span>
         </div>
@@ -66,19 +85,41 @@ export const SubjectCatalogView: React.FC = () => {
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="h-56 bg-color-7 border-2 border-color-1 rounded-2xl animate-pulse shadow-xs"
+                className="h-56 bg-color-7 border-2 border-color-1 rounded-3xl animate-pulse shadow-xs"
               />
             ))}
           </div>
         ) : error ? (
-          <div className="text-center p-space-6 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl font-bold">
-            {getErrorMessage(error, "Không thể tải danh sách môn học. Vui lòng thử lại sau.")}
+          <div
+            role="alert"
+            className="text-center p-space-6 bg-color-7 border-2 border-color-4 text-color-1 rounded-3xl font-bold flex flex-col items-center gap-space-3"
+          >
+            <p className="text-color-4">
+              {getErrorMessage(error, "Không thể tải danh sách môn học. Vui lòng thử lại sau.")}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => refetch()}
+              className="flex items-center gap-space-1"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Thử tải lại</span>
+            </Button>
           </div>
         ) : filteredSubjects.length === 0 ? (
-          <div className="text-center p-space-8 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm">
-            <p className="text-text-base font-bold text-color-1/70">
+          <div
+            data-impeccable-ignore="hard-offset-shadow"
+            className="text-center p-space-8 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm flex flex-col items-center gap-space-3"
+          >
+            <p className="text-text-base font-bold text-color-1/80">
               Không tìm thấy môn học phù hợp với từ khóa "{searchQuery}".
             </p>
+            {searchQuery && (
+              <Button variant="secondary" size="sm" onClick={() => setSearchQuery("")}>
+                Hiển thị tất cả môn học
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-5">

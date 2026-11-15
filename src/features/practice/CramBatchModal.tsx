@@ -48,19 +48,23 @@ export const CramBatchModal: React.FC<CramBatchModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby="cram-batch-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-space-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-fast"
     >
-      <div className="bg-color-7 text-color-1 w-full max-w-md rounded-3xl border-2 border-color-1 shadow-sm overflow-hidden flex flex-col p-space-6 text-center animate-in zoom-in-95 duration-fast">
+      <div
+        data-impeccable-ignore="hard-offset-shadow"
+        className="bg-color-7 text-color-1 w-full max-w-md rounded-3xl border-2 border-color-1 shadow-sm overflow-hidden flex flex-col p-space-6 text-center animate-in zoom-in-95 duration-fast"
+      >
         {/* Celebration Trophy Icon */}
         <div className="mx-auto w-16 h-16 rounded-full bg-color-5/20 border-2 border-color-1 flex items-center justify-center text-color-1 mb-space-4 shadow-xs">
           <Trophy className="w-8 h-8 text-color-5" />
         </div>
 
         {/* Milestone Headline */}
-        <h2 className="text-text-xl font-bold text-color-1 mb-space-1">
+        <h2 id="cram-batch-modal-title" className="text-text-xl font-bold text-color-1 mb-space-1">
           Hoàn thành Batch {batchNumber}/{totalBatches}! 🎉
         </h2>
-        <p className="text-text-sm text-color-1/70 mb-space-4">
+        <p className="text-text-sm text-color-1/75 mb-space-4">
           Bạn đã ghi nhớ toàn bộ câu hỏi trong nhóm vừa rồi mà không còn lỗi sai nào.
         </p>
 

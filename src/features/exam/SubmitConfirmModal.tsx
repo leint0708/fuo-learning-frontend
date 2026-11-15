@@ -47,19 +47,19 @@ export const SubmitConfirmModal: React.FC<SubmitConfirmModalProps> = ({
         )}
 
         {/* Stats Preview */}
-        <div className="p-space-4 bg-color-6 border-2 border-color-1 rounded-2xl grid grid-cols-2 gap-space-3 text-center">
+        <div className="p-space-4 bg-color-6 border-2 border-color-1 rounded-2xl grid grid-cols-2 gap-space-3 text-center tabular-nums">
           <div>
             <div className="text-text-lg font-bold text-color-1">
               {answeredCount}/{totalQuestions}
             </div>
-            <div className="text-text-xs font-bold text-color-1/60">Số câu đã làm</div>
+            <div className="text-text-xs font-bold text-color-1/75">Số câu đã làm</div>
           </div>
           <div>
             <div className="text-text-lg font-bold text-color-2 flex items-center justify-center gap-1">
               <Clock className="w-4 h-4" />
               {timeRemainingFormatted}
             </div>
-            <div className="text-text-xs font-bold text-color-1/60">Thời gian còn lại</div>
+            <div className="text-text-xs font-bold text-color-1/75">Thời gian còn lại</div>
           </div>
         </div>
 

@@ -57,7 +57,7 @@ export const QuestionListSidebar: React.FC<QuestionListSidebarProps> = ({
       {/* Title Header */}
       <div className="flex items-center justify-between mb-space-3 pb-space-2 border-b-2 border-color-6">
         <h4 className="font-bold text-text-sm text-color-1">Danh sách câu hỏi</h4>
-        <span className="text-text-xs font-bold text-color-1/60">
+        <span className="text-text-xs font-bold text-color-1/75 tabular-nums">
           Tổng: {totalQuestions} câu
         </span>
       </div>
@@ -87,8 +87,9 @@ export const QuestionListSidebar: React.FC<QuestionListSidebarProps> = ({
                 key={q.id || actualIndex}
                 ref={isCurrent ? activeBtnRef : undefined}
                 type="button"
+                aria-current={isCurrent ? "step" : undefined}
                 onClick={() => onSelectQuestion(actualIndex)}
-                className={`h-9 w-full flex items-center justify-center text-text-xs rounded-full border-2 transition-all duration-fast select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-color-5 active:scale-95 ${buttonClass}`}
+                className={`h-9 w-full flex items-center justify-center text-text-xs rounded-full border-2 transition-all duration-fast select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-color-5 active:scale-95 tabular-nums ${buttonClass}`}
                 title={`Câu ${q.number} ${q.isAnswered ? "(Đã làm)" : "(Chưa làm)"}`}
               >
                 {q.number}
@@ -102,7 +103,7 @@ export const QuestionListSidebar: React.FC<QuestionListSidebarProps> = ({
       <div className="mt-space-3 pt-space-3 border-t-2 border-color-1 flex items-center justify-between gap-2">
         {/* Completed Progress Pill */}
         <div
-          className="h-10 px-4 bg-color-6 border-2 border-color-1 rounded-full flex items-center justify-center font-bold text-text-xs text-color-1 shadow-xs shrink-0 whitespace-nowrap"
+          className="h-11 px-4 bg-color-6 border-2 border-color-1 rounded-full flex items-center justify-center font-bold text-text-xs text-color-1 shadow-xs shrink-0 whitespace-nowrap tabular-nums"
           title="Số câu đã hoàn thành"
         >
           <span>
@@ -118,7 +119,7 @@ export const QuestionListSidebar: React.FC<QuestionListSidebarProps> = ({
             disabled={!canGoPrevious}
             aria-label="Câu trước"
             title="Chuyển đến câu hỏi trước"
-            className="w-10 h-10 rounded-full border-2 border-color-1 bg-color-7 flex items-center justify-center text-color-1 hover:bg-color-6 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer"
+            className="w-11 h-11 rounded-full border-2 border-color-1 bg-color-7 flex items-center justify-center text-color-1 hover:bg-color-6 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -129,7 +130,7 @@ export const QuestionListSidebar: React.FC<QuestionListSidebarProps> = ({
             disabled={!canGoNext}
             aria-label="Câu sau"
             title="Chuyển đến câu hỏi tiếp theo"
-            className="w-10 h-10 rounded-full border-2 border-color-1 bg-color-7 flex items-center justify-center text-color-1 hover:bg-color-6 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer"
+            className="w-11 h-11 rounded-full border-2 border-color-1 bg-color-7 flex items-center justify-center text-color-1 hover:bg-color-6 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer"
           >
             <ChevronRight className="w-5 h-5" />
           </button>

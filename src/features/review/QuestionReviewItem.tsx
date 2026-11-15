@@ -23,6 +23,10 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     containerRef,
     transformStyle,
     isDragging,
@@ -85,11 +89,16 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
           {/* Canvas Viewport Area */}
           <div
             ref={containerRef}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerCancel}
+            onLostPointerCapture={handlePointerCancel}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className={`relative flex items-center justify-center min-h-[220px] max-h-[460px] p-space-3 select-none overflow-hidden bg-color-6/30 ${
+            className={`relative flex items-center justify-center min-h-[220px] max-h-[460px] p-space-3 select-none touch-none overflow-hidden bg-color-6/30 ${
               isDragging ? "cursor-grabbing" : "cursor-grab"
             }`}
           >
@@ -105,14 +114,15 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
                 className="max-h-72 w-auto object-contain rounded-xl pointer-events-none drop-shadow-xs"
                 draggable={false}
                 loading="lazy"
+                decoding="async"
               />
             </div>
           </div>
 
           {/* Bottom Zoom Controls Bar */}
           <div className="px-space-3 py-1.5 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
-            <span className="text-text-xs font-bold text-color-1/50 hidden sm:inline">
-              Ctrl + Cuộn chuột để phóng to / thu nhỏ
+            <span className="text-text-xs font-bold text-color-1/75 hidden sm:inline">
+              Kéo để di chuyển • Ctrl + Cuộn chuột để phóng to / thu nhỏ
             </span>
             <div className="flex items-center gap-1.5 ml-auto">
               <Button

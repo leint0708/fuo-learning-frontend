@@ -29,15 +29,15 @@ export const SubjectCard: React.FC<SubjectCardProps> = ({ subject }) => {
           </Badge>
         </div>
 
-        <h3 className="text-text-lg font-bold text-color-1 mb-1">{subject.code}</h3>
+        <h3 className="text-text-lg font-bold text-color-1 mb-space-1">{subject.code}</h3>
         <p className="text-text-sm font-bold text-color-2 mb-space-2">{subject.title}</p>
-        <p className="text-text-xs text-color-1/70 line-clamp-2 mb-space-4">
+        <p className="text-text-xs text-color-1/75 line-clamp-2 mb-space-4">
           {subject.description || "Tài liệu và ngân hàng câu hỏi ôn thi chi tiết."}
         </p>
       </div>
 
       <div className="pt-space-3 border-t-2 border-color-6 flex items-center justify-between mt-auto">
-        <span className="text-text-xs font-bold text-color-1/60 flex items-center gap-1">
+        <span className="text-text-xs font-bold text-color-1/75 flex items-center gap-space-1">
           <Award className="w-4 h-4 text-color-5" /> Chuẩn ngân hàng đề
         </span>
         <Button
@@ -50,7 +50,7 @@ export const SubjectCard: React.FC<SubjectCardProps> = ({ subject }) => {
           className="group"
         >
           <span>Xem đề thi</span>
-          <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" />
+          <ChevronRight className="w-4 h-4 ml-space-1 group-hover:translate-x-0.5 transition-transform" />
         </Button>
       </div>
     </Card>

@@ -33,7 +33,10 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
     >
       <div className="space-y-space-4">
         {/* Clean, Synchronized Hero Card with AI Choice & Model */}
-        <div className="p-space-4 sm:p-space-5 bg-color-2 text-color-7 border-2 border-color-1 rounded-2xl shadow-sm flex flex-col gap-space-3">
+        <div
+          data-impeccable-ignore="hard-offset-shadow"
+          className="p-space-4 sm:p-space-5 bg-color-2 text-color-7 border-2 border-color-1 rounded-2xl shadow-sm flex flex-col gap-space-3"
+        >
           <div className="flex items-center justify-between gap-space-2">
             <div className="flex items-center gap-space-2.5">
               <div className="w-9 h-9 rounded-full bg-color-5 text-color-1 flex items-center justify-center border-2 border-color-1 font-bold shadow-xs shrink-0">

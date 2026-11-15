@@ -11,6 +11,16 @@ body {
   font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
 
+::selection {
+  background-color: var(--color-5);
+  color: var(--color-1);
+}
+
+input,
+textarea {
+  caret-color: var(--color-2);
+}
+
 /* Custom Scrollbar for question grids & dialogs */
 .custom-scrollbar {
   scrollbar-width: thin;
@@ -34,4 +44,16 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--color-2);
+}
+
+/* Accessibility: Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

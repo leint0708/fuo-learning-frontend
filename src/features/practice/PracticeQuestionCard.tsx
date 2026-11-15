@@ -63,15 +63,17 @@ export const PracticeQuestionCard: React.FC<PracticeQuestionCardProps> = ({
             <img
               src={question.imageUrl}
               alt={`Hình ảnh câu hỏi ${question.questionNumber}`}
+              loading="lazy"
+              decoding="async"
               className="w-full max-h-72 object-contain cursor-pointer transition-transform duration-fast group-hover:scale-[1.02]"
               onClick={() => setIsImageModalOpen(true)}
             />
             <button
               type="button"
               onClick={() => setIsImageModalOpen(true)}
-              className="absolute bottom-2 right-2 p-1.5 rounded-full bg-color-7/90 border border-color-1 shadow-xs hover:bg-color-7 text-color-1 text-text-xs font-bold flex items-center gap-1"
+              className="absolute bottom-2 right-2 px-space-3 py-space-1 min-h-11 rounded-full bg-color-7/90 border border-color-1 shadow-xs hover:bg-color-7 text-color-1 text-text-xs font-bold flex items-center gap-1 cursor-pointer"
             >
-              <ZoomIn className="w-3.5 h-3.5" />
+              <ZoomIn className="w-4 h-4" />
               <span>Phóng to</span>
             </button>
           </div>
@@ -197,6 +199,7 @@ export const PracticeQuestionCard: React.FC<PracticeQuestionCardProps> = ({
         <div
           role="dialog"
           aria-modal="true"
+          aria-labelledby="practice-image-modal-title"
           className="fixed inset-0 z-50 flex items-center justify-center p-space-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-fast"
           onClick={() => setIsImageModalOpen(false)}
         >
@@ -204,12 +207,15 @@ export const PracticeQuestionCard: React.FC<PracticeQuestionCardProps> = ({
             className="relative max-w-4xl w-full bg-color-7 rounded-3xl border-2 border-color-1 p-space-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center pb-2 mb-2 border-b-2 border-color-6">
-              <span className="text-text-xs font-bold">Hình ảnh phóng to - {question.questionIdCode}</span>
+            <div className="flex justify-between items-center pb-space-2 mb-space-2 border-b-2 border-color-6">
+              <span id="practice-image-modal-title" className="text-text-xs font-bold">
+                Hình ảnh phóng to - {question.questionIdCode}
+              </span>
               <button
                 type="button"
+                aria-label="Đóng ảnh phóng to"
                 onClick={() => setIsImageModalOpen(false)}
-                className="p-1 rounded-full border border-color-1 hover:bg-color-6"
+                className="w-11 h-11 inline-flex items-center justify-center rounded-full border border-color-1 hover:bg-color-6 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -217,6 +223,7 @@ export const PracticeQuestionCard: React.FC<PracticeQuestionCardProps> = ({
             <img
               src={question.imageUrl}
               alt={question.questionIdCode}
+              decoding="async"
               className="w-full max-h-[75vh] object-contain rounded-xl"
             />
           </div>

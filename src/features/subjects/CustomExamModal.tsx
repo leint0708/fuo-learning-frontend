@@ -103,12 +103,12 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
         {/* Question Count Setting */}
         {isCustomExam ? (
           <div>
-            <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-2">
+            <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-space-2">
               <span className="flex items-center gap-1.5">
                 <HelpCircle className="w-4 h-4 text-color-2" />
                 Số lượng câu hỏi
               </span>
-              <span className="text-color-2 font-bold">{questionCount} câu</span>
+              <span className="text-color-2 font-bold tabular-nums">{questionCount} câu</span>
             </label>
             <input
               type="range"
@@ -121,23 +121,23 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               onChange={(e) => setQuestionCount(Number(e.target.value))}
               className="w-full accent-color-2 cursor-pointer h-2 bg-color-6 rounded-lg"
             />
-            <div className="flex justify-between text-text-xs text-color-1/50 mt-1 font-bold">
+            <div className="flex justify-between text-text-xs text-color-1/75 mt-space-1 font-bold tabular-nums">
               <span>5 câu</span>
               <span>Tối đa: {maxAvailableQuestions} câu</span>
             </div>
           </div>
         ) : (
           <div>
-            <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-2">
+            <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-space-2">
               <span className="flex items-center gap-1.5">
                 <HelpCircle className="w-4 h-4 text-color-2" />
                 Số lượng câu hỏi
               </span>
-              <span className="text-color-2 font-bold">{fixedQuestionCount} câu</span>
+              <span className="text-color-2 font-bold tabular-nums">{fixedQuestionCount} câu</span>
             </label>
             <div className="p-space-3 bg-color-6/30 border-2 border-color-1 rounded-2xl flex items-center justify-between">
               <span className="text-text-xs text-color-1/80 font-bold">Đề thi chuẩn học kỳ:</span>
-              <span className="px-space-3 py-1 rounded-full text-text-xs font-bold bg-color-2 text-color-7 border-2 border-color-1 shadow-xs">
+              <span className="px-space-3 py-1 rounded-full text-text-xs font-bold bg-color-2 text-color-7 border-2 border-color-1 shadow-xs tabular-nums">
                 {fixedQuestionCount} câu hỏi
               </span>
             </div>
@@ -146,21 +146,22 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
 
         {/* Time Limit Setting */}
         <div>
-          <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-2">
+          <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-space-2">
             <span className="flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-color-2" />
               Thời gian làm bài
             </span>
-            <span className="text-color-2 font-bold">
+            <span className="text-color-2 font-bold tabular-nums">
               {isUntimed ? "Không giới hạn" : `${durationMinutes} phút`}
             </span>
           </label>
 
-          <div className="flex items-center gap-space-2 mb-2">
+          <div className="flex items-center gap-space-2 mb-space-2">
             <button
               type="button"
+              aria-pressed={isUntimed}
               onClick={() => setIsUntimed(!isUntimed)}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold border-2 transition-all ${
+              className={`px-space-3 py-1 rounded-full text-text-xs font-bold border-2 transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 isUntimed
                   ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
                   : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -179,11 +180,12 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
                     <button
                       key={mins}
                       type="button"
+                      aria-pressed={isSelected}
                       onClick={() => {
                         setDurationMinutes(mins);
                         setCustomDurationInput(String(mins));
                       }}
-                      className={`py-1.5 rounded-full text-text-xs font-bold border-2 transition-all ${
+                      className={`py-1.5 rounded-full text-text-xs font-bold border-2 transition-all tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                         isSelected
                           ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
                           : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -229,9 +231,9 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
                         setCustomDurationInput(String(num));
                       }
                     }}
-                    className="w-full py-1.5 px-3 rounded-full text-text-xs font-bold border-2 border-color-1 bg-color-7 text-color-1 focus:outline-none focus:border-color-2 focus:ring-1 focus:ring-color-2 shadow-xs"
+                    className="w-full py-1.5 px-3 rounded-full text-text-xs font-bold border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 focus:outline-none focus:border-color-2 focus:ring-1 focus:ring-color-2 shadow-xs tabular-nums"
                   />
-                  <span className="absolute right-3 text-text-xs font-bold text-color-1/50 pointer-events-none">
+                  <span className="absolute right-3 text-text-xs font-bold text-color-1/75 pointer-events-none">
                     phút
                   </span>
                 </div>
@@ -242,37 +244,41 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
 
         {/* Feedback Mode */}
         <div>
-          <label className="flex items-center gap-1.5 text-text-xs font-bold text-color-1 mb-2">
+          <label className="flex items-center gap-1.5 text-text-xs font-bold text-color-1 mb-space-2">
             <Eye className="w-4 h-4 text-color-2" />
             Chế độ xem đáp án
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-3">
             <button
               type="button"
+              aria-pressed={feedbackModeState === "instant"}
+              data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setFeedbackModeState("instant")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all ${
+              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 feedbackModeState === "instant"
                   ? "border-color-3 bg-color-3/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"
               }`}
             >
               <div className="font-bold text-text-sm text-color-1">Xem đáp án ngay</div>
-              <div className="text-text-xs text-color-1/70 mt-1">
+              <div className="text-text-xs text-color-1/75 mt-space-1">
                 Hiển thị đúng/sai và lời giải ngay sau khi chọn đáp án (có thể đổi lại).
               </div>
             </button>
 
             <button
               type="button"
+              aria-pressed={feedbackModeState === "post_exam"}
+              data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setFeedbackModeState("post_exam")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all ${
+              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 feedbackModeState === "post_exam"
                   ? "border-color-2 bg-color-2/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"
               }`}
             >
               <div className="font-bold text-text-sm text-color-1">Xem sau khi nộp bài</div>
-              <div className="text-text-xs text-color-1/70 mt-1">
+              <div className="text-text-xs text-color-1/75 mt-space-1">
                 Mô phỏng thi thực tế; chỉ chấm điểm và xem lời giải sau khi nộp bài thi.
               </div>
             </button>
@@ -281,35 +287,39 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
 
         {/* Benchmark Mode */}
         <div>
-          <label className="flex items-center gap-1.5 text-text-xs font-bold text-color-1 mb-2">
+          <label className="flex items-center gap-1.5 text-text-xs font-bold text-color-1 mb-space-2">
             <ShieldCheck className="w-4 h-4 text-color-2" />
             Nguồn đối chiếu đáp án chuẩn
           </label>
           <div className="grid grid-cols-2 gap-space-3">
             <button
               type="button"
+              aria-pressed={benchmarkModeState === "ai"}
+              data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setBenchmarkModeState("ai")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all ${
+              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 benchmarkModeState === "ai"
                   ? "border-color-2 bg-color-2/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"
               }`}
             >
               <div className="font-bold text-text-xs text-color-1">Đáp án AI chuẩn</div>
-              <div className="text-text-xs text-color-1/60">Mô hình AI giải chi tiết</div>
+              <div className="text-text-xs text-color-1/75">Mô hình AI giải chi tiết</div>
             </button>
 
             <button
               type="button"
+              aria-pressed={benchmarkModeState === "community"}
+              data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setBenchmarkModeState("community")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all ${
+              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 benchmarkModeState === "community"
                   ? "border-color-5 bg-color-5/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"
               }`}
             >
               <div className="font-bold text-text-xs text-color-1">Biểu quyết cộng đồng</div>
-              <div className="text-text-xs text-color-1/60">Tự động dùng AI nếu thiếu dữ liệu</div>
+              <div className="text-text-xs text-color-1/75">Tự động dùng AI nếu thiếu dữ liệu</div>
             </button>
           </div>
         </div>

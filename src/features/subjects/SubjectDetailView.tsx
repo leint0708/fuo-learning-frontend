@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, HelpCircle, Sliders } from "lucide-react";
+import { ArrowLeft, Clock, HelpCircle, Sliders, RotateCcw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -24,10 +24,14 @@ export const SubjectDetailView: React.FC = () => {
     queryFn: () => getSubject(subjectCode),
   });
 
-  const { data: exams, isLoading: isExamsLoading, error: examsError } = useQuery({
+  const { data: exams, isLoading: isExamsLoading, error: examsError, refetch: refetchExams } = useQuery({
     queryKey: ["subjectExams", subjectCode],
     queryFn: () => getSubjectExams(subjectCode),
   });
+
+  useEffect(() => {
+    document.title = `${subjectCode} - ${subject?.title || "Ngân hàng đề thi"} | FUO Learning`;
+  }, [subjectCode, subject?.title]);
 
   // Calculate total questions available in the subject question bank
   const totalBankQuestions = exams && exams.length > 0
@@ -72,7 +76,7 @@ export const SubjectDetailView: React.FC = () => {
       <div>
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all"
+          className="inline-flex items-center gap-space-2 text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Quay lại danh sách môn học</span>
@@ -89,7 +93,7 @@ export const SubjectDetailView: React.FC = () => {
           <h2 className="text-text-lg font-bold text-color-2 mb-space-2">
             {subject?.title || (isSubjectLoading ? "Đang tải..." : subjectCode)}
           </h2>
-          <p className="text-text-xs text-color-1/70 max-w-2xl">
+          <p className="text-text-xs text-color-1/75 max-w-2xl">
             {subject?.description || "Hệ thống tổng hợp các đề thi thử và đề thi học kỳ."}
           </p>
         </div>
@@ -119,7 +123,7 @@ export const SubjectDetailView: React.FC = () => {
       <div>
         <div className="flex justify-between items-center mb-space-4">
           <h3 className="text-text-lg font-bold text-color-1">Đề thi chuẩn học kỳ</h3>
-          <span className="text-text-xs font-bold text-color-1/60">
+          <span className="text-text-xs font-bold text-color-1/75 tabular-nums">
             {exams?.length || 0} bộ đề khả dụng
           </span>
         </div>
@@ -129,17 +133,31 @@ export const SubjectDetailView: React.FC = () => {
             {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
-                className="h-36 bg-color-7 border-2 border-color-1 rounded-2xl animate-pulse"
+                className="h-36 bg-color-7 border-2 border-color-1 rounded-3xl animate-pulse"
               />
             ))}
           </div>
         ) : examsError ? (
-          <div className="text-center p-space-6 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl font-bold">
-            {getErrorMessage(examsError, "Không thể tải danh sách đề thi. Vui lòng thử lại sau.")}
+          <div
+            role="alert"
+            className="text-center p-space-6 bg-color-7 border-2 border-color-4 text-color-1 rounded-3xl font-bold flex flex-col items-center gap-space-3"
+          >
+            <p className="text-color-4">
+              {getErrorMessage(examsError, "Không thể tải danh sách đề thi. Vui lòng thử lại sau.")}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => refetchExams()}
+              className="flex items-center gap-space-1"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Thử tải lại</span>
+            </Button>
           </div>
         ) : !exams || exams.length === 0 ? (
           <Card className="p-space-8 text-center bg-color-7 border-2 border-color-1 shadow-sm">
-            <p className="text-text-sm font-bold text-color-1/70 mb-space-3">
+            <p className="text-text-sm font-bold text-color-1/75 mb-space-3">
               Chưa có đề thi chuẩn cho môn này.
             </p>
             <Button variant="primary" onClick={handleOpenNewCustomExam}>
@@ -158,16 +176,16 @@ export const SubjectDetailView: React.FC = () => {
                     <h4 className="font-bold text-text-base text-color-1">{exam.code}</h4>
                     <Badge variant="neutral">Điểm đạt: {exam.passingScorePercentage}%</Badge>
                   </div>
-                  <p className="text-text-xs text-color-1/70 mb-space-4">{exam.title}</p>
+                  <p className="text-text-xs text-color-1/75 mb-space-4">{exam.title}</p>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-space-2 pt-space-3 border-t-2 border-color-6">
-                  <div className="flex items-center gap-space-4 text-text-xs font-bold text-color-1/70">
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center gap-space-4 text-text-xs font-bold text-color-1/75 tabular-nums">
+                    <span className="flex items-center gap-space-1">
                       <HelpCircle className="w-4 h-4 text-color-2" />
                       {exam.totalQuestions} câu
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-space-1">
                       <Clock className="w-4 h-4 text-color-5" />
                       {exam.durationMinutes} phút
                     </span>
@@ -177,7 +195,7 @@ export const SubjectDetailView: React.FC = () => {
                     variant="primary"
                     size="sm"
                     onClick={() => handleOpenStandardExam(exam.id, exam.totalQuestions)}
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-space-1"
                   >
                     <Sliders className="w-4 h-4" />
                     <span>Làm bài</span>

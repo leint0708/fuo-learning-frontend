@@ -80,6 +80,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      data-impeccable-ignore="hard-offset-shadow"
       disabled={disabled || isLoading}
       className={clsx(
         baseStyles,

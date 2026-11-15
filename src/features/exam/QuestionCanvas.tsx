@@ -32,6 +32,10 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
+    handlePointerCancel,
     containerRef,
     transformStyle,
     isDragging,
@@ -44,13 +48,21 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
   }, [resolvedSrc, questionCode]);
 
   return (
-    <div className="flex flex-col h-full bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm overflow-hidden">
+    <div
+      data-impeccable-ignore="hard-offset-shadow"
+      className="flex flex-col h-full bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm overflow-hidden"
+    >
       {/* Canvas Viewport Area */}
       <div
         ref={containerRef}
-        className={`relative flex-1 min-h-[420px] max-h-[600px] bg-color-6/50 overflow-hidden flex items-center justify-center p-space-4 select-none ${
+        className={`relative flex-1 min-h-[420px] max-h-[600px] bg-color-6/50 overflow-hidden flex items-center justify-center p-space-4 select-none touch-none ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
         }`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handlePointerCancel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -69,7 +81,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
         {/* Loading Skeleton */}
         {isImageLoading && !imageError && resolvedSrc && (
           <div className="absolute inset-0 flex items-center justify-center bg-color-6 animate-pulse z-0">
-            <span className="text-text-xs font-bold text-color-1/50">Đang tải hình ảnh câu hỏi...</span>
+            <span className="text-text-xs font-bold text-color-1/75">Đang tải hình ảnh câu hỏi...</span>
           </div>
         )}
 
@@ -79,6 +91,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
             <img
               src={resolvedSrc}
               alt={`Đề thi câu ${questionNumber}`}
+              decoding="async"
               onLoad={() => setIsImageLoading(false)}
               onError={() => {
                 setImageError(true);
@@ -90,7 +103,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
           </div>
         ) : (
           /* Text Fallback when no image or image error */
-          <div className="max-w-xl p-space-6 bg-color-7 border-2 border-color-1 rounded-2xl text-center shadow-xs">
+          <div className="max-w-xl p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl text-center shadow-xs">
             <AlertTriangle className="w-8 h-8 text-color-5 mx-auto mb-space-2" />
             <h4 className="font-bold text-text-base text-color-1 mb-space-2">
               Câu {questionNumber} ({questionCode})
@@ -112,7 +125,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
                     setImageError(false);
                     setIsImageLoading(true);
                   }}
-                  className="flex items-center gap-1.5"
+                  className="flex items-center gap-space-1"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>Thử tải lại hình ảnh</span>
@@ -125,8 +138,8 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
 
       {/* Bottom Image Toolbar: Zoom In, Zoom Out, Original */}
       <div className="px-space-4 py-space-3 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
-        <span className="text-text-xs font-bold text-color-1/50 hidden md:inline">
-          Ctrl + Cuộn chuột để phóng to / thu nhỏ
+        <span className="text-text-xs font-bold text-color-1/75 hidden md:inline">
+          Kéo để di chuyển • Ctrl + Cuộn chuột để phóng to / thu nhỏ
         </span>
         <div className="flex items-center gap-space-2 mx-auto md:mx-0">
           <Button
@@ -134,7 +147,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
             size="sm"
             onClick={zoomIn}
             disabled={zoomLevel >= 3.0}
-            className="flex items-center gap-1"
+            className="flex items-center gap-space-1"
             title="Phóng to (Ctrl + Cuộn chuột lên)"
           >
             <ZoomIn className="w-4 h-4" />
@@ -146,7 +159,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
             size="sm"
             onClick={zoomOut}
             disabled={zoomLevel <= 0.5}
-            className="flex items-center gap-1"
+            className="flex items-center gap-space-1"
             title="Thu nhỏ (Ctrl + Cuộn chuột xuống)"
           >
             <ZoomOut className="w-4 h-4" />
@@ -157,7 +170,7 @@ export const QuestionCanvas: React.FC<QuestionCanvasProps> = ({
             variant="secondary"
             size="sm"
             onClick={resetZoom}
-            className="flex items-center gap-1"
+            className="flex items-center gap-space-1"
             title="Kích thước gốc"
           >
             <RotateCcw className="w-4 h-4" />

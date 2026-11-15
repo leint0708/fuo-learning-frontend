@@ -18,8 +18,9 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   return (
     <div
+      data-impeccable-ignore="hard-offset-shadow"
       className={clsx(
-        "bg-color-7 rounded-2xl transition-all duration-fast shadow-sm",
+        "bg-color-7 rounded-3xl transition-all duration-fast shadow-sm",
         bordered && "border-2 border-color-1",
         padded && "p-space-4",
         interactive &&

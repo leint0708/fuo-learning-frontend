@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, RotateCcw, CheckCircle2, XCircle } from "lucide-react";
@@ -19,6 +19,10 @@ export const ReviewView: React.FC = () => {
     queryKey: ["attemptReview", safeAttemptId],
     queryFn: () => getAttemptReview(safeAttemptId),
   });
+
+  useEffect(() => {
+    document.title = `Kết quả: ${review?.examTitle || "Bài thi"} | FUO Learning`;
+  }, [review?.examTitle]);
 
   if (isLoading) {
     return (
@@ -102,11 +106,12 @@ export const ReviewView: React.FC = () => {
           <h3 className="text-text-lg font-bold text-color-1">Xem lại câu hỏi và lời giải</h3>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-space-1 bg-color-7 p-1 border-2 border-color-1 rounded-full shadow-xs">
+          <div className="flex items-center gap-space-1 bg-color-7 p-1 border-2 border-color-1 rounded-full shadow-xs tabular-nums">
             <button
               type="button"
+              aria-pressed={filterMode === "all"}
               onClick={() => setFilterMode("all")}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all ${
+              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "all"
                   ? "bg-color-2 text-color-7 shadow-xs"
                   : "text-color-1 hover:bg-color-6"
@@ -116,8 +121,9 @@ export const ReviewView: React.FC = () => {
             </button>
             <button
               type="button"
+              aria-pressed={filterMode === "correct"}
               onClick={() => setFilterMode("correct")}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all flex items-center gap-1 ${
+              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "correct"
                   ? "bg-color-3 text-color-7 shadow-xs"
                   : "text-color-3 hover:bg-color-6"
@@ -128,8 +134,9 @@ export const ReviewView: React.FC = () => {
             </button>
             <button
               type="button"
+              aria-pressed={filterMode === "incorrect"}
               onClick={() => setFilterMode("incorrect")}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all flex items-center gap-1 ${
+              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "incorrect"
                   ? "bg-color-4 text-color-7 shadow-xs"
                   : "text-color-4 hover:bg-color-6"

@@ -22,6 +22,12 @@ export const PracticeWorkspaceView: React.FC = () => {
   const subjectCode = code || "MAD101";
   const practiceMode = mode === "learn" ? "learn" : "cram";
 
+  useEffect(() => {
+    document.title = `${
+      practiceMode === "cram" ? "Luyện thi cấp tốc" : "Học ghi nhớ"
+    } - ${subjectCode} | FUO Learning`;
+  }, [practiceMode, subjectCode]);
+
   // Fetch practice questions
   const {
     data: questions,
@@ -298,10 +304,10 @@ export const PracticeWorkspaceView: React.FC = () => {
         <div className="flex items-center gap-space-3">
           <Link
             to={`/subjects/${subjectCode}`}
-            className="p-2 rounded-full border-2 border-color-1 bg-color-6 hover:bg-color-7 transition-all shadow-xs"
+            className="w-11 h-11 inline-flex items-center justify-center rounded-full border-2 border-color-1 bg-color-6 hover:bg-color-7 transition-all shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-color-5 shrink-0"
             aria-label="Thoát bài luyện tập"
           >
-            <ArrowLeft className="w-4 h-4 text-color-1" />
+            <ArrowLeft className="w-5 h-5 text-color-1" />
           </Link>
 
           <div>
@@ -313,7 +319,7 @@ export const PracticeWorkspaceView: React.FC = () => {
                 {subjectCode}
               </Badge>
             </div>
-            <span className="text-text-xs font-bold text-color-1/60">
+            <span className="text-text-xs font-bold text-color-1/75 tabular-nums">
               {practiceMode === "cram"
                 ? `Batch ${cram.batchIndex + 1}/${cram.totalBatches} (${cram.activeQueue.length} câu còn lại trong nhóm)`
                 : `Vòng ${learn.currentRoundNumber} (Câu ${learn.roundPointer + 1}/${learn.roundQueue.length})`}

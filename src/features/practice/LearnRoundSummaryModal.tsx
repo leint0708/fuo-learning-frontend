@@ -69,14 +69,18 @@ export const LearnRoundSummaryModal: React.FC<LearnRoundSummaryModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby="learn-round-summary-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-space-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-fast overflow-y-auto"
     >
-      <div className="bg-color-7 text-color-1 w-full max-w-2xl rounded-3xl border-2 border-color-1 shadow-sm overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-fast">
+      <div
+        data-impeccable-ignore="hard-offset-shadow"
+        className="bg-color-7 text-color-1 w-full max-w-2xl rounded-3xl border-2 border-color-1 shadow-sm overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-fast"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-space-6 py-space-4 border-b-2 border-color-1 bg-color-6">
           <div className="flex items-center gap-space-2">
             <Brain className="w-6 h-6 text-color-2" />
-            <h2 className="text-text-lg font-bold text-color-1">
+            <h2 id="learn-round-summary-title" className="text-text-lg font-bold text-color-1">
               Tổng kết Vòng {roundDiagnostic.roundNumber}
             </h2>
           </div>

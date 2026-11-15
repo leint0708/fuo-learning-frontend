@@ -162,4 +162,49 @@ describe("QuestionCanvas Component Tests", () => {
     fireEvent.wheel(viewport!, { ctrlKey: false, deltaY: -100 });
     expect(screen.getByText(/100%/)).toBeInTheDocument();
   });
+
+  it("supports touch/pointer drag panning and recovers cleanly from interrupted gestures", () => {
+    render(
+      <QuestionCanvas
+        questionNumber={1}
+        questionCode="Q1"
+        imageUrl="/static/exams/MAD101/Q1.webp"
+        questionTextFallback="Question 1 text"
+      />
+    );
+
+    const img = screen.getByRole("img", { name: /đề thi câu 1/i });
+    const viewport = img.closest(".touch-none") as HTMLElement;
+    const transformWrapper = img.parentElement as HTMLElement;
+    expect(viewport).not.toBeNull();
+
+    const dispatchPointer = (
+      type: string,
+      props: { pointerId: number; clientX?: number; clientY?: number }
+    ) => {
+      const evt = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: props.clientX ?? 0,
+        clientY: props.clientY ?? 0,
+      });
+      Object.defineProperty(evt, "pointerId", { value: props.pointerId });
+      fireEvent(viewport, evt);
+    };
+
+    // Start pointer drag with pointerId 1
+    dispatchPointer("pointerdown", { pointerId: 1, clientX: 100, clientY: 100 });
+    dispatchPointer("pointermove", { pointerId: 1, clientX: 140, clientY: 125 });
+
+    // A second finger (pointerId 2) landing mid-drag is ignored
+    dispatchPointer("pointerdown", { pointerId: 2, clientX: 300, clientY: 300 });
+    dispatchPointer("pointermove", { pointerId: 2, clientX: 400, clientY: 400 });
+
+    expect(transformWrapper.style.transform).toContain("translate3d(40px, 25px, 0)");
+
+    // Cancel gesture (e.g. pointercancel) clears dragging state cleanly
+    dispatchPointer("pointercancel", { pointerId: 1 });
+    dispatchPointer("pointermove", { pointerId: 1, clientX: 200, clientY: 200 });
+    expect(transformWrapper.style.transform).toContain("translate3d(40px, 25px, 0)");
+  });
 });

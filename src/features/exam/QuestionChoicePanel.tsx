@@ -93,6 +93,7 @@ export const QuestionChoicePanel: React.FC<QuestionChoicePanelProps> = ({
               key={key}
               type="button"
               disabled={disabled}
+              aria-pressed={isSelected}
               onClick={() => onSelectOption(key)}
               className={`h-11 flex items-center justify-center font-bold text-text-sm rounded-full border-2 transition-all duration-fast select-none cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-0.5 ${buttonStyle}`}
             >
