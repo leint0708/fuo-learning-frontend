@@ -94,7 +94,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
     >
       <div className="space-y-space-5">
         {error && (
-          <div className="p-space-3 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-2xl text-text-xs font-bold flex items-center gap-2">
+          <div className="p-space-3 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl text-text-xs font-bold flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{typeof error === "string" ? error : getErrorMessage(error)}</span>
           </div>
@@ -135,7 +135,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               </span>
               <span className="text-color-2 font-bold tabular-nums">{fixedQuestionCount} câu</span>
             </label>
-            <div className="p-space-3 bg-color-6/30 border-2 border-color-1 rounded-2xl flex items-center justify-between">
+            <div className="p-space-3 bg-color-6/30 border-2 border-color-1 rounded-3xl flex items-center justify-between">
               <span className="text-text-xs text-color-1/80 font-bold">Đề thi chuẩn học kỳ:</span>
               <span className="px-space-3 py-1 rounded-full text-text-xs font-bold bg-color-2 text-color-7 border-2 border-color-1 shadow-xs tabular-nums">
                 {fixedQuestionCount} câu hỏi
@@ -161,7 +161,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               type="button"
               aria-pressed={isUntimed}
               onClick={() => setIsUntimed(!isUntimed)}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold border-2 transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`px-space-3 py-1 rounded-full text-text-xs font-bold border-2 transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                 isUntimed
                   ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
                   : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -185,7 +185,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
                         setDurationMinutes(mins);
                         setCustomDurationInput(String(mins));
                       }}
-                      className={`py-1.5 rounded-full text-text-xs font-bold border-2 transition-all tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+                      className={`py-1.5 rounded-full text-text-xs font-bold border-2 transition-all tabular-nums outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                         isSelected
                           ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
                           : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -231,7 +231,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
                         setCustomDurationInput(String(num));
                       }
                     }}
-                    className="w-full py-1.5 px-3 rounded-full text-text-xs font-bold border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 focus:outline-none focus:border-color-2 focus:ring-1 focus:ring-color-2 shadow-xs tabular-nums"
+                    className="w-full py-1.5 px-3 rounded-full text-text-xs font-bold border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 focus:outline-none focus:border-color-1 focus-visible:ring-4 focus-visible:ring-color-5 shadow-xs tabular-nums"
                   />
                   <span className="absolute right-3 text-text-xs font-bold text-color-1/75 pointer-events-none">
                     phút
@@ -254,7 +254,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               aria-pressed={feedbackModeState === "instant"}
               data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setFeedbackModeState("instant")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`p-space-3 rounded-3xl border-2 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                 feedbackModeState === "instant"
                   ? "border-color-3 bg-color-3/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"
@@ -271,7 +271,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               aria-pressed={feedbackModeState === "post_exam"}
               data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setFeedbackModeState("post_exam")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`p-space-3 rounded-3xl border-2 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                 feedbackModeState === "post_exam"
                   ? "border-color-2 bg-color-2/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"
@@ -297,7 +297,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               aria-pressed={benchmarkModeState === "ai"}
               data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setBenchmarkModeState("ai")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`p-space-3 rounded-3xl border-2 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                 benchmarkModeState === "ai"
                   ? "border-color-2 bg-color-2/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"
@@ -312,7 +312,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               aria-pressed={benchmarkModeState === "community"}
               data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setBenchmarkModeState("community")}
-              className={`p-space-3 rounded-2xl border-2 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`p-space-3 rounded-3xl border-2 text-left transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                 benchmarkModeState === "community"
                   ? "border-color-5 bg-color-5/10 shadow-sm"
                   : "border-color-1 bg-color-7 hover:bg-color-6"

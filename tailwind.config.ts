@@ -30,6 +30,8 @@ export default {
       },
       boxShadow: {
         sm: "var(--shadow-sm)",
+        xs: "var(--shadow-xs)",
+        "2xs": "var(--shadow-2xs)",
       },
       fontFamily: {
         sans: ["Space Grotesk", "ui-sans-serif", "sans-serif"],

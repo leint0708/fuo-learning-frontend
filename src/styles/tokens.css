@@ -23,6 +23,8 @@
   /* Shapes & Elevation */
   --radius-full: 9999px;
   --shadow-sm: rgb(0, 0, 0) 4px 4px 0px 0px;
+  --shadow-xs: rgb(0, 0, 0) 2px 2px 0px 0px;
+  --shadow-2xs: rgb(0, 0, 0) 1px 1px 0px 0px;
 
   /* Motion */
   --duration-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
