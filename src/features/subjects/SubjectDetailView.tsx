@@ -20,6 +20,7 @@ import { SubjectPracticeActions } from "./SubjectPracticeActions";
 import { getSubject, getSubjectExams } from "@/api/subjects";
 import { startExamAttempt } from "@/api/attempts";
 import { getErrorMessage } from "@/utils/error";
+import { getSubjectLocalProgress } from "@/utils/practiceProgress";
 
 export const SubjectDetailView: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -60,24 +61,8 @@ export const SubjectDetailView: React.FC = () => {
       ? exams.reduce((sum, e) => sum + e.totalQuestions, 0)
       : 0;
 
-  // Retrieve mastered question counts from localStorage
-  const cramMasteredCount = React.useMemo(() => {
-    try {
-      const stored = localStorage.getItem(`fuo_cram_mastered_${subjectCode}`);
-      return stored ? JSON.parse(stored).length : 0;
-    } catch {
-      return 0;
-    }
-  }, [subjectCode]);
-
-  const learnGraduatedCount = React.useMemo(() => {
-    try {
-      const stored = localStorage.getItem(`fuo_learn_mastered_${subjectCode}`);
-      return stored ? JSON.parse(stored).length : 0;
-    } catch {
-      return 0;
-    }
-  }, [subjectCode]);
+  const { cramCount: cramMasteredCount, learnCount: learnGraduatedCount } =
+    React.useMemo(() => getSubjectLocalProgress(subjectCode), [subjectCode]);
 
   const handleOpenNewCustomExam = () => {
     setSelectedExamId(undefined);

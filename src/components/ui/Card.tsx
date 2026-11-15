@@ -24,7 +24,7 @@ export const Card: React.FC<CardProps> = ({
         bordered && "border-2 border-color-1",
         padded && "p-space-4",
         interactive &&
-          "cursor-pointer hover:border-color-2 hover:-translate-y-1 hover:shadow-[rgb(0,0,0)_6px_6px_0px_0px] active:translate-y-0 active:shadow-sm",
+          "cursor-pointer hover:border-color-2 hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:shadow-sm",
         className
       )}
       {...props}

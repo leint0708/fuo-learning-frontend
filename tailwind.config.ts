@@ -29,6 +29,7 @@ export default {
         full: "var(--radius-full)",
       },
       boxShadow: {
+        md: "var(--shadow-md)",
         sm: "var(--shadow-sm)",
         xs: "var(--shadow-xs)",
         "2xs": "var(--shadow-2xs)",

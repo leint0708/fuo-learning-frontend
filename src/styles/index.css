@@ -21,6 +21,12 @@ textarea {
   caret-color: var(--color-2);
 }
 
+/* Prevent duplicate clear button alongside custom React clear triggers */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* Custom Scrollbar for question grids & dialogs */
 .custom-scrollbar {
   scrollbar-width: thin;
