@@ -624,10 +624,12 @@ describe("ExamWorkspaceView Integration Tests", () => {
       "false"
     );
 
-    // Toggle header feedbackMode from Thi chuẩn -> Chấm tức thì
-    const instantToggleBtn = screen.getByRole("button", { name: /Chấm tức thì/i });
+    // Open Settings ⚙ popover and toggle feedbackMode from Thi chuẩn -> Chấm tức thì
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    const instantToggleBtn = await screen.findByRole("button", { name: /Chấm tức thì/i });
     fireEvent.click(instantToggleBtn);
     expect(instantToggleBtn).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(window, { key: "Escape" });
 
     // Picking C now triggers instant grading & updates fuo_active_exams
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));

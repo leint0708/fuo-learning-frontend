@@ -3,10 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Clock,
   Send,
-  Sparkles,
   AlertTriangle,
   RotateCcw,
   LogOut,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -14,9 +14,8 @@ import { Modal } from "@/components/ui/Modal";
 import { StudyCockpitShell } from "@/features/workspace/StudyCockpitShell";
 import { CockpitHeader } from "@/features/workspace/CockpitHeader";
 import { QuestionStage } from "@/features/workspace/QuestionStage";
-import { ChoiceOptionList } from "@/features/workspace/ChoiceOptionList";
 import { FeedbackExplanationCard } from "@/features/workspace/FeedbackExplanationCard";
-import { QuestionNavigator } from "@/features/workspace/QuestionNavigator";
+import { CockpitInspectorRail } from "@/features/workspace/CockpitInspectorRail";
 import { ShortcutHelpModal } from "@/features/workspace/ShortcutHelpModal";
 import { AiAnswerModal } from "./AiAnswerModal";
 import { SubmitConfirmModal } from "./SubmitConfirmModal";
@@ -219,6 +218,12 @@ export const ExamWorkspaceView: React.FC = () => {
           progressLabel="Tiến độ bài thi"
           progressCurrent={adapter.answeredCount}
           progressTotal={adapter.totalQuestions}
+          progressCurrentBadge={adapter.currentIndex + 1}
+          progressTotalBadge={adapter.totalQuestions}
+          modeSwitcher={{
+            currentMode: "exam",
+            label: "Thi thử",
+          }}
           modeToggle={{
             ariaLabel: "Chế độ chấm điểm",
             value: adapter.feedbackMode,
@@ -261,14 +266,18 @@ export const ExamWorkspaceView: React.FC = () => {
             </div>
           }
           onOpenShortcuts={() => setIsShortcutHelpOpen(true)}
+          onResetAction={() => {
+            void adapter.retryLoad();
+          }}
+          resetLabel="Tải lại đề thi"
           primaryActionSlot={
             <Button
-              variant="danger"
+              variant="primary"
               size="sm"
               onClick={adapter.openSubmitDialog}
               className="min-h-11 inline-flex items-center gap-space-1"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4" aria-hidden="true" />
               <span>Nộp bài</span>
             </Button>
           }
@@ -287,72 +296,110 @@ export const ExamWorkspaceView: React.FC = () => {
               return { ...prev, [activeQuestionId]: !available };
             });
           }}
+          selectedOptions={adapter.selectedOptions}
+          feedbackMode={adapter.feedbackMode}
+          evaluation={adapter.evaluation}
+          isOptionsLocked={adapter.timer.isExpired || adapter.isSubmitting}
+          onSelectOption={(key) => {
+            void adapter.selectOption(key);
+          }}
         />
       }
-      choiceContent={
-        <div className="flex flex-col gap-space-4">
-          <ChoiceOptionList
-            options={activeQuestion.options}
-            selectedOptions={adapter.selectedOptions}
-            questionType={activeQuestion.questionType}
-            feedbackMode={adapter.feedbackMode}
+      evaluationBanner={
+        adapter.feedbackMode === "instant" && adapter.evaluation ? (
+          <FeedbackExplanationCard
             evaluation={adapter.evaluation}
-            isLocked={adapter.timer.isExpired || adapter.isSubmitting}
-            allowsClear={true}
-            onSelectOption={(key) => {
-              void adapter.selectOption(key);
-            }}
-            onClearSelection={() => {
-              void adapter.clearSelection();
-            }}
-            onSubmitMultiChoice={() => {
+            onRetry={() => {
               void adapter.submitMultiChoiceCheck();
             }}
           />
-
-          {adapter.feedbackMode === "instant" && adapter.evaluation && (
-            <FeedbackExplanationCard
-              evaluation={adapter.evaluation}
-              onRetry={() => {
-                void adapter.submitMultiChoiceCheck();
-              }}
-            />
-          )}
-
-          <div className="hidden md:flex bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex-wrap items-center justify-between gap-space-2">
-            <span className="text-text-xs font-bold text-color-1">
-              Phân tích chi tiết &amp; loại trừ đáp án
-            </span>
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={adapter.openAiAnalysis}
-              className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
-            >
-              <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 inline-flex items-center justify-center">
-                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-              </span>
-              <span>Xem giải thích AI</span>
-            </Button>
+        ) : null
+      }
+      mobileInlineKeypad={
+        hasVisualMedia ||
+        (adapter.feedbackMode === "instant" &&
+          activeQuestion.questionType === "multiple_choice" &&
+          adapter.evaluation?.status !== "resolved") ? (
+          <div className="bg-color-7 border-2 border-color-1 rounded-3xl p-space-3 flex flex-col gap-space-2 shadow-xs">
+            {hasVisualMedia && (
+              <div className="grid grid-cols-4 gap-space-1">
+                {adapter.sortedOptionKeys.map((key) => {
+                  const isSelected = adapter.selectedOptions.includes(key);
+                  return (
+                    <button
+                      key={`exam-mob-${key}`}
+                      type="button"
+                      disabled={adapter.timer.isExpired || adapter.isSubmitting}
+                      aria-pressed={isSelected}
+                      aria-label={`Chọn nhanh ${key}`}
+                      onClick={() => {
+                        void adapter.selectOption(key);
+                      }}
+                      className={`min-h-11 rounded-2xl border-2 font-bold text-text-xs transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-color-2 text-color-7 border-color-1"
+                          : "bg-color-6 text-color-1 border-color-1 hover:bg-color-5/30"
+                      }`}
+                    >
+                      {key}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {adapter.feedbackMode === "instant" &&
+              activeQuestion.questionType === "multiple_choice" &&
+              adapter.evaluation?.status !== "resolved" && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  disabled={!adapter.selectedOptions || adapter.timer.isExpired || adapter.isSubmitting}
+                  onClick={() => {
+                    void adapter.submitMultiChoiceCheck();
+                  }}
+                  className="min-h-11 w-full inline-flex items-center justify-center gap-space-1"
+                >
+                  <Check className="w-4 h-4" aria-hidden="true" />
+                  <span>
+                    {adapter.selectedOptions
+                      ? `Xác nhận (${adapter.selectedOptions.length})`
+                      : "Kiểm tra đáp án"}
+                  </span>
+                </Button>
+              )}
           </div>
-        </div>
+        ) : null
       }
       navigatorContent={
-        <QuestionNavigator
-          title="Danh sách câu hỏi"
-          items={adapter.navigatorItems}
-          activeIndex={adapter.currentIndex}
+        <CockpitInspectorRail
+          mode="exam"
+          options={activeQuestion.options}
+          sortedOptionKeys={adapter.sortedOptionKeys}
+          selectedOptions={adapter.selectedOptions}
+          questionType={activeQuestion.questionType}
+          feedbackMode={adapter.feedbackMode}
+          evaluation={adapter.evaluation}
+          isLocked={adapter.timer.isExpired || adapter.isSubmitting}
+          isSubmitting={adapter.isSubmitting}
+          allowsClear={true}
+          hasInlineCardOptions={!hasVisualMedia}
+          onSelectOption={(key) => {
+            void adapter.selectOption(key);
+          }}
+          onClearSelection={() => {
+            void adapter.clearSelection();
+          }}
+          onSubmitMultiChoice={() => {
+            void adapter.submitMultiChoiceCheck();
+          }}
+          navigatorItems={adapter.navigatorItems}
           answeredCount={adapter.answeredCount}
-          totalCount={adapter.totalQuestions}
+          totalQuestions={adapter.totalQuestions}
           onSelectQuestion={(idx) => {
             adapter.jumpToQuestion(idx);
             setIsMobileNavigatorOpen(false);
           }}
-          onPrevQuestion={adapter.navigatePrev}
-          onNextQuestion={adapter.navigateNext}
-          supportsFreeJump={true}
           isMobileDrawerOpen={isMobileNavigatorOpen}
-          onOpenMobileDrawer={() => setIsMobileNavigatorOpen(true)}
           onCloseMobileDrawer={() => setIsMobileNavigatorOpen(false)}
         />
       }
@@ -362,18 +409,8 @@ export const ExamWorkspaceView: React.FC = () => {
       onPrev={adapter.navigatePrev}
       onNext={adapter.navigateNext}
       onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
-      mobilePrimaryAction={
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={adapter.openAiAnalysis}
-          aria-label="Phân tích AI"
-          className="min-h-11 inline-flex items-center gap-space-1"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>AI</span>
-        </Button>
-      }
+      onOpenAiAnalysis={adapter.openAiAnalysis}
+      aiButtonLabel="FUO AI"
       modals={
         <>
           <AiAnswerModal

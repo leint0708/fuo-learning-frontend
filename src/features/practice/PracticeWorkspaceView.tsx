@@ -1,14 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Zap, Brain, Trophy, RotateCcw, Home, Sparkles, ArrowRight } from "lucide-react";
+import { Trophy, RotateCcw, Home, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StudyCockpitShell } from "@/features/workspace/StudyCockpitShell";
 import { CockpitHeader } from "@/features/workspace/CockpitHeader";
 import { QuestionStage } from "@/features/workspace/QuestionStage";
-import { ChoiceOptionList } from "@/features/workspace/ChoiceOptionList";
 import { FeedbackExplanationCard } from "@/features/workspace/FeedbackExplanationCard";
-import { QuestionNavigator } from "@/features/workspace/QuestionNavigator";
+import { CockpitInspectorRail } from "@/features/workspace/CockpitInspectorRail";
 import { ShortcutHelpModal } from "@/features/workspace/ShortcutHelpModal";
 import { AiAnswerModal } from "@/features/exam/AiAnswerModal";
 import { CramBatchModal } from "./CramBatchModal";
@@ -200,9 +199,20 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
           progressLabel={adapter.progressLabel}
           progressCurrent={adapter.progressCurrent}
           progressTotal={adapter.progressTotal}
-          modeBadge={{
-            label: `${practiceMode === "cram" ? "Cấp tốc" : "Ghi nhớ"} • ${subjectCode}`,
-            tone: practiceMode === "cram" ? "warning" : "accent",
+          progressCurrentBadge={adapter.progressCurrent}
+          progressTotalBadge={adapter.progressTotal}
+          modeSwitcher={{
+            currentMode: practiceMode,
+            label: practiceMode === "cram" ? "Cram" : "Learn",
+            options: [
+              { value: "cram", label: "Luyện thi (Cram)" },
+              { value: "learn", label: "Ghi nhớ (Learn)" },
+            ],
+            onSelectMode: (targetMode) => {
+              if (targetMode !== practiceMode) {
+                navigate(`/subjects/${subjectCode}/practice/${targetMode}`);
+              }
+            },
           }}
           modeToggle={{
             ariaLabel: "Chế độ chấm điểm",
@@ -215,24 +225,9 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
               adapter.setFeedbackMode(value === "deferred" ? "deferred" : "instant");
             },
           }}
-          statusSlot={
-            <div className="flex items-center gap-space-1 sm:gap-space-2">
-              <span className="text-[13px] sm:text-text-xs font-bold text-color-1 tabular-nums whitespace-nowrap">
-                {adapter.subProgressText}
-              </span>
-              <span className="hidden sm:inline-flex items-center gap-space-1 px-space-3 py-space-1 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 tabular-nums whitespace-nowrap">
-                {practiceMode === "cram" ? (
-                  <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 flex items-center justify-center">
-                    <Zap className="w-3.5 h-3.5" aria-hidden="true" />
-                  </span>
-                ) : (
-                  <Brain className="w-4 h-4 text-color-2" aria-hidden="true" />
-                )}
-                <span>{adapter.statsSummaryLabel}</span>
-              </span>
-            </div>
-          }
           onOpenShortcuts={() => setIsShortcutHelpOpen(true)}
+          onResetAction={adapter.resetPracticeSession}
+          resetLabel="Luyện lại từ đầu"
         />
       }
       stageContent={
@@ -250,125 +245,113 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
                 return { ...prev, [activeQuestionId]: !available };
               });
             }}
+            selectedOptions={adapter.selectedOptions}
+            feedbackMode={adapter.feedbackMode === "instant" ? "instant" : "post_exam"}
+            evaluation={adapter.evaluation}
+            isOptionsLocked={isEvaluated || adapter.isAdvancingDeferred}
+            onSelectOption={adapter.selectOption}
           />
         ) : null
       }
-      choiceContent={
-        currentCard ? (
-          <div className="flex flex-col gap-space-4">
-            <ChoiceOptionList
-              options={currentCard.options}
-              selectedOptions={adapter.selectedOptions}
-              questionType={currentCard.questionType}
-              feedbackMode={adapter.feedbackMode === "instant" ? "instant" : "post_exam"}
-              evaluation={adapter.evaluation}
-              isLocked={isEvaluated || adapter.isAdvancingDeferred}
-              isSubmitting={adapter.isEvaluating}
-              allowsClear={adapter.feedbackMode === "deferred"}
-              onSelectOption={adapter.selectOption}
-              onClearSelection={
-                adapter.feedbackMode === "deferred" ? adapter.clearSelection : undefined
-              }
-              onSubmitMultiChoice={() => {
-                void adapter.submitCheck();
-              }}
-            />
-
-            <FeedbackExplanationCard
-              evaluation={adapter.evaluation}
-              onContinue={isEvaluated ? adapter.advanceNext : undefined}
-              onRetry={() => {
-                void adapter.retryEvaluation();
-              }}
-            />
-
-            {adapter.feedbackMode === "deferred" &&
-              adapter.selectedOptions.length > 0 &&
+      evaluationBanner={
+        <FeedbackExplanationCard
+          evaluation={adapter.evaluation}
+          onContinue={isEvaluated ? adapter.advanceNext : undefined}
+          onRetry={() => {
+            void adapter.retryEvaluation();
+          }}
+        />
+      }
+      mobileInlineKeypad={
+        currentCard &&
+        (hasVisualMedia ||
+          (currentCard.questionType === "multiple_choice" &&
+            adapter.feedbackMode === "instant" &&
+            !isEvaluated)) ? (
+          <div className="bg-color-7 border-2 border-color-1 rounded-3xl p-space-3 flex flex-col gap-space-2 shadow-xs">
+            {hasVisualMedia && (
+              <div className="grid grid-cols-4 gap-space-1">
+                {adapter.sortedOptionKeys.map((key) => {
+                  const isSelected = adapter.selectedOptions.includes(key);
+                  return (
+                    <button
+                      key={`mob-${key}`}
+                      type="button"
+                      disabled={isEvaluated || adapter.isAdvancingDeferred}
+                      aria-pressed={isSelected}
+                      aria-label={`Chọn nhanh ${key}`}
+                      onClick={() => adapter.selectOption(key)}
+                      className={`min-h-11 rounded-2xl border-2 font-bold text-text-xs transition-colors cursor-pointer ${
+                        isSelected
+                          ? "bg-color-2 text-color-7 border-color-1"
+                          : "bg-color-6 text-color-1 border-color-1 hover:bg-color-5/30"
+                      }`}
+                    >
+                      {key}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {currentCard.questionType === "multiple_choice" &&
+              adapter.feedbackMode === "instant" &&
               !isEvaluated && (
-                <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
-                  <span className="text-text-xs font-bold text-color-1">
-                    Đã chọn {adapter.selectedOptions} • Sẵn sàng chuyển câu
+                <Button
+                  variant="primary"
+                  size="md"
+                  isLoading={adapter.isEvaluating}
+                  disabled={!adapter.selectedOptions || adapter.isAdvancingDeferred}
+                  onClick={() => {
+                    void adapter.submitCheck();
+                  }}
+                  className="min-h-11 w-full inline-flex items-center justify-center gap-space-1"
+                >
+                  <Check className="w-4 h-4" aria-hidden="true" />
+                  <span>
+                    {adapter.selectedOptions
+                      ? `Xác nhận (${adapter.selectedOptions.length})`
+                      : "Kiểm tra đáp án"}
                   </span>
-                  <Button
-                    variant="primary"
-                    size="md"
-                    isLoading={adapter.isAdvancingDeferred}
-                    onClick={adapter.advanceNext}
-                    className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
-                  >
-                    <span>Tiếp tục</span>
-                    <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                  </Button>
-                </div>
+                </Button>
               )}
-
-            <div className="hidden md:flex bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex-wrap items-center justify-between gap-space-2">
-              <span className="text-text-xs font-bold text-color-1">
-                Phân tích chi tiết &amp; loại trừ đáp án
-              </span>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={adapter.openAiAnalysis}
-                className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
-              >
-                <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 inline-flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-                </span>
-                <span>Xem giải thích AI</span>
-              </Button>
-            </div>
           </div>
         ) : null
       }
       navigatorContent={
-        <QuestionNavigator
-          title={practiceMode === "cram" ? "Danh sách thẻ đợt này" : "Nhóm thẻ đang học"}
-          items={adapter.navigatorItems}
-          activeIndex={adapter.activeNavIndex}
-          answeredCount={adapter.answeredCount}
-          totalCount={adapter.totalNavCount}
-          onSelectQuestion={() => undefined}
-          supportsFreeJump={false}
-          isMobileDrawerOpen={isMobileNavigatorOpen}
-          onOpenMobileDrawer={() => setIsMobileNavigatorOpen(true)}
-          onCloseMobileDrawer={() => setIsMobileNavigatorOpen(false)}
-        />
+        currentCard ? (
+          <CockpitInspectorRail
+            mode={practiceMode}
+            options={currentCard.options}
+            sortedOptionKeys={adapter.sortedOptionKeys}
+            selectedOptions={adapter.selectedOptions}
+            questionType={currentCard.questionType}
+            feedbackMode={adapter.feedbackMode === "instant" ? "instant" : "post_exam"}
+            evaluation={adapter.evaluation}
+            isLocked={isEvaluated || adapter.isAdvancingDeferred}
+            isSubmitting={adapter.isEvaluating}
+            allowsClear={adapter.feedbackMode === "deferred"}
+            hasInlineCardOptions={!hasVisualMedia}
+            onSelectOption={adapter.selectOption}
+            onClearSelection={adapter.clearSelection}
+            onSubmitMultiChoice={() => {
+              void adapter.submitCheck();
+            }}
+            statsSummaryLabel={adapter.statsSummaryLabel}
+            subProgressText={adapter.subProgressText}
+            masteryBadge={adapter.masteryBadge}
+            navigatorItems={adapter.navigatorItems}
+            isMobileDrawerOpen={isMobileNavigatorOpen}
+            onCloseMobileDrawer={() => setIsMobileNavigatorOpen(false)}
+          />
+        ) : null
       }
-      mobileStatusLabel={`${adapter.subProgressText}`}
+      mobileStatusLabel={adapter.subProgressText}
       canPrev={false}
       canNext={canContinue}
       onNext={adapter.advanceNext}
       onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
-      mobilePrimaryAction={
-        currentCard?.questionType === "multiple_choice" &&
-        adapter.feedbackMode === "instant" &&
-        !isEvaluated &&
-        Boolean(adapter.selectedOptions) ? (
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={adapter.isEvaluating}
-            onClick={() => {
-              void adapter.submitCheck();
-            }}
-            className="min-h-11 whitespace-nowrap"
-          >
-            Kiểm tra
-          </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={adapter.openAiAnalysis}
-            aria-label="Phân tích AI"
-            className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>AI</span>
-          </Button>
-        )
-      }
+      onOpenAiAnalysis={adapter.openAiAnalysis}
+      aiButtonLabel="FUO AI"
       modals={
         <>
           {practiceMode === "cram" && (

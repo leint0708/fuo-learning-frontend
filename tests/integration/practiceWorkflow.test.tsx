@@ -62,8 +62,8 @@ describe("Practice Workflow Integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /Phóng to/i }));
     expect(screen.getByText(/125%/)).toBeInTheDocument();
 
-    // Select wrong option A -> card MUST stay pinned with compact verdict ONLY (no inline prose) & no premature CramBatchModal!
-    const optA = await screen.findByText(/Opt A 1/i);
+    // Select wrong option A via synced keypad -> card MUST stay pinned with compact verdict ONLY (no inline prose) & no premature CramBatchModal!
+    const optA = await screen.findByRole("button", { name: /Đáp án A: Opt A 1/i });
     fireEvent.click(optA);
 
     expect(
@@ -73,7 +73,7 @@ describe("Practice Workflow Integration", () => {
     expect(screen.queryByText("Đúng theo công thức")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    // Opening on-demand "Xem giải thích AI" button reveals optionByOptionAnalysis & rationale inside AiAnswerModal
+    // Opening on-demand "Xem giải thích AI" (FUO AI) button reveals optionByOptionAnalysis & rationale inside AiAnswerModal
     fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
     const aiDialog = await screen.findByRole("dialog", {
       name: /Giải thích chi tiết từ AI/i,
@@ -92,10 +92,10 @@ describe("Practice Workflow Integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Nhắc lại sau lỗi")).toBeInTheDocument();
+      expect(screen.getAllByText("Nhắc lại sau lỗi").length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getByText(/Opt C 1/i));
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án C: Opt C 1/i }));
     expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
@@ -294,10 +294,12 @@ describe("Practice Workflow Integration", () => {
     const expectedNextTitle =
       firstCardTitle === "Deferred Card One" ? "Deferred Card Two" : "Deferred Card One";
 
-    // Switch header toggle to "Chờ tổng kết"
-    const deferredBtn = screen.getByRole("button", { name: /Chờ tổng kết/i });
+    // Open Settings ⚙ popover and switch toggle to "Chờ tổng kết"
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    const deferredBtn = await screen.findByRole("button", { name: /Chờ tổng kết/i });
     fireEvent.click(deferredBtn);
     expect(deferredBtn).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(window, { key: "Escape" });
 
     // Pick A -> change mind to C -> no instant grading badge yet
     fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
@@ -307,8 +309,8 @@ describe("Practice Workflow Integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
     expect(submittedChoices).toHaveLength(0);
 
-    // Clicking "Tiếp tục" submits C and advances directly to the second card
-    fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
+    // Clicking bottom-bar "Câu tiếp" submits C and advances directly to the second card
+    fireEvent.click(screen.getByRole("button", { name: /^Câu tiếp$/i }));
     await waitFor(() => {
       expect(screen.getByText(expectedNextTitle)).toBeInTheDocument();
     });
