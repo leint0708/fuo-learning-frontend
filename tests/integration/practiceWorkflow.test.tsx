@@ -339,25 +339,15 @@ describe("Practice Workflow Integration", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("handles Cram exit triggers (0 vs >=1 answered, batch stop) and scoped ?scope=mistakes re-drill", async () => {
-    const cramDeck = [
-      {
-        question_id: "c_1",
-        subject_code: "SWE201",
-        question_type: "single_choice",
-        question_text: "Card One Concept",
-        image_url: null,
-        options: { A: "Wrong A", C: "Right C" },
-      },
-      {
-        question_id: "c_2",
-        subject_code: "SWE201",
-        question_type: "single_choice",
-        question_text: "Card Two Concept",
-        image_url: null,
-        options: { A: "Wrong A2", C: "Right C2" },
-      },
-    ];
+  it("exits straight to subject detail when quitting via Thoát or Dừng bài luyện tập, and opens review only after finishing session with scoped ?scope=mistakes re-drill", async () => {
+    const cramDeck = Array.from({ length: 11 }, (_, idx) => ({
+      question_id: `c_${idx + 1}`,
+      subject_code: "SWE201",
+      question_type: "single_choice",
+      question_text: `Card ${idx + 1} Concept`,
+      image_url: null,
+      options: { A: `Wrong A${idx + 1}`, C: `Right C${idx + 1}` },
+    }));
 
     server.use(
       http.get("*/api/v1/questions/drills", () => HttpResponse.json(cramDeck)),
@@ -374,40 +364,51 @@ describe("Practice Workflow Integration", () => {
       })
     );
 
-    // 1) Exiting with 0 answered cards returns directly to subject detail without empty review
-    const zeroExitRender = renderPractice("/subjects/SWE201/practice/cram");
+    // 1) Exiting via Thoát after answering cards returns directly to subject detail with no review snapshot
+    const earlyExitRender = renderPractice("/subjects/SWE201/practice/cram");
     await screen.findByText("Luyện thi cấp tốc");
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
+    await screen.findByText(/Chính xác! Giỏi lắm!/i);
+    fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
     fireEvent.click(screen.getByRole("button", { name: /Thoát/i }));
     expect(await screen.findByText("Subject Detail Route Reached")).toBeInTheDocument();
     expect(loadCramSessionSnapshot("SWE201")).toBeNull();
-    zeroExitRender.unmount();
+    earlyExitRender.unmount();
+    localStorage.clear();
 
-    // 2) Answer one wrong + continue, then answer second right and exit BEFORE pressing Continue
+    // 2) Clearing batch 1 of 2 and clicking "Dừng bài luyện tập" also exits directly to subject detail
+    const batchStopRender = renderPractice("/subjects/SWE201/practice/cram");
+    await screen.findByText("Luyện thi cấp tốc");
+    for (let i = 0; i < 10; i++) {
+      fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
+      await screen.findByText(/Chính xác! Giỏi lắm!/i);
+      fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
+    }
+    const batchModal = await screen.findByRole("dialog", { name: /Hoàn thành Đợt 1\/2!/i });
+    fireEvent.click(within(batchModal).getByRole("button", { name: /Dừng bài luyện tập/i }));
+    expect(await screen.findByText("Subject Detail Route Reached")).toBeInTheDocument();
+    expect(loadCramSessionSnapshot("SWE201")).toBeNull();
+    batchStopRender.unmount();
+
+    // 3) Finishing remaining batch (completing the session) opens CramReviewView; miss once then answer right
     renderPractice("/subjects/SWE201/practice/cram");
-    await screen.findByText(/Card (One|Two) Concept/);
+    await screen.findByText("Card 11 Concept");
 
-    // Miss the first card
     fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
     await screen.findByText(/Chưa chính xác/i);
     fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
-    // Get next card right, then immediately click Thoát before pressing Continue (must flush it!)
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
     await screen.findByText(/Chính xác! Giỏi lắm!/i);
-    fireEvent.click(screen.getByRole("button", { name: /Thoát/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Tổng kết phiên luyện cấp tốc — SWE201",
-      })
-    ).toBeInTheDocument();
-
+    expect(await screen.findByText("HOÀN THÀNH PHIÊN CẤP TỐC")).toBeInTheDocument();
     const saved = loadCramSessionSnapshot("SWE201");
-    expect(saved?.endReason).toBe("early_exit");
-    expect(saved?.entries).toHaveLength(2);
+    expect(saved?.endReason).toBe("completed");
+    expect(saved?.entries).toHaveLength(1);
+    expect(screen.queryByText(/Chưa hoàn thành/i)).not.toBeInTheDocument();
 
-    // 3) Launch scoped mistake re-drill -> loads strictly the missed card
+    // 4) Launch scoped mistake re-drill -> loads strictly the missed card
     fireEvent.click(screen.getAllByRole("button", { name: /Luyện lại 1 câu từng sai/i })[0]!);
     expect(await screen.findByText("Luyện lại câu từng sai")).toBeInTheDocument();
     expect(

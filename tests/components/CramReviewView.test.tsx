@@ -31,7 +31,7 @@ describe("CramReviewView Component & Cockpit Behavior", () => {
   const sampleMixedSnapshot: CramSessionSnapshot = {
     subjectCode: "SWE201",
     scope: "deck",
-    endReason: "batch_stop",
+    endReason: "completed",
     completedAt: "2026-11-16T10:30:00.000Z",
     totalDeckSize: 20,
     cumulativeMasteredCount: 10,
@@ -113,9 +113,11 @@ describe("CramReviewView Component & Cockpit Behavior", () => {
     expect(screen.getByText("1 câu")).toBeInTheDocument();
     expect(screen.getByText("10/20")).toBeInTheDocument();
 
-    // Struggled badge + first-attempt trace
+    // Struggled badge + first-attempt trace (and zero incomplete-session wording)
     expect(screen.getByText("Từng sai (2 lần)")).toBeInTheDocument();
     expect(screen.getByText("Sai 2 lần")).toBeInTheDocument();
+    expect(screen.queryByText(/Chưa hoàn thành/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Chưa thuộc/i)).not.toBeInTheDocument();
     expect(
       screen.getByText("Lựa chọn đầu tiên chưa đúng: B → Sửa đúng: A")
     ).toBeInTheDocument();

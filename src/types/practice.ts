@@ -83,7 +83,7 @@ export interface InstantAnswerResult {
   communityStats?: CommunityStats | null;
 }
 
-export type CramSessionEndReason = "completed" | "batch_stop" | "early_exit";
+export type CramSessionEndReason = "completed";
 export type CramSessionScope = "deck" | "mistakes";
 
 export interface CramSessionQuestionEntry {

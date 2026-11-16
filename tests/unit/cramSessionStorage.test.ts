@@ -21,7 +21,7 @@ describe("cramSessionStorage", () => {
   const sampleSnapshot: CramSessionSnapshot = {
     subjectCode: "SWE201",
     scope: "deck",
-    endReason: "batch_stop",
+    endReason: "completed",
     completedAt: "2026-11-16T10:00:00.000Z",
     totalDeckSize: 20,
     cumulativeMasteredCount: 10,

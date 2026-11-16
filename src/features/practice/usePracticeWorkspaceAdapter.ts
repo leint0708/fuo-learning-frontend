@@ -12,7 +12,6 @@ import {
 } from "@/utils/cramSessionStorage";
 import type { BenchmarkMode, CommunityStats, Question } from "@/types/exam";
 import type {
-  CramSessionEndReason,
   CramSessionQuestionEntry,
   CramSessionSnapshot,
   PracticeMode,
@@ -140,7 +139,7 @@ export interface PracticeWorkspaceAdapterResult {
   retryAiAnalysis: () => Promise<void>;
   continueNextBatch: () => void;
   continueNextRound: () => void;
-  completeAndSaveCramSession: (endReason: CramSessionEndReason) => CramSessionSnapshot | null;
+  completeAndSaveCramSession: () => CramSessionSnapshot | null;
   resetPracticeSession: () => void;
 }
 
@@ -507,50 +506,30 @@ export function usePracticeWorkspaceAdapter(
     clearCardTransientState();
   }, [learn, clearCardTransientState]);
 
-  const completeAndSaveCramSession = useCallback(
-    (endReason: CramSessionEndReason): CramSessionSnapshot | null => {
-      if (practiceMode !== "cram") return null;
+  const completeAndSaveCramSession = useCallback((): CramSessionSnapshot | null => {
+    if (practiceMode !== "cram") return null;
 
-      let finalEntries = cramSessionEntriesRef.current;
-      let cumulativeMasteredCount = cram.masteredIds.size;
+    const finalEntries = cramSessionEntriesRef.current;
+    if (finalEntries.length === 0) return null;
 
-      // Flush resolved-but-unadvanced evaluation if the user exits directly after feedback
-      if (evaluation?.status === "resolved" && pendingCommit) {
-        finalEntries = upsertCramSessionEntry(finalEntries, pendingCommit);
-        cramSessionEntriesRef.current = finalEntries;
-        setCramSessionEntries(finalEntries);
-        if (pendingCommit.isCorrect && !cram.masteredIds.has(pendingCommit.cardId)) {
-          cumulativeMasteredCount += 1;
-        }
-        cram.recordAnswer(pendingCommit.cardId, pendingCommit.isCorrect);
-        clearCardTransientState();
-      }
-
-      if (finalEntries.length === 0) return null;
-
-      const snapshot: CramSessionSnapshot = {
-        subjectCode,
-        scope: isScopedMistakeDrill ? "mistakes" : "deck",
-        endReason,
-        completedAt: new Date().toISOString(),
-        totalDeckSize: validQuestions.length,
-        cumulativeMasteredCount,
-        entries: finalEntries,
-      };
-      saveCramSessionSnapshot(snapshot);
-      return snapshot;
-    },
-    [
-      practiceMode,
-      cram,
-      evaluation?.status,
-      pendingCommit,
+    const snapshot: CramSessionSnapshot = {
       subjectCode,
-      isScopedMistakeDrill,
-      validQuestions.length,
-      clearCardTransientState,
-    ]
-  );
+      scope: isScopedMistakeDrill ? "mistakes" : "deck",
+      endReason: "completed",
+      completedAt: new Date().toISOString(),
+      totalDeckSize: validQuestions.length,
+      cumulativeMasteredCount: cram.masteredIds.size,
+      entries: finalEntries,
+    };
+    saveCramSessionSnapshot(snapshot);
+    return snapshot;
+  }, [
+    practiceMode,
+    cram.masteredIds.size,
+    subjectCode,
+    isScopedMistakeDrill,
+    validQuestions.length,
+  ]);
 
   const resetPracticeSession = useCallback(() => {
     clearPracticeStorage(subjectCode, practiceMode);

@@ -66,7 +66,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
       !hasAutoCompletedCramRef.current
     ) {
       hasAutoCompletedCramRef.current = true;
-      const snapshot = adapter.completeAndSaveCramSession("completed");
+      const snapshot = adapter.completeAndSaveCramSession();
       if (snapshot) {
         navigate(cramReviewRoute, { replace: true });
       }
@@ -232,16 +232,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
         <CockpitHeader
           title={adapter.descriptor.title}
           exitLabel={adapter.descriptor.exitLabel}
-          onExit={() => {
-            if (practiceMode === "cram") {
-              const snapshot = adapter.completeAndSaveCramSession("early_exit");
-              if (snapshot) {
-                navigate(cramReviewRoute);
-                return;
-              }
-            }
-            navigate(adapter.descriptor.exitRoute);
-          }}
+          onExit={() => navigate(adapter.descriptor.exitRoute)}
           progressLabel={
             practiceMode === "cram"
               ? adapter.isScopedMistakeDrill
@@ -464,14 +455,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
               cumulativeMastered={adapter.cram.masteredIds.size}
               totalDeckSize={adapter.deckSize}
               onContinueNextBatch={adapter.continueNextBatch}
-              onFinishSession={() => {
-                const snapshot = adapter.completeAndSaveCramSession("batch_stop");
-                if (snapshot) {
-                  navigate(cramReviewRoute);
-                } else {
-                  navigate(`/subjects/${subjectCode}`);
-                }
-              }}
+              onFinishSession={() => navigate(`/subjects/${subjectCode}`)}
             />
           )}
 

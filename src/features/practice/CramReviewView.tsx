@@ -373,7 +373,6 @@ export const CramReviewView: React.FC = () => {
       {/* Session Summary Hero */}
       <CramReviewSummaryCard
         subjectCode={subjectCode}
-        endReason={snapshot.endReason}
         scope={snapshot.scope}
         totalPracticed={totalPracticed}
         firstTryCorrectCount={firstTryCount}
@@ -588,15 +587,13 @@ export const CramReviewView: React.FC = () => {
                   });
                 }
                 contextBadges.push({
-                  label: entry.isMasteredInSession ? "Đã thuộc trong phiên" : "Chưa thuộc",
-                  tone: entry.isMasteredInSession ? "success" : "danger",
+                  label: "Đã thuộc trong phiên",
+                  tone: "success",
                 });
 
                 const statusBadgeOverride = !entry.hadMistakes
                   ? { label: "Đúng ngay", variant: "success" as const }
-                  : entry.isMasteredInSession
-                    ? { label: `Từng sai (${entry.mistakeCount} lần)`, variant: "warning" as const }
-                    : { label: "Chưa hoàn thành", variant: "danger" as const };
+                  : { label: `Từng sai (${entry.mistakeCount} lần)`, variant: "warning" as const };
 
                 const firstSelectedLabel =
                   entry.hadMistakes && entry.firstSelectedOptions !== entry.lastSelectedOptions

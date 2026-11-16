@@ -2,11 +2,10 @@ import React from "react";
 import { CheckCircle2, Sparkles, AlertCircle, BookOpen, Layers } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import type { CramSessionEndReason, CramSessionScope } from "@/types/practice";
+import type { CramSessionScope } from "@/types/practice";
 
 export interface CramReviewSummaryCardProps {
   subjectCode: string;
-  endReason: CramSessionEndReason;
   scope: CramSessionScope;
   totalPracticed: number;
   firstTryCorrectCount: number;
@@ -29,7 +28,6 @@ function formatCompletedTime(iso?: string): string {
 
 export const CramReviewSummaryCard: React.FC<CramReviewSummaryCardProps> = ({
   subjectCode,
-  endReason,
   scope,
   totalPracticed,
   firstTryCorrectCount,
@@ -45,13 +43,7 @@ export const CramReviewSummaryCard: React.FC<CramReviewSummaryCardProps> = ({
   const hasZeroMistakes = hadMistakesCount === 0 && totalPracticed > 0;
 
   const badgeLabel =
-    endReason === "completed"
-      ? scope === "mistakes"
-        ? "HOÀN THÀNH ÔN CÂU TỪNG SAI"
-        : "HOÀN THÀNH PHIÊN CẤP TỐC"
-      : endReason === "batch_stop"
-        ? "HOÀN THÀNH ĐỢT ÔN TẬP"
-        : "TỔNG KẾT PHIÊN ÔN TẬP";
+    scope === "mistakes" ? "HOÀN THÀNH ÔN CÂU TỪNG SAI" : "HOÀN THÀNH PHIÊN CẤP TỐC";
 
   const headline =
     scope === "mistakes"
