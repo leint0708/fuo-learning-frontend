@@ -43,6 +43,7 @@ export const ReviewView: React.FC = () => {
 
   const filterMode = parseFilterMode(searchParams.get("filter"));
   const [activeQuestionNumber, setActiveQuestionNumber] = useState<number | null>(null);
+  const [statusAnnouncement, setStatusAnnouncement] = useState<string>("");
   const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
   const [expandSignal, setExpandSignal] = useState<{ version: number; expanded: boolean }>({
     version: 0,
@@ -134,6 +135,7 @@ export const ReviewView: React.FC = () => {
         (filterMode === "incorrect" && isCorrect);
       if (hiddenByFilter) {
         setFilterMode("all");
+        setStatusAnnouncement(`Đã chuyển về bộ lọc Tất cả để hiển thị Câu ${displayNumber}.`);
       }
       focusAndScrollToQuestion(displayNumber);
       setIsMobileMapOpen(false);
@@ -147,6 +149,7 @@ export const ReviewView: React.FC = () => {
 
     if (filterMode === "correct") {
       setFilterMode("incorrect");
+      setStatusAnnouncement(`Đã chuyển sang bộ lọc Sai tại Câu ${firstWrong.displayNumber}.`);
       focusAndScrollToQuestion(firstWrong.displayNumber);
       return;
     }
@@ -196,6 +199,14 @@ export const ReviewView: React.FC = () => {
       } else if (key === "e" && hasAnyBreakdown) {
         event.preventDefault();
         handleToggleAllBreakdowns();
+      } else if (key === "a" && filteredQuestions.length > 0) {
+        event.preventDefault();
+        const activeEntry =
+          filteredQuestions.find((entry) => entry.displayNumber === activeQuestionNumber) ??
+          filteredQuestions[0];
+        if (activeEntry) {
+          setAiModalTarget({ item: activeEntry.item, displayNumber: activeEntry.displayNumber });
+        }
       } else if ((key === "j" || key === "k") && filteredQuestions.length > 0) {
         event.preventDefault();
         const currentPos = filteredQuestions.findIndex(
@@ -317,12 +328,17 @@ export const ReviewView: React.FC = () => {
   const learnRoute = subjectCode ? `/subjects/${encodeURIComponent(subjectCode)}/practice/learn` : "/";
 
   return (
-    <div className="max-w-6xl mx-auto w-full px-space-3 sm:px-space-5 py-space-5 sm:py-space-6 flex flex-col gap-space-5 sm:gap-space-6">
+    <div className="max-w-6xl mx-auto w-full px-space-3 sm:px-space-5 py-space-4 sm:py-space-6 flex flex-col gap-space-4 sm:gap-space-5">
+      {/* Screen-reader live region for silent map/filter transitions */}
+      <div className="sr-only" aria-live="polite">
+        {statusAnnouncement}
+      </div>
+
       {/* Top Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-space-2">
         <Link
           to={subjectRoute}
-          className="min-h-11 inline-flex items-center gap-2 text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5"
+          className="min-h-11 inline-flex items-center gap-space-1 text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5"
         >
           <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>{subjectCode ? `Về môn ${subjectCode}` : "Về danh sách môn học"}</span>
@@ -334,7 +350,7 @@ export const ReviewView: React.FC = () => {
               variant="accent"
               size="sm"
               onClick={() => navigate(cramRoute)}
-              className="min-h-11 flex items-center gap-1.5"
+              className="min-h-11 flex items-center gap-space-1"
             >
               <Zap className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>Ôn cấp tốc (Cram)</span>
@@ -345,7 +361,7 @@ export const ReviewView: React.FC = () => {
             variant="secondary"
             size="sm"
             onClick={() => navigate(subjectRoute)}
-            className="min-h-11 flex items-center gap-1.5"
+            className="min-h-11 flex items-center gap-space-1"
           >
             <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{subjectCode ? `Chọn đề môn ${subjectCode}` : "Về danh sách môn học"}</span>
@@ -353,7 +369,7 @@ export const ReviewView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Score Card Banner */}
+      {/* Main Score Card Banner (aligned full width with cockpit container) */}
       <ResultScoreCard
         examTitle={review.examTitle}
         totalQuestions={totalQuestions}
@@ -383,8 +399,8 @@ export const ReviewView: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] items-start gap-space-5">
           {/* Left / Primary Review Stream */}
           <div className="min-w-0 space-y-space-4">
-            {/* Sticky Filter & Quick Utility Toolbar */}
-            <div className="sticky top-[74px] z-20 bg-color-6/95 backdrop-blur-xs py-space-2 -mx-space-1 px-space-1 space-y-space-2 border-b-2 border-color-1/10">
+            {/* Filter & Quick Utility Toolbar: static on mobile/tablet to preserve vertical reading height, sticky flush under Navbar on desktop */}
+            <div className="relative lg:sticky lg:top-[66px] z-20 bg-color-6/95 lg:backdrop-blur-sm py-space-2 -mx-space-2 px-space-2 border-b-2 border-color-1/10 space-y-space-2">
               <div className="flex flex-wrap items-center justify-between gap-space-2">
                 <h2 className="text-text-lg font-bold text-color-1">
                   Xem lại câu hỏi và lời giải
@@ -394,7 +410,7 @@ export const ReviewView: React.FC = () => {
                 <div
                   role="group"
                   aria-label="Lọc câu hỏi theo kết quả"
-                  className="flex flex-wrap items-center gap-space-1 bg-color-7 p-1 border-2 border-color-1 rounded-2xl sm:rounded-full shadow-xs tabular-nums max-w-full"
+                  className="flex flex-wrap items-center gap-space-1 bg-color-7 p-space-1 border-2 border-color-1 rounded-2xl sm:rounded-full shadow-xs tabular-nums max-w-full"
                 >
                   <button
                     type="button"
@@ -459,7 +475,7 @@ export const ReviewView: React.FC = () => {
                       variant="secondary"
                       size="sm"
                       onClick={handleToggleAllBreakdowns}
-                      className="min-h-11 flex items-center gap-1.5 text-text-xs"
+                      className="min-h-11 flex items-center gap-space-1 text-text-xs"
                     >
                       {expandSignal.expanded ? (
                         <>
@@ -481,7 +497,7 @@ export const ReviewView: React.FC = () => {
                   type="button"
                   aria-expanded={isMobileMapOpen}
                   onClick={() => setIsMobileMapOpen((prev) => !prev)}
-                  className="lg:hidden min-h-11 px-space-3 py-space-1 rounded-full bg-color-7 border-2 border-color-1 text-text-xs font-bold text-color-1 inline-flex items-center gap-1.5 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5"
+                  className="lg:hidden min-h-11 px-space-3 py-space-1 rounded-full bg-color-7 border-2 border-color-1 text-text-xs font-bold text-color-1 inline-flex items-center gap-space-1 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5"
                 >
                   <span>Bản đồ {totalQuestions} câu</span>
                   {isMobileMapOpen ? (
@@ -495,7 +511,7 @@ export const ReviewView: React.FC = () => {
               {/* Mobile Question Map Drawer */}
               {isMobileMapOpen && (
                 <div className="lg:hidden p-space-3 bg-color-7 border-2 border-color-1 rounded-2xl shadow-xs">
-                  <div className="grid grid-cols-5 sm:grid-cols-8 gap-1.5 max-h-48 overflow-y-auto tabular-nums">
+                  <div className="grid grid-cols-5 sm:grid-cols-8 gap-space-1 max-h-48 overflow-y-auto tabular-nums">
                     {indexedQuestions.map(({ item, displayNumber }) => (
                       <button
                         key={item.questionId || displayNumber}
@@ -561,7 +577,7 @@ export const ReviewView: React.FC = () => {
                       variant="accent"
                       size="sm"
                       onClick={() => navigate(cramRoute)}
-                      className="min-h-11 flex items-center gap-1.5"
+                      className="min-h-11 flex items-center gap-space-1"
                     >
                       <Zap className="w-4 h-4" aria-hidden="true" />
                       <span>Ôn cấp tốc (Cram)</span>
@@ -606,7 +622,7 @@ export const ReviewView: React.FC = () => {
                       variant="accent"
                       size="sm"
                       onClick={() => navigate(cramRoute)}
-                      className="min-h-11 flex items-center gap-1.5"
+                      className="min-h-11 flex items-center gap-space-1"
                     >
                       <Zap className="w-4 h-4 shrink-0" aria-hidden="true" />
                       <span>Ôn cấp tốc</span>
@@ -615,7 +631,7 @@ export const ReviewView: React.FC = () => {
                       variant="primary"
                       size="sm"
                       onClick={() => navigate(learnRoute)}
-                      className="min-h-11 flex items-center gap-1.5"
+                      className="min-h-11 flex items-center gap-space-1"
                     >
                       <Brain className="w-4 h-4 shrink-0" aria-hidden="true" />
                       <span>Học ghi nhớ</span>
@@ -634,15 +650,15 @@ export const ReviewView: React.FC = () => {
               </div>
             </Card>
 
-            {/* Mobile Sticky Thumb-Zone Dock */}
-            <div className="sticky bottom-space-2 z-20 lg:hidden flex items-center justify-between gap-space-1.5 p-space-1.5 bg-color-7 border-2 border-color-1 rounded-full shadow-sm">
+            {/* Mobile Single Sticky Thumb-Zone Dock (<lg) */}
+            <div className="sticky bottom-space-2 z-20 lg:hidden flex items-center justify-between gap-space-1 p-space-1 bg-color-7 border-2 border-color-1 rounded-full shadow-sm">
               {wrongCount > 0 ? (
                 <Button
                   type="button"
                   variant="secondary"
                   size="sm"
                   onClick={handleJumpNextIncorrect}
-                  className="min-h-11 flex-1 text-text-xs flex items-center justify-center gap-1"
+                  className="min-h-11 flex-1 text-text-xs flex items-center justify-center gap-1 whitespace-nowrap"
                 >
                   <span>Câu sai tiếp</span>
                   <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -653,7 +669,7 @@ export const ReviewView: React.FC = () => {
                   variant="secondary"
                   size="sm"
                   onClick={() => setFilterMode("all")}
-                  className="min-h-11 flex-1 text-text-xs"
+                  className="min-h-11 flex-1 text-text-xs whitespace-nowrap"
                 >
                   Xem tất cả ({totalQuestions})
                 </Button>
@@ -665,7 +681,7 @@ export const ReviewView: React.FC = () => {
                   variant={filterMode === "incorrect" ? "primary" : "secondary"}
                   size="sm"
                   onClick={() => setFilterMode(filterMode === "incorrect" ? "all" : "incorrect")}
-                  className="min-h-11 text-text-xs"
+                  className="min-h-11 text-text-xs whitespace-nowrap"
                 >
                   {filterMode === "incorrect" ? "Hiện tất cả" : `Chỉ câu sai (${wrongCount})`}
                 </Button>
@@ -677,17 +693,18 @@ export const ReviewView: React.FC = () => {
                 size="sm"
                 onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                 aria-label="Lên đầu trang"
-                className="min-h-11 px-space-3"
+                className="min-h-11 px-space-3 flex items-center gap-1 text-text-xs whitespace-nowrap"
               >
-                <ArrowUp className="w-4 h-4" aria-hidden="true" />
+                <ArrowUp className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline">Đầu trang</span>
               </Button>
             </div>
           </div>
 
-          {/* Right Sticky Question Navigator Rail (Desktop lg+) */}
+          {/* Right Sticky Question Navigator Rail (Desktop lg+, purely focused on navigation) */}
           <aside
             aria-label="Điều hướng nhanh danh sách câu hỏi"
-            className="hidden lg:block lg:sticky lg:top-[84px]"
+            className="hidden lg:block lg:sticky lg:top-[74px]"
           >
             <Card className="p-space-4 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm space-y-space-3">
               <div className="flex items-center justify-between gap-space-2 pb-space-2 border-b-2 border-color-6">
@@ -699,7 +716,7 @@ export const ReviewView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-5 gap-1.5 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar tabular-nums">
+              <div className="grid grid-cols-5 gap-space-1 max-h-[360px] overflow-y-auto pr-1 custom-scrollbar tabular-nums">
                 {indexedQuestions.map(({ item, displayNumber }) => (
                   <button
                     key={item.questionId || displayNumber}
@@ -721,35 +738,13 @@ export const ReviewView: React.FC = () => {
                 ))}
               </div>
 
-              <p className="text-text-xs text-color-1/75 leading-snug pt-space-1 border-t border-color-6">
+              <p className="text-text-xs text-color-1/75 leading-snug pt-space-2 border-t-2 border-color-6">
                 Phím tắt: <strong className="text-color-1">J/K</strong> chuyển câu •{" "}
                 <strong className="text-color-1">N</strong> câu sai tiếp •{" "}
+                <strong className="text-color-1">A</strong> khung AI •{" "}
                 <strong className="text-color-1">1/2/3</strong> lọc •{" "}
                 <strong className="text-color-1">E</strong> phân tích
               </p>
-
-              {subjectCode && (
-                <div className="pt-space-2 border-t-2 border-color-6 flex flex-col gap-space-1.5">
-                  <Button
-                    variant="accent"
-                    size="sm"
-                    onClick={() => navigate(cramRoute)}
-                    className="min-h-11 w-full flex items-center justify-center gap-1.5"
-                  >
-                    <Zap className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    <span>Ôn cấp tốc (Cram)</span>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigate(learnRoute)}
-                    className="min-h-11 w-full flex items-center justify-center gap-1.5"
-                  >
-                    <Brain className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    <span>Học ghi nhớ (Learn)</span>
-                  </Button>
-                </div>
-              )}
             </Card>
           </aside>
         </div>

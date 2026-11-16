@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, XCircle, Clock, Award, HelpCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Award, HelpCircle, Percent } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
@@ -57,9 +57,9 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
       : "Tiêu chuẩn vượt qua môn: tối thiểu 70.0% tổng điểm.";
 
   return (
-    <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm text-center max-w-4xl mx-auto w-full">
+    <Card className="p-space-4 md:p-space-5 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm text-center w-full">
       {/* Pass/Fail Hero Icon */}
-      <div className="inline-flex items-center justify-center mb-space-3">
+      <div className="inline-flex items-center justify-center mb-space-2">
         {isPassed ? (
           <div className="w-16 h-16 rounded-full bg-color-3/15 text-color-3 flex items-center justify-center border-2 border-color-3 shadow-xs">
             <CheckCircle2 className="w-10 h-10" aria-hidden="true" />
@@ -84,13 +84,13 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
       <h1 className="text-text-lg sm:text-text-xl font-bold text-color-1 mb-space-1 text-balance">
         {examTitle}
       </h1>
-      <p className="text-text-xs sm:text-text-sm text-color-1/80 mb-space-4 sm:mb-space-5 max-w-2xl mx-auto">
+      <p className="text-text-xs sm:text-text-sm text-color-1/80 mb-space-4 max-w-2xl mx-auto">
         {diagnosticSummary}
       </p>
 
-      {/* Score Grid Breakdown */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-2 sm:gap-space-3 pt-space-4 border-t-2 border-color-6 tabular-nums">
-        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/20 min-w-0">
+      {/* Score Grid Breakdown (stays 2 cols until md 768px so KPI labels never squeeze) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-space-2 sm:gap-space-3 pt-space-4 border-t-2 border-color-6 tabular-nums">
+        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
           <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
             <Award className="w-4 h-4 text-color-2 shrink-0" aria-hidden="true" />
             <span>Điểm số</span>
@@ -100,8 +100,11 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
           </div>
         </div>
 
-        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/20 min-w-0">
-          <div className="text-text-xs font-bold text-color-1/80">Tỷ lệ chính xác</div>
+        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
+          <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
+            <Percent className="w-4 h-4 text-color-3 shrink-0" aria-hidden="true" />
+            <span>Tỷ lệ chính xác</span>
+          </div>
           <div
             className={`text-text-lg sm:text-text-xl font-bold mt-space-1 ${
               isPassed ? "text-color-3" : "text-color-1"
@@ -111,7 +114,7 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
           </div>
         </div>
 
-        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/20 min-w-0">
+        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
           <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
             <HelpCircle className="w-4 h-4 text-color-5 shrink-0" aria-hidden="true" />
             <span>Số câu đúng</span>
@@ -121,7 +124,7 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
           </div>
         </div>
 
-        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/20 min-w-0">
+        <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
           <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
             <Clock className="w-4 h-4 text-color-1 shrink-0" aria-hidden="true" />
             <span>{hasDuration ? "Thời gian làm" : "Nộp bài lúc"}</span>

@@ -98,6 +98,11 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
     return Object.entries(item.options).sort(([a], [b]) => a.localeCompare(b));
   }, [item.options]);
 
+  const hasReadableOptionText = useMemo(
+    () => sortedOptions.some(([, optionText]) => Boolean(optionText?.trim())),
+    [sortedOptions]
+  );
+
   const breakdownEntries = useMemo(() => {
     if (!item.optionByOptionAnalysis) return [];
     return Object.entries(item.optionByOptionAnalysis).sort(([a], [b]) => a.localeCompare(b));
@@ -107,6 +112,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
     Boolean(item.communityStats) && (item.communityStats?.validVoteCount ?? 0) > 0;
   const voteCount = item.communityStats?.validVoteCount ?? 0;
   const agreementPercent = Math.round((item.communityStats?.agreementRatio || 0) * 100);
+  const trimmedQuestionText = item.questionText?.trim() || "";
 
   const handleViewportKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "+" || e.key === "=") {
@@ -126,7 +132,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
       id={elementId}
       tabIndex={-1}
       onFocus={() => onFocusQuestion?.(displayNumber)}
-      className={`p-space-4 sm:p-space-5 bg-color-7 border-2 rounded-3xl shadow-sm space-y-space-4 outline-none transition-colors duration-fast ${
+      className={`scroll-mt-24 lg:scroll-mt-[216px] p-space-4 sm:p-space-5 bg-color-7 border-2 rounded-3xl shadow-sm space-y-space-3 sm:space-y-space-4 outline-none transition-colors duration-fast ${
         isActive
           ? "border-color-2 ring-4 ring-color-5/60"
           : "border-color-1 focus-visible:ring-4 focus-visible:ring-color-5"
@@ -147,7 +153,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
           </h3>
         </div>
 
-        <div className="flex flex-wrap items-center gap-space-1.5">
+        <div className="flex flex-wrap items-center gap-space-1">
           {isUserCorrect ? (
             <Badge variant="success" className="flex items-center gap-1">
               <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -178,10 +184,10 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
       </div>
 
       {/* Text Stem (shown for text-only questions or whenever diagram loading fails) */}
-      {(!showInteractiveDiagram) && item.questionText && (
-        <div className="p-space-3 sm:p-space-4 bg-color-6/60 border-2 border-color-1/25 rounded-2xl">
+      {!showInteractiveDiagram && trimmedQuestionText && (
+        <div className="p-space-3 sm:p-space-4 bg-color-6/60 border-2 border-color-1/20 rounded-2xl">
           <p className="text-text-sm sm:text-text-base font-medium text-color-1 leading-relaxed whitespace-pre-wrap break-words">
-            {item.questionText}
+            {trimmedQuestionText}
           </p>
         </div>
       )}
@@ -199,7 +205,9 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
                 Không thể tải hình ảnh sơ đồ của câu {displayNumber}
               </p>
               <p className="text-text-xs text-color-1/80">
-                Kiểm tra kết nối mạng hoặc nhấn thử tải lại ảnh. Nội dung văn bản vẫn được giữ nguyên bên trên.
+                {trimmedQuestionText
+                  ? "Kiểm tra kết nối mạng hoặc nhấn thử tải lại ảnh. Nội dung văn bản vẫn được giữ nguyên bên trên."
+                  : "Kiểm tra kết nối mạng hoặc nhấn thử tải lại ảnh."}
               </p>
             </div>
           </div>
@@ -208,7 +216,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
             variant="secondary"
             size="sm"
             onClick={() => setRetrySeed((s) => s + 1)}
-            className="min-h-11 flex items-center gap-1.5 shrink-0"
+            className="min-h-11 flex items-center gap-space-1 shrink-0"
           >
             <RotateCcw className="w-4 h-4" aria-hidden="true" />
             <span>Thử tải lại ảnh</span>
@@ -265,7 +273,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
                   setIsImageLoading(false);
                   setImageError(true);
                 }}
-                className="max-h-72 w-auto object-contain rounded-xl pointer-events-none drop-shadow-xs"
+                className="max-h-72 w-auto object-contain rounded-xl pointer-events-none shadow-xs"
                 draggable={false}
                 loading="lazy"
                 decoding="async"
@@ -281,7 +289,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
             <span className="text-text-xs font-bold text-color-1/80 hidden md:inline">
               Kéo để di chuyển • Ctrl + Cuộn chuột để thu phóng
             </span>
-            <div className="flex flex-wrap items-center gap-1.5 ml-auto">
+            <div className="flex flex-wrap items-center gap-space-1 ml-auto">
               <Button
                 type="button"
                 variant="secondary"
@@ -324,9 +332,9 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
         </div>
       )}
 
-      {/* Full Option Text List (guarantees recognition instead of letter recall) */}
-      {sortedOptions.length > 0 && (
-        <ul aria-label="Danh sách các phương án" className="grid grid-cols-1 gap-space-1.5">
+      {/* Full Option Text List OR Compact Key Strip (never duplicates both when options are present) */}
+      {hasReadableOptionText ? (
+        <ul aria-label="Danh sách các phương án" className="grid grid-cols-1 gap-space-1">
           {sortedOptions.map(([key, optionText]) => {
             const normalizedKey = key.toUpperCase();
             const isSelected = selectedKeys.has(normalizedKey);
@@ -369,35 +377,34 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
             );
           })}
         </ul>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-2 p-space-3 bg-color-6 rounded-2xl border-2 border-color-1">
+          <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-1 bg-color-7 rounded-2xl border border-color-1/30 min-w-0">
+            <span className="text-text-xs font-bold text-color-1/80">Đáp án bạn chọn:</span>
+            <span
+              className={`font-bold text-text-xs sm:text-text-sm px-space-2 py-0.5 rounded-full border-2 text-color-1 tabular-nums ${
+                isUserCorrect
+                  ? "bg-color-3/15 border-color-3"
+                  : "bg-color-4/15 border-color-4"
+              }`}
+            >
+              {userChoice}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-1 bg-color-7 rounded-2xl border border-color-1/30 min-w-0">
+            <span className="text-text-xs font-bold text-color-1/80">Đáp án chuẩn:</span>
+            <span className="font-bold text-text-xs sm:text-text-sm px-space-2 py-0.5 rounded-full border-2 border-color-3 bg-color-3/15 text-color-1 tabular-nums">
+              {correctAnswer || "Chưa có"}
+            </span>
+          </div>
+        </div>
       )}
-
-      {/* High-Contrast Answer Comparison Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-2 sm:gap-space-3 p-space-3 bg-color-6 rounded-2xl border-2 border-color-1">
-        <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-1 bg-color-7 rounded-2xl border border-color-1/30 min-w-0">
-          <span className="text-text-xs font-bold text-color-1/80">Đáp án bạn chọn:</span>
-          <span
-            className={`font-bold text-text-xs sm:text-text-sm px-space-2 py-0.5 rounded-full border-2 text-color-1 tabular-nums ${
-              isUserCorrect
-                ? "bg-color-3/15 border-color-3"
-                : "bg-color-4/15 border-color-4"
-            }`}
-          >
-            {userChoice}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-1 bg-color-7 rounded-2xl border border-color-1/30 min-w-0">
-          <span className="text-text-xs font-bold text-color-1/80">Đáp án chuẩn:</span>
-          <span className="font-bold text-text-xs sm:text-text-sm px-space-2 py-0.5 rounded-full border-2 border-color-3 bg-color-3/15 text-color-1 tabular-nums">
-            {correctAnswer || "Chưa có"}
-          </span>
-        </div>
-      </div>
 
       {/* AI Explanation Box */}
       <div className="p-space-3 sm:p-space-4 bg-color-6/60 border-2 border-color-1 rounded-2xl">
         <div className="flex flex-wrap items-center justify-between gap-space-2 mb-space-2">
-          <div className="flex items-center gap-1.5 font-bold text-text-xs sm:text-text-sm text-color-2">
+          <div className="flex items-center gap-space-1 font-bold text-text-xs sm:text-text-sm text-color-2">
             <Bot className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>Giải thích từ Trợ lý AI:</span>
           </div>
@@ -436,7 +443,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
           {item.aiExplanation || "Chưa có diễn giải chi tiết cho câu hỏi này."}
         </p>
 
-        {/* Expanded Option Breakdown (permutation-invariant multi-choice highlighting) */}
+        {/* Expanded Option Breakdown (permutation-invariant multi-choice + AA contrast) */}
         {isExpanded && breakdownEntries.length > 0 && (
           <div className="mt-space-3 pt-space-3 border-t-2 border-color-1/15 grid grid-cols-1 sm:grid-cols-2 gap-space-2">
             {breakdownEntries.map(([opt, desc]) => {
@@ -455,12 +462,16 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
                         : "bg-color-7 border-color-1/25 text-color-1"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-space-1 mb-1">
+                  <div className="flex items-center justify-between gap-space-1 mb-space-1">
                     <span className="font-bold text-color-2">{opt}.</span>
                     {isOptionCorrect ? (
-                      <span className="text-text-xs font-bold text-color-3">Đúng</span>
+                      <span className="px-space-1 py-0.5 rounded-full bg-color-7 border border-color-3 text-text-xs font-bold text-color-1">
+                        Đúng
+                      </span>
                     ) : isOptionChosen ? (
-                      <span className="text-text-xs font-bold text-color-1">Bạn chọn</span>
+                      <span className="px-space-1 py-0.5 rounded-full bg-color-7 border border-color-4 text-text-xs font-bold text-color-1">
+                        Bạn chọn
+                      </span>
                     ) : null}
                   </div>
                   <p className="leading-snug break-words">{desc}</p>

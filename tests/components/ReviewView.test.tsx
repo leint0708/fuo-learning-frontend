@@ -70,13 +70,19 @@ describe("ReviewView & QuestionReviewItem Hardening, Layout & Polish", () => {
 
     // Uses genuine questionNumber (14) instead of filtered array index
     expect(screen.getByRole("heading", { name: /Câu 14 \(Q14\)/ })).toBeInTheDocument();
-    // Text stem & sorted option text are visible for recognition
+    // Text stem & sorted option text are visible for recognition; redundant key strip is suppressed
     expect(
       screen.getByText("Which two layers sit closest to physical transmission or framing?")
     ).toBeInTheDocument();
     expect(screen.getByText("Physical layer")).toBeInTheDocument();
     expect(screen.getByText("Data Link layer")).toBeInTheDocument();
     expect(screen.getByText("Session layer")).toBeInTheDocument();
+    expect(screen.queryByText("Đáp án bạn chọn:")).not.toBeInTheDocument();
+    // Valid spacing token on option list + scroll-margin clearance
+    const optionList = screen.getByRole("list", { name: "Danh sách các phương án" });
+    expect(optionList.className).toContain("gap-space-1");
+    expect(optionList.className).not.toContain("gap-space-1.5");
+    expect(optionList.closest("[tabindex='-1']")?.className).toContain("scroll-mt-24");
     // Calm neutral AI provenance copy (no noisy warning or raw model slug)
     expect(screen.getByText("Nguồn: Đáp án AI (chưa có bình chọn)")).toBeInTheDocument();
     expect(screen.queryByText(/gemini-3-flash-preview/i)).not.toBeInTheDocument();
@@ -258,9 +264,8 @@ describe("ReviewView & QuestionReviewItem Hardening, Layout & Polish", () => {
     fireEvent.keyDown(window, { key: "1" });
     expect(screen.getByText("First question stem")).toBeInTheDocument();
 
-    // Open full AiAnswerModal parity view
-    const openModalBtns = screen.getAllByRole("button", { name: "Xem khung AI" });
-    fireEvent.click(openModalBtns[0]!);
+    // Keyboard shortcut 'a' opens full AiAnswerModal parity view
+    fireEvent.keyDown(window, { key: "a" });
     expect(
       screen.getByText(/Giải thích chi tiết từ AI - Câu 1 \(Q1\)/)
     ).toBeInTheDocument();
