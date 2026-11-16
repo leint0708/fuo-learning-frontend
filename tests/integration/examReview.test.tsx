@@ -749,4 +749,162 @@ describe("ExamWorkspaceView Integration Tests", () => {
     fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
     expect(screen.queryByText(/Chính xác|Chưa chính xác/i)).not.toBeInTheDocument();
   });
+
+  it("auto-switches to AI on Q1 without community answer, restores persisted Cộng đồng on Q2, and keeps explicit overrides across attempts", async () => {
+    const checkCalls: Array<{ questionId: string; benchmark?: string }> = [];
+    server.use(
+      http.get("*/api/v1/attempts/:attemptId", ({ params }) => {
+        return HttpResponse.json({
+          attempt_id: params.attemptId,
+          exam_id: "NWC204_FA26_FE",
+          exam_title: "Multi-Question Answer Source Exam",
+          status: "in_progress",
+          started_at: new Date().toISOString(),
+          expires_at: null,
+          time_remaining_seconds: 1800,
+          questions: [
+            {
+              question_id: "ex_q1",
+              question_number: 1,
+              question_id_code: "Q1",
+              question_type: "single_choice",
+              question_text: "Exam Q1 Without Community Votes",
+              image_url: null,
+              options: { A: "First", B: "Second" },
+              selected_options: null,
+            },
+            {
+              question_id: "ex_q2",
+              question_number: 2,
+              question_id_code: "Q2",
+              question_type: "single_choice",
+              question_text: "Exam Q2 With Community Consensus",
+              image_url: null,
+              options: { A: "First 2", B: "Second 2" },
+              selected_options: null,
+            },
+            {
+              question_id: "ex_q3",
+              question_number: 3,
+              question_id_code: "Q3",
+              question_type: "single_choice",
+              question_text: "Exam Q3 Final",
+              image_url: null,
+              options: { A: "First 3", B: "Second 3" },
+              selected_options: null,
+            },
+          ],
+        });
+      }),
+      http.put("*/api/v1/attempts/:attemptId/answers", async ({ request }) => {
+        const body = (await request.json()) as {
+          question_id: string;
+          selected_options: string;
+        };
+        return HttpResponse.json({
+          question_id: body.question_id,
+          selected_options: body.selected_options,
+          saved_at: new Date().toISOString(),
+        });
+      }),
+      http.post("*/api/v1/questions/:questionId/check", async ({ params, request }) => {
+        const questionId = String(params.questionId);
+        const body = (await request.json()) as {
+          selected_options?: string;
+          benchmark_mode?: string;
+        };
+        checkCalls.push({ questionId, benchmark: body.benchmark_mode });
+
+        if (questionId === "ex_q1") {
+          return HttpResponse.json({
+            question_id: questionId,
+            selected_options: body.selected_options ?? "A",
+            correct_answer: "A",
+            is_correct: body.selected_options === "A",
+            benchmark_source: "ai",
+            community_stats: null,
+            ai_explanation: "AI fallback for Exam Q1.",
+          });
+        }
+
+        return HttpResponse.json({
+          question_id: questionId,
+          selected_options: body.selected_options ?? "B",
+          correct_answer: "B",
+          is_correct: body.selected_options === "B",
+          benchmark_source: "community",
+          community_stats: {
+            total_comments: 8,
+            valid_vote_count: 7,
+            top_answer_votes: 6,
+            agreement_ratio: 0.85,
+            community_answer: "B",
+          },
+          ai_explanation: "Community consensus B.",
+        });
+      })
+    );
+
+    renderExamWorkspace("att_multi_source_1");
+    await waitFor(() => {
+      expect(screen.getByText("Exam Q1 Without Community Votes")).toBeInTheDocument();
+    });
+
+    // User fixes preference to Cộng đồng
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Cộng đồng$/i }));
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("community");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    // Selecting option on Q1 returns no community answer -> Q1 flips to Đáp án AI
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
+    expect(await screen.findByText(/Chưa có dữ liệu cộng đồng — đang dùng đáp án AI/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    expect(screen.getByRole("button", { name: /^Đáp án AI$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("community");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    // Move to Q2 -> active source automatically restores to Cộng đồng
+    fireEvent.click(screen.getByRole("button", { name: /^Câu tiếp$/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Exam Q2 With Community Consensus")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    expect(screen.getByRole("button", { name: /^Cộng đồng$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    // Check Q2 -> receives community answer and stays on Cộng đồng
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án B:/i }));
+    expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Chưa có dữ liệu cộng đồng/i)).not.toBeInTheDocument();
+
+    // User changes mind to Đáp án AI -> stays fixed at "ai" for Q3
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Đáp án AI$/i }));
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("ai");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Câu tiếp$/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Exam Q3 Final")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án B:/i }));
+    await waitFor(() => {
+      expect(checkCalls).toHaveLength(3);
+    });
+
+    expect(checkCalls).toEqual([
+      { questionId: "ex_q1", benchmark: "community" },
+      { questionId: "ex_q2", benchmark: "community" },
+      { questionId: "ex_q3", benchmark: undefined },
+    ]);
+  });
 });

@@ -10,6 +10,7 @@ export interface CockpitSettingsPopoverProps {
     value: string;
     options: Array<{ value: string; label: string }>;
     onChange: (value: string) => void;
+    fallbackNote?: string | null;
   };
   onOpenShortcuts: () => void;
 }
@@ -97,6 +98,15 @@ export const CockpitSettingsPopover: React.FC<CockpitSettingsPopoverProps> = ({
               );
             })}
           </div>
+          {answerSourceToggle.fallbackNote && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="rounded-2xl border border-color-1 bg-color-6 px-space-2 py-space-2 text-text-2xs font-medium text-color-1 leading-snug"
+            >
+              {answerSourceToggle.fallbackNote}
+            </p>
+          )}
         </div>
       )}
 

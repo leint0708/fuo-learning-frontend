@@ -8,6 +8,7 @@ import { startExamAttempt } from "@/api/attempts";
 import { useExamUiStore } from "@/stores/examUiStore";
 import { getErrorMessage } from "@/utils/error";
 import { upsertActiveExam } from "@/utils/activeExams";
+import { loadAnswerSourcePreference } from "@/utils/answerSourcePreference";
 
 export interface CustomExamModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
   onStartExam,
 }) => {
   const navigate = useNavigate();
-  const { setFeedbackMode, setBenchmarkMode } = useExamUiStore();
+  const { setFeedbackMode, setBenchmarkMode, syncBenchmarkModeFromStorage } = useExamUiStore();
 
   const [questionCount, setQuestionCount] = useState<number>(
     maxAvailableQuestions > 0 ? Math.min(20, Math.max(5, maxAvailableQuestions)) : 20
@@ -44,7 +45,9 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
   );
   const [isUntimed, setIsUntimed] = useState<boolean>(false);
   const [feedbackModeState, setFeedbackModeState] = useState<FeedbackMode>("instant");
-  const [benchmarkModeState, setBenchmarkModeState] = useState<BenchmarkMode>("ai");
+  const [benchmarkModeState, setBenchmarkModeState] = useState<BenchmarkMode>(() =>
+    loadAnswerSourcePreference()
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,8 +64,10 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
       setDurationMinutes(defaultDurationMinutes);
       setCustomDurationInput(String(defaultDurationMinutes));
     }
+    syncBenchmarkModeFromStorage();
+    setBenchmarkModeState(loadAnswerSourcePreference());
     setError(null);
-  }, [isOpen, defaultDurationMinutes, maxAvailableQuestions]);
+  }, [isOpen, defaultDurationMinutes, maxAvailableQuestions, syncBenchmarkModeFromStorage]);
 
   const handleStartExam = async () => {
     setIsLoading(true);

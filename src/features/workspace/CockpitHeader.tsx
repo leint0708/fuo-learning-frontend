@@ -46,6 +46,7 @@ export interface CockpitHeaderProps {
     value: string;
     options: Array<{ value: string; label: string }>;
     onChange: (value: string) => void;
+    fallbackNote?: string | null;
   };
   statusSlot?: React.ReactNode;
   saveStatus?: WorkspaceSaveStatus;

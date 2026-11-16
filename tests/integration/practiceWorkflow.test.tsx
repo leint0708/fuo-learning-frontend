@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -329,6 +329,16 @@ describe("Practice Workflow Integration", () => {
       screen.getByText(/Chưa có dữ liệu cộng đồng — đang dùng đáp án AI/i)
     ).toBeInTheDocument();
     expect(benchmarkModes).toEqual(["community"]);
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("community");
+
+    // Settings reflects temporary AI fallback on current question while keeping preference saved
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    expect(screen.getByRole("button", { name: /^Đáp án AI$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByText(/Sang câu sau sẽ tự động quay lại Cộng đồng/i)).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
 
     // Active header Reset asks confirmation before wiping mastery progress
     fireEvent.click(screen.getByRole("button", { name: /Luyện lại từ đầu/i }));
@@ -337,6 +347,173 @@ describe("Practice Workflow Integration", () => {
     });
     fireEvent.click(within(resetDialog).getByRole("button", { name: /^Hủy$/i }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("persists Cộng đồng across mode switch/remount, restores Cộng đồng after Q1 AI fallback on next question, and honors explicit change to AI", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    try {
+      const benchmarkRequests: Array<{ questionId: string; benchmark?: string }> = [];
+    server.use(
+      http.get("*/api/v1/questions/drills", () => {
+        return HttpResponse.json([
+          {
+            question_id: "persist_q1",
+            subject_code: "PRF192",
+            question_type: "single_choice",
+            question_text: "Persist Question 1 (No Community)",
+            image_url: null,
+            options: { A: "Opt A1", B: "Opt B1", C: "Opt C1" },
+          },
+          {
+            question_id: "persist_q2",
+            subject_code: "PRF192",
+            question_type: "single_choice",
+            question_text: "Persist Question 2 (Has Community)",
+            image_url: null,
+            options: { A: "Opt A2", B: "Opt B2", C: "Opt C2" },
+          },
+          {
+            question_id: "persist_q3",
+            subject_code: "PRF192",
+            question_type: "single_choice",
+            question_text: "Persist Question 3",
+            image_url: null,
+            options: { A: "Opt A3", B: "Opt B3", C: "Opt C3" },
+          },
+        ]);
+      }),
+      http.post("*/api/v1/questions/:questionId/check", async ({ params, request }) => {
+        const questionId = String(params.questionId);
+        const body = (await request.json()) as {
+          selected_options?: string;
+          benchmark_mode?: string;
+        };
+        benchmarkRequests.push({ questionId, benchmark: body.benchmark_mode });
+
+        if (questionId === "persist_q1") {
+          return HttpResponse.json({
+            question_id: questionId,
+            selected_options: body.selected_options ?? "A",
+            correct_answer: "A",
+            is_correct: body.selected_options === "A",
+            benchmark_source: "ai",
+            community_stats: null,
+            ai_explanation: "AI fallback for Q1.",
+          });
+        }
+
+        if (questionId === "persist_q2") {
+          return HttpResponse.json({
+            question_id: questionId,
+            selected_options: body.selected_options ?? "B",
+            correct_answer: "B",
+            is_correct: body.selected_options === "B",
+            benchmark_source: "community",
+            community_stats: {
+              total_comments: 6,
+              valid_vote_count: 5,
+              top_answer_votes: 4,
+              agreement_ratio: 0.8,
+              community_answer: "B",
+            },
+            ai_explanation: "Community consensus is B.",
+          });
+        }
+
+        return HttpResponse.json({
+          question_id: questionId,
+          selected_options: body.selected_options ?? "C",
+          correct_answer: "C",
+          is_correct: body.selected_options === "C",
+          benchmark_source: "ai",
+          community_stats: null,
+          ai_explanation: "Q3 AI answer.",
+        });
+      })
+    );
+
+    const firstRender = renderPractice("/subjects/PRF192/practice/learn");
+    await waitFor(() => {
+      expect(screen.getByText(/Persist Question [123]/i)).toBeInTheDocument();
+    });
+
+    // Fix preference to Cộng đồng once in Learn
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Cộng đồng$/i }));
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("community");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    // Unmount and switch to Cram mode (simulating mode switch / reload) -> Cộng đồng stays fixed
+    firstRender.unmount();
+    renderPractice("/subjects/PRF192/practice/cram");
+    await waitFor(() => {
+      expect(screen.getByText("Persist Question 1 (No Community)")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    expect(screen.getByRole("button", { name: /^Cộng đồng$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    // Q1 lacks community data -> auto-switches current question active source to Đáp án AI
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
+    expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    expect(screen.getByRole("button", { name: /^Đáp án AI$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("community");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    // Advance to Q2 -> active source automatically restores to Cộng đồng
+    fireEvent.click(screen.getByRole("button", { name: /Tiếp tục/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Persist Question 2 (Has Community)")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    expect(screen.getByRole("button", { name: /^Cộng đồng$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(
+      screen.queryByText(/Sang câu sau sẽ tự động quay lại Cộng đồng/i)
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    // Check Q2 -> uses benchmark_mode: "community" and stays Cộng đồng because Q2 has valid votes
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án B:/i }));
+    expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Chưa có dữ liệu cộng đồng — đang dùng đáp án AI/i)
+    ).not.toBeInTheDocument();
+
+    // Advance to Q3, then explicitly change mind to Đáp án AI -> persists "ai"
+    fireEvent.click(screen.getByRole("button", { name: /Tiếp tục/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Persist Question 3")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Đáp án AI$/i }));
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("ai");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
+    expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+
+      expect(benchmarkRequests).toEqual([
+        { questionId: "persist_q1", benchmark: "community" },
+        { questionId: "persist_q2", benchmark: "community" },
+        { questionId: "persist_q3", benchmark: undefined },
+      ]);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it("exits straight to subject detail when quitting via Thoát, opens review after each finished Cram batch/session, and supports scoped ?scope=mistakes re-drill", async () => {

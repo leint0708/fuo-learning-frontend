@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { normalizeAnswer, compareAnswers } from "@/utils/answerComparison";
+import {
+  normalizeAnswer,
+  compareAnswers,
+  hasValidCommunityAnswer,
+  didFallbackToAi,
+  getCommunityFallbackNotice,
+} from "@/utils/answerComparison";
 
 describe("answerComparison utility", () => {
   describe("normalizeAnswer", () => {
@@ -49,6 +55,95 @@ describe("answerComparison utility", () => {
       expect(compareAnswers("A", null)).toBe(false);
       expect(compareAnswers(null, null)).toBe(false);
       expect(compareAnswers("", "")).toBe(false);
+    });
+  });
+
+  describe("community fallback helpers", () => {
+    it("detects valid community answers only when communityAnswer is non-empty and votes > 0", () => {
+      expect(hasValidCommunityAnswer(null)).toBe(false);
+      expect(hasValidCommunityAnswer(undefined)).toBe(false);
+      expect(
+        hasValidCommunityAnswer({
+          totalComments: 2,
+          validVoteCount: 0,
+          topAnswerVotes: 0,
+          agreementRatio: 0,
+          communityAnswer: null,
+        })
+      ).toBe(false);
+      expect(
+        hasValidCommunityAnswer({
+          totalComments: 4,
+          validVoteCount: 4,
+          topAnswerVotes: 3,
+          agreementRatio: 0.75,
+          communityAnswer: "B",
+        })
+      ).toBe(true);
+    });
+
+    it("detects AI fallback when community was requested without valid consensus or backend returned ai", () => {
+      expect(didFallbackToAi("ai", null, "ai")).toBe(false);
+      expect(didFallbackToAi("community", null, "ai")).toBe(true);
+      expect(
+        didFallbackToAi(
+          "community",
+          {
+            totalComments: 0,
+            validVoteCount: 0,
+            topAnswerVotes: 0,
+            agreementRatio: 0,
+            communityAnswer: null,
+          },
+          "community"
+        )
+      ).toBe(true);
+      expect(
+        didFallbackToAi(
+          "community",
+          {
+            totalComments: 3,
+            validVoteCount: 3,
+            topAnswerVotes: 3,
+            agreementRatio: 1,
+            communityAnswer: "C",
+          },
+          "ai"
+        )
+      ).toBe(true);
+      expect(
+        didFallbackToAi(
+          "community",
+          {
+            totalComments: 3,
+            validVoteCount: 3,
+            topAnswerVotes: 3,
+            agreementRatio: 1,
+            communityAnswer: "C",
+          },
+          "community"
+        )
+      ).toBe(false);
+    });
+
+    it("returns localized fallback notice strictly when AI fallback occurred", () => {
+      expect(getCommunityFallbackNotice("ai", null)).toBeNull();
+      expect(getCommunityFallbackNotice("community", null, "ai")).toBe(
+        "Chưa có dữ liệu cộng đồng — đang dùng đáp án AI"
+      );
+      expect(
+        getCommunityFallbackNotice(
+          "community",
+          {
+            totalComments: 5,
+            validVoteCount: 5,
+            topAnswerVotes: 4,
+            agreementRatio: 0.8,
+            communityAnswer: "A",
+          },
+          "community"
+        )
+      ).toBeNull();
     });
   });
 });

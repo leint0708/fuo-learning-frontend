@@ -305,6 +305,7 @@ export const ExamWorkspaceView: React.FC = () => {
             onChange: (value) => {
               adapter.setBenchmarkMode(value === "community" ? "community" : "ai");
             },
+            fallbackNote: adapter.answerSourceFallbackNotice,
           }}
           saveStatus={adapter.saveStatus}
           onRetrySave={() => {

@@ -1,9 +1,14 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getPracticeQuestions, checkPracticeAnswer } from "@/api/practice";
 import { useCramSession } from "@/hooks/useCramSession";
 import { useLearnSession } from "@/hooks/useLearnSession";
-import { compareAnswers, getCommunityFallbackNotice } from "@/utils/answerComparison";
+import { useExamUiStore } from "@/stores/examUiStore";
+import {
+  compareAnswers,
+  didFallbackToAi,
+  getCommunityFallbackNotice,
+} from "@/utils/answerComparison";
 import { getErrorMessage } from "@/utils/error";
 import {
   saveCramSessionSnapshot,
@@ -102,6 +107,8 @@ export interface PracticeWorkspaceAdapterResult {
   selectedOptions: string;
   feedbackMode: PracticeFeedbackMode;
   benchmarkMode: BenchmarkMode;
+  preferredBenchmarkMode: BenchmarkMode;
+  answerSourceFallbackNotice: string | null;
   evaluation: WorkspaceEvaluationResult | null;
   navigatorItems: WorkspaceNavigatorItem[];
   activeNavIndex: number;
@@ -191,10 +198,20 @@ export function usePracticeWorkspaceAdapter(
 
   const engineCard = practiceMode === "cram" ? cram.currentCard : learn.currentCard;
 
+  const preferredBenchmarkMode = useExamUiStore((state) => state.benchmarkMode);
+  const persistPreferredBenchmarkMode = useExamUiStore((state) => state.setBenchmarkMode);
+  const syncBenchmarkModeFromStorage = useExamUiStore(
+    (state) => state.syncBenchmarkModeFromStorage
+  );
+
+  useEffect(() => {
+    syncBenchmarkModeFromStorage();
+  }, [syncBenchmarkModeFromStorage]);
+
   const [pinnedCard, setPinnedCard] = useState<Question | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<string>("");
   const [feedbackMode, setFeedbackModeState] = useState<PracticeFeedbackMode>("instant");
-  const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>("ai");
+  const [fallbackQuestionId, setFallbackQuestionId] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<WorkspaceEvaluationResult | null>(null);
   const [pendingCommit, setPendingCommit] = useState<PendingEvaluationCommit | null>(null);
   const [cramMissedIds, setCramMissedIds] = useState<Set<string>>(() => new Set());
@@ -209,6 +226,32 @@ export function usePracticeWorkspaceAdapter(
 
   // Keep user viewing pinnedCard until advanceNext commits the answer to engine
   const currentCard = pinnedCard ?? engineCard;
+  const activeCardId = currentCard?.questionId ?? null;
+
+  useEffect(() => {
+    setFallbackQuestionId(null);
+  }, [activeCardId]);
+
+  const isCurrentQuestionFallback =
+    preferredBenchmarkMode === "community" &&
+    activeCardId !== null &&
+    fallbackQuestionId === activeCardId;
+  const benchmarkMode: BenchmarkMode = isCurrentQuestionFallback
+    ? "ai"
+    : preferredBenchmarkMode;
+  const answerSourceFallbackNotice = isCurrentQuestionFallback
+    ? "Câu này chưa có đáp án cộng đồng — tạm chuyển sang Đáp án AI. Sang câu sau sẽ tự động quay lại Cộng đồng."
+    : null;
+
+  const setBenchmarkMode = useCallback(
+    (mode: BenchmarkMode) => {
+      persistPreferredBenchmarkMode(mode);
+      if (mode === "ai") {
+        setFallbackQuestionId(null);
+      }
+    },
+    [persistPreferredBenchmarkMode]
+  );
 
   const sortedOptionKeys = useMemo(() => {
     if (!currentCard?.options) return ["A", "B", "C", "D"];
@@ -238,13 +281,23 @@ export function usePracticeWorkspaceAdapter(
         const result = await checkPracticeAnswer(
           targetCard.questionId,
           choiceToEvaluate,
-          benchmarkMode
+          preferredBenchmarkMode
         );
         const isMatch =
           result.isCorrect || compareAnswers(choiceToEvaluate, result.correctAnswer);
+        if (
+          didFallbackToAi(
+            preferredBenchmarkMode,
+            result.communityStats,
+            result.benchmarkSource
+          )
+        ) {
+          setFallbackQuestionId(targetCard.questionId);
+        }
         const communityFallbackNotice = getCommunityFallbackNotice(
-          benchmarkMode,
-          result.communityStats
+          preferredBenchmarkMode,
+          result.communityStats,
+          result.benchmarkSource
         );
 
         setEvaluation({
@@ -280,7 +333,7 @@ export function usePracticeWorkspaceAdapter(
         });
       }
     },
-    [pinnedCard, engineCard, evaluation?.status, selectedOptions, benchmarkMode]
+    [pinnedCard, engineCard, evaluation?.status, selectedOptions, preferredBenchmarkMode]
   );
 
   const retryEvaluation = useCallback(async () => {
@@ -346,6 +399,7 @@ export function usePracticeWorkspaceAdapter(
     setPinnedCard(null);
     setPendingCommit(null);
     setSelectedOptions("");
+    setFallbackQuestionId(null);
     setEvaluation(null);
     setIsAiModalOpen(false);
     lastAttemptedChoiceRef.current = "";
@@ -394,7 +448,11 @@ export function usePracticeWorkspaceAdapter(
 
       void (async () => {
         try {
-          const result = await checkPracticeAnswer(targetCard.questionId, choice, benchmarkMode);
+          const result = await checkPracticeAnswer(
+            targetCard.questionId,
+            choice,
+            preferredBenchmarkMode
+          );
           const isMatch =
             result.isCorrect || compareAnswers(choice, result.correctAnswer);
           commitToEngine({
@@ -428,7 +486,7 @@ export function usePracticeWorkspaceAdapter(
     evaluation?.status,
     pendingCommit,
     feedbackMode,
-    benchmarkMode,
+    preferredBenchmarkMode,
     currentCard,
     selectedOptions,
     isAdvancingDeferred,
@@ -445,7 +503,16 @@ export function usePracticeWorkspaceAdapter(
     });
 
     try {
-      const res = await checkPracticeAnswer(qId, probeOption, benchmarkMode);
+      const res = await checkPracticeAnswer(qId, probeOption, preferredBenchmarkMode);
+      if (
+        didFallbackToAi(
+          preferredBenchmarkMode,
+          res.communityStats,
+          res.benchmarkSource
+        )
+      ) {
+        setFallbackQuestionId(qId);
+      }
       setAiExplanations((prev) => ({
         ...prev,
         [qId]: {
@@ -462,7 +529,7 @@ export function usePracticeWorkspaceAdapter(
     } finally {
       setAiLoadingIds((prev) => ({ ...prev, [qId]: false }));
     }
-  }, [benchmarkMode]);
+  }, [preferredBenchmarkMode]);
 
   const openAiAnalysis = useCallback(() => {
     setIsAiModalOpen(true);
@@ -695,6 +762,8 @@ export function usePracticeWorkspaceAdapter(
     selectedOptions,
     feedbackMode,
     benchmarkMode,
+    preferredBenchmarkMode,
+    answerSourceFallbackNotice,
     evaluation,
     navigatorItems,
     activeNavIndex,

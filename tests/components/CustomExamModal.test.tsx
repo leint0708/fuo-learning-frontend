@@ -11,6 +11,7 @@ vi.mock("@/api/attempts", () => ({
 
 describe("CustomExamModal", () => {
   beforeEach(() => {
+    localStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -280,5 +281,30 @@ describe("CustomExamModal", () => {
         durationMinutes: null,
       })
     );
+  });
+
+  it("hydrates answer source preference from localStorage and persists updates on launch", async () => {
+    localStorage.setItem("fuo_answer_source_preference", "community");
+
+    render(
+      <BrowserRouter>
+        <CustomExamModal
+          isOpen={true}
+          onClose={vi.fn()}
+          subjectCode="MAD101"
+          defaultExamId="exam_1"
+        />
+      </BrowserRouter>
+    );
+
+    const communityBtn = screen.getByRole("button", { name: /Biểu quyết cộng đồng/i });
+    const aiBtn = screen.getByRole("button", { name: /Đáp án AI chuẩn/i });
+    expect(communityBtn).toHaveAttribute("aria-pressed", "true");
+    expect(aiBtn).toHaveAttribute("aria-pressed", "false");
+
+    // Switching to AI and launching updates persisted preference
+    fireEvent.click(aiBtn);
+    fireEvent.click(screen.getByRole("button", { name: /Bắt đầu làm bài/i }));
+    expect(localStorage.getItem("fuo_answer_source_preference")).toBe("ai");
   });
 });

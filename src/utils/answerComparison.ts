@@ -1,18 +1,41 @@
 import type { BenchmarkMode, CommunityStats } from "@/types/exam";
 
 /**
+ * Returns true when valid community consensus votes exist for a question.
+ */
+export function hasValidCommunityAnswer(
+  communityStats?: CommunityStats | null
+): boolean {
+  return Boolean(
+    communityStats?.communityAnswer && communityStats.validVoteCount > 0
+  );
+}
+
+/**
+ * Determines whether a question evaluated under "community" mode fell back to AI
+ * because valid community answers were unavailable for that question.
+ */
+export function didFallbackToAi(
+  requestedMode: BenchmarkMode,
+  communityStats?: CommunityStats | null,
+  benchmarkSource?: BenchmarkMode
+): boolean {
+  if (requestedMode !== "community") return false;
+  return !hasValidCommunityAnswer(communityStats) || benchmarkSource === "ai";
+}
+
+/**
  * Returns a non-blocking notice when the user selected community answers
  * but no valid community votes exist yet and AI fallback was used.
  */
 export function getCommunityFallbackNotice(
   benchmarkMode: BenchmarkMode,
-  communityStats?: CommunityStats | null
+  communityStats?: CommunityStats | null,
+  benchmarkSource?: BenchmarkMode
 ): string | null {
-  if (benchmarkMode !== "community") return null;
-  const hasVotes = Boolean(
-    communityStats?.communityAnswer && communityStats.validVoteCount > 0
-  );
-  return hasVotes ? null : "Chưa có dữ liệu cộng đồng — đang dùng đáp án AI";
+  return didFallbackToAi(benchmarkMode, communityStats, benchmarkSource)
+    ? "Chưa có dữ liệu cộng đồng — đang dùng đáp án AI"
+    : null;
 }
 
 /**

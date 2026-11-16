@@ -315,6 +315,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
             onChange: (value) => {
               adapter.setBenchmarkMode(value === "community" ? "community" : "ai");
             },
+            fallbackNote: adapter.answerSourceFallbackNotice,
           }}
           onOpenShortcuts={() => setIsShortcutHelpOpen(true)}
           onResetAction={() => setIsResetConfirmOpen(true)}

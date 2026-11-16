@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import type { FeedbackMode, BenchmarkMode } from "@/types/exam";
+import {
+  loadAnswerSourcePreference,
+  saveAnswerSourcePreference,
+} from "@/utils/answerSourcePreference";
 
 interface ExamUiState {
   currentQuestionIndex: number;
@@ -10,8 +14,8 @@ interface ExamUiState {
   isSubmitConfirmOpen: boolean;
   feedbackMode: FeedbackMode;
   /**
-   * Retained strictly for CustomExamModal pre-launch configuration compatibility.
-   * Removed from active ExamWorkspaceView Operate header.
+   * User's fixed answer source preference ("ai" | "community"), hydrated from and
+   * persisted to localStorage across Practice, Exam, and CustomExamModal until changed.
    */
   benchmarkMode: BenchmarkMode;
 
@@ -33,6 +37,7 @@ interface ExamUiState {
   closeSubmitConfirm: () => void;
   setFeedbackMode: (mode: FeedbackMode) => void;
   setBenchmarkMode: (mode: BenchmarkMode) => void;
+  syncBenchmarkModeFromStorage: () => void;
   resetSessionState: () => void;
 }
 
@@ -44,7 +49,7 @@ export const useExamUiStore = create<ExamUiState>((set) => ({
   isAiModalOpen: false,
   isSubmitConfirmOpen: false,
   feedbackMode: "instant",
-  benchmarkMode: "ai",
+  benchmarkMode: loadAnswerSourcePreference(),
 
   setQuestionIndex: (index: number) => set({ currentQuestionIndex: index }),
 
@@ -98,7 +103,12 @@ export const useExamUiStore = create<ExamUiState>((set) => ({
   closeSubmitConfirm: () => set({ isSubmitConfirmOpen: false }),
 
   setFeedbackMode: (mode) => set({ feedbackMode: mode }),
-  setBenchmarkMode: (mode) => set({ benchmarkMode: mode }),
+  setBenchmarkMode: (mode) => {
+    saveAnswerSourcePreference(mode);
+    set({ benchmarkMode: mode });
+  },
+  syncBenchmarkModeFromStorage: () =>
+    set({ benchmarkMode: loadAnswerSourcePreference() }),
 
   resetSessionState: () =>
     set({
@@ -108,5 +118,6 @@ export const useExamUiStore = create<ExamUiState>((set) => ({
       panPosition: { x: 0, y: 0 },
       isAiModalOpen: false,
       isSubmitConfirmOpen: false,
+      benchmarkMode: loadAnswerSourcePreference(),
     }),
 }));

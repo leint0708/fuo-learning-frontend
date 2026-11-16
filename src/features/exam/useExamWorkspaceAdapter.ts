@@ -9,7 +9,7 @@ import {
 } from "@/api/attempts";
 import { useExamTimer } from "@/hooks/useExamTimer";
 import { useExamUiStore } from "@/stores/examUiStore";
-import { getCommunityFallbackNotice } from "@/utils/answerComparison";
+import { didFallbackToAi, getCommunityFallbackNotice } from "@/utils/answerComparison";
 import { getErrorMessage } from "@/utils/error";
 import {
   inferSubjectCode,
@@ -56,6 +56,8 @@ export interface ExamWorkspaceAdapterResult {
   feedbackMode: FeedbackMode;
   setFeedbackMode: (mode: FeedbackMode) => void;
   benchmarkMode: BenchmarkMode;
+  preferredBenchmarkMode: BenchmarkMode;
+  answerSourceFallbackNotice: string | null;
   setBenchmarkMode: (mode: BenchmarkMode) => void;
   evaluation: WorkspaceEvaluationResult | null;
   saveStatus: WorkspaceSaveStatus;
@@ -143,8 +145,8 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     closeSubmitConfirm,
     feedbackMode,
     setFeedbackMode,
-    benchmarkMode,
-    setBenchmarkMode,
+    benchmarkMode: preferredBenchmarkMode,
+    setBenchmarkMode: persistPreferredBenchmarkMode,
     resetSessionState,
   } = useExamUiStore();
 
@@ -186,6 +188,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [fallbackQuestionId, setFallbackQuestionId] = useState<string | null>(null);
 
   const updateFailedSaves = useCallback(
     (updater: (prev: Record<string, string>) => Record<string, string>) => {
@@ -290,7 +293,33 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
   const questions = useMemo(() => attempt?.questions ?? [], [attempt?.questions]);
   const clampedIndex = Math.min(currentQuestionIndex, Math.max(0, questions.length - 1));
   const currentQuestion = questions[clampedIndex] ?? null;
+  const currentQuestionId = currentQuestion?.questionId ?? null;
   const totalQuestions = questions.length;
+
+  useEffect(() => {
+    setFallbackQuestionId(null);
+  }, [safeAttemptId, currentQuestionId]);
+
+  const isCurrentQuestionFallback =
+    preferredBenchmarkMode === "community" &&
+    currentQuestionId !== null &&
+    fallbackQuestionId === currentQuestionId;
+  const benchmarkMode: BenchmarkMode = isCurrentQuestionFallback
+    ? "ai"
+    : preferredBenchmarkMode;
+  const answerSourceFallbackNotice = isCurrentQuestionFallback
+    ? "Câu này chưa có đáp án cộng đồng — tạm chuyển sang Đáp án AI. Sang câu sau sẽ tự động quay lại Cộng đồng."
+    : null;
+
+  const setBenchmarkMode = useCallback(
+    (mode: BenchmarkMode) => {
+      persistPreferredBenchmarkMode(mode);
+      if (mode === "ai") {
+        setFallbackQuestionId(null);
+      }
+    },
+    [persistPreferredBenchmarkMode]
+  );
 
   const answeredCount = useMemo(
     () => Object.values(userAnswers).filter((val) => val.length > 0).length,
@@ -342,10 +371,20 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
       return next;
     });
     try {
-      const result = await checkInstantAnswer(qId, selected, benchmarkMode);
+      const result = await checkInstantAnswer(qId, selected, preferredBenchmarkMode);
+      if (
+        didFallbackToAi(
+          preferredBenchmarkMode,
+          result.communityStats,
+          result.benchmarkSource
+        )
+      ) {
+        setFallbackQuestionId(qId);
+      }
       const communityFallbackNotice = getCommunityFallbackNotice(
-        benchmarkMode,
-        result.communityStats
+        preferredBenchmarkMode,
+        result.communityStats,
+        result.benchmarkSource
       );
       setInstantResults((prev) => ({
         ...prev,
@@ -376,7 +415,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     } finally {
       setEvaluatingQuestionId((prev) => (prev === qId ? null : prev));
     }
-  }, [benchmarkMode]);
+  }, [preferredBenchmarkMode]);
 
   const selectOption = useCallback(
     async (optionKey: string) => {
@@ -444,6 +483,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
       delete next[qId];
       return next;
     });
+    setFallbackQuestionId((prev) => (prev === qId ? null : prev));
 
     await persistAnswer(qId, "");
   }, [currentQuestion, isExpired, isSubmitting, persistAnswer]);
@@ -466,7 +506,16 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
       });
 
       try {
-        const res = await checkInstantAnswer(qId, selected, benchmarkMode);
+        const res = await checkInstantAnswer(qId, selected, preferredBenchmarkMode);
+        if (
+          didFallbackToAi(
+            preferredBenchmarkMode,
+            res.communityStats,
+            res.benchmarkSource
+          )
+        ) {
+          setFallbackQuestionId(qId);
+        }
         setAiExplanations((prev) => ({
           ...prev,
           [qId]: {
@@ -487,7 +536,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
         setAiLoadingIds((prev) => ({ ...prev, [qId]: false }));
       }
     },
-    [benchmarkMode]
+    [preferredBenchmarkMode]
   );
 
   const openAiAnalysis = useCallback(() => {
@@ -636,6 +685,8 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     feedbackMode,
     setFeedbackMode,
     benchmarkMode,
+    preferredBenchmarkMode,
+    answerSourceFallbackNotice,
     setBenchmarkMode,
     evaluation,
     saveStatus,
@@ -660,10 +711,18 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     clearSelection,
     submitMultiChoiceCheck,
     retrySave,
-    jumpToQuestion: (idx) =>
-      setQuestionIndex(Math.max(0, Math.min(totalQuestions - 1, idx))),
-    navigatePrev: () => setQuestionIndex(Math.max(0, clampedIndex - 1)),
-    navigateNext: () => setQuestionIndex(Math.min(totalQuestions - 1, clampedIndex + 1)),
+    jumpToQuestion: (idx) => {
+      setFallbackQuestionId(null);
+      setQuestionIndex(Math.max(0, Math.min(totalQuestions - 1, idx)));
+    },
+    navigatePrev: () => {
+      setFallbackQuestionId(null);
+      setQuestionIndex(Math.max(0, clampedIndex - 1));
+    },
+    navigateNext: () => {
+      setFallbackQuestionId(null);
+      setQuestionIndex(Math.min(totalQuestions - 1, clampedIndex + 1));
+    },
     openAiAnalysis,
     closeAiAnalysis: closeAiModal,
     retryAiAnalysis,

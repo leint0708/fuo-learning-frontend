@@ -175,4 +175,51 @@ describe("Rebuilt Cockpit Components (Inspector Rail, Header Popover, 3-Zone She
     expect(learnBar.querySelector('[data-learn-segment="active"]')).toBeInTheDocument();
     expect(screen.getByText(/Đã thuộc \(18\)/i)).toBeInTheDocument();
   });
+
+  it("highlights Đáp án AI and renders contextual fallbackNote inside Settings when temporary AI fallback is active", () => {
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <CockpitHeader
+                title="Luyện thi cấp tốc"
+                exitLabel="Thoát"
+                onExit={vi.fn()}
+                progressLabel="1/10 câu"
+                progressCurrent={1}
+                progressTotal={10}
+                answerSourceToggle={{
+                  ariaLabel: "Nguồn đáp án",
+                  value: "ai",
+                  options: [
+                    { value: "ai", label: "Đáp án AI" },
+                    { value: "community", label: "Cộng đồng" },
+                  ],
+                  onChange: vi.fn(),
+                  fallbackNote:
+                    "Câu này chưa có đáp án cộng đồng — tạm chuyển sang Đáp án AI. Sang câu sau sẽ tự động quay lại Cộng đồng.",
+                }}
+                onOpenShortcuts={vi.fn()}
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
+    expect(screen.getByRole("button", { name: /^Đáp án AI$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("button", { name: /^Cộng đồng$/i })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    expect(
+      screen.getByText(/tạm chuyển sang Đáp án AI\. Sang câu sau sẽ tự động quay lại Cộng đồng/i)
+    ).toBeInTheDocument();
+  });
 });
