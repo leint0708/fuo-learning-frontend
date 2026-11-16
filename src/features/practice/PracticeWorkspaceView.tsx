@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Trophy, RotateCcw, Home, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -17,17 +17,20 @@ import { usePracticeWorkspaceAdapter } from "./usePracticeWorkspaceAdapter";
 import { useZoomPan } from "@/hooks/useZoomPan";
 import { useWorkspaceShortcuts } from "@/hooks/useWorkspaceShortcuts";
 import { resolveImageUrl } from "@/utils/imageUrl";
+import { loadCramMistakeDrill } from "@/utils/cramSessionStorage";
 import type { PracticeMode } from "@/types/practice";
 
 interface PracticeCockpitSessionProps {
   subjectCode: string;
   practiceMode: PracticeMode;
+  scopedQuestionIds?: string[];
   onTriggerRemountReset: () => void;
 }
 
 const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
   subjectCode,
   practiceMode,
+  scopedQuestionIds,
   onTriggerRemountReset,
 }) => {
   const navigate = useNavigate();
@@ -49,8 +52,26 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
   const adapter = usePracticeWorkspaceAdapter(
     subjectCode,
     practiceMode,
-    onTriggerRemountReset
+    onTriggerRemountReset,
+    scopedQuestionIds
   );
+
+  const hasAutoCompletedCramRef = useRef(false);
+  const cramReviewRoute = `/subjects/${encodeURIComponent(subjectCode)}/practice/cram/review`;
+
+  useEffect(() => {
+    if (
+      practiceMode === "cram" &&
+      adapter.sessionStatus === "completed" &&
+      !hasAutoCompletedCramRef.current
+    ) {
+      hasAutoCompletedCramRef.current = true;
+      const snapshot = adapter.completeAndSaveCramSession("completed");
+      if (snapshot) {
+        navigate(cramReviewRoute, { replace: true });
+      }
+    }
+  }, [practiceMode, adapter, navigate, cramReviewRoute]);
 
   const resetPanRef = useRef(zoomPan.setPanOffset);
   resetPanRef.current = zoomPan.setPanOffset;
@@ -151,6 +172,22 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
   }
 
   if (adapter.sessionStatus === "completed") {
+    if (practiceMode === "cram") {
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className="max-w-xl mx-auto w-full px-space-3 sm:px-space-4 py-space-5 sm:py-space-6 text-center"
+        >
+          <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm flex flex-col items-center gap-space-3">
+            <p className="text-text-sm font-bold text-color-1">
+              Đang tổng hợp kết quả phiên luyện tập...
+            </p>
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-xl mx-auto w-full px-space-3 sm:px-space-4 py-space-5 sm:py-space-6 text-center">
         <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
@@ -161,9 +198,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
             Tuyệt vời! Bạn đã hoàn thành toàn bộ bài luyện!
           </h1>
           <p className="text-text-sm font-medium text-color-1 max-w-md">
-            {practiceMode === "cram"
-              ? `Bạn đã ôn tập cấp tốc thành công ${adapter.cram.deckPool.length} câu hỏi của môn ${subjectCode}.`
-              : `Bạn đã ghi nhớ sâu sắc tất cả câu hỏi của môn ${subjectCode} vào bộ nhớ dài hạn.`}
+            {`Bạn đã ghi nhớ sâu sắc tất cả câu hỏi của môn ${subjectCode} vào bộ nhớ dài hạn.`}
           </p>
           <div className="flex flex-col sm:flex-row gap-space-3 w-full pt-space-2">
             <Button
@@ -197,24 +232,47 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
         <CockpitHeader
           title={adapter.descriptor.title}
           exitLabel={adapter.descriptor.exitLabel}
-          onExit={() => navigate(adapter.descriptor.exitRoute)}
+          onExit={() => {
+            if (practiceMode === "cram") {
+              const snapshot = adapter.completeAndSaveCramSession("early_exit");
+              if (snapshot) {
+                navigate(cramReviewRoute);
+                return;
+              }
+            }
+            navigate(adapter.descriptor.exitRoute);
+          }}
           progressLabel={
             practiceMode === "cram"
-              ? `Tiến độ Cram: ${adapter.cram.masteredIds.size}/${adapter.deckSize} câu`
+              ? adapter.isScopedMistakeDrill
+                ? `Ôn câu từng sai: ${adapter.cram.masteredInBatch.size}/${Math.max(1, adapter.cram.deckPool.length)} câu`
+                : `Tiến độ Cram: ${adapter.cram.masteredIds.size}/${adapter.deckSize} câu`
               : `Tiến độ Learn: ${adapter.learn.graduatedPool.length}/${adapter.deckSize} câu đã thuộc`
           }
           progressCurrent={
             practiceMode === "cram"
-              ? adapter.cram.masteredIds.size
+              ? adapter.isScopedMistakeDrill
+                ? adapter.cram.masteredInBatch.size
+                : adapter.cram.masteredIds.size
               : adapter.learn.graduatedPool.length
           }
-          progressTotal={adapter.deckSize || adapter.progressTotal}
+          progressTotal={
+            practiceMode === "cram" && adapter.isScopedMistakeDrill
+              ? Math.max(1, adapter.cram.deckPool.length)
+              : adapter.deckSize || adapter.progressTotal
+          }
           progressCurrentBadge={
             practiceMode === "cram"
-              ? adapter.cram.masteredIds.size
+              ? adapter.isScopedMistakeDrill
+                ? adapter.cram.masteredInBatch.size
+                : adapter.cram.masteredIds.size
               : adapter.learn.graduatedPool.length
           }
-          progressTotalBadge={adapter.deckSize || adapter.progressTotal}
+          progressTotalBadge={
+            practiceMode === "cram" && adapter.isScopedMistakeDrill
+              ? Math.max(1, adapter.cram.deckPool.length)
+              : adapter.deckSize || adapter.progressTotal
+          }
           progressVariant={practiceMode}
           learnActiveCount={adapter.learn.activePool.length}
           modeSubLegend={
@@ -399,14 +457,21 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
         <>
           {practiceMode === "cram" && (
             <CramBatchModal
-              isOpen={adapter.cram.isBatchCompleted}
+              isOpen={adapter.cram.isBatchCompleted && !adapter.cram.isSessionCompleted}
               batchNumber={adapter.cram.batchIndex + 1}
               totalBatches={adapter.cram.totalBatches}
               batchSize={adapter.cram.currentBatch.length}
               cumulativeMastered={adapter.cram.masteredIds.size}
               totalDeckSize={adapter.deckSize}
               onContinueNextBatch={adapter.continueNextBatch}
-              onFinishSession={() => navigate(`/subjects/${subjectCode}`)}
+              onFinishSession={() => {
+                const snapshot = adapter.completeAndSaveCramSession("batch_stop");
+                if (snapshot) {
+                  navigate(cramReviewRoute);
+                } else {
+                  navigate(`/subjects/${subjectCode}`);
+                }
+              }}
             />
           )}
 
@@ -501,21 +566,68 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
 
 export const PracticeWorkspaceView: React.FC = () => {
   const { code, mode } = useParams<{ code: string; mode: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const subjectCode = code || "MAD101";
   const practiceMode: PracticeMode = mode === "learn" ? "learn" : "cram";
+  const isMistakeDrillRequested =
+    practiceMode === "cram" && searchParams.get("scope") === "mistakes";
   const [sessionResetCounter, setSessionResetCounter] = useState(0);
+
+  const scopedQuestionIds = useMemo(
+    () => (isMistakeDrillRequested ? loadCramMistakeDrill(subjectCode) : undefined),
+    [isMistakeDrillRequested, subjectCode]
+  );
 
   useEffect(() => {
     document.title = `${
-      practiceMode === "cram" ? "Luyện thi cấp tốc" : "Học ghi nhớ"
+      practiceMode === "cram"
+        ? isMistakeDrillRequested
+          ? "Ôn câu từng sai"
+          : "Luyện thi cấp tốc"
+        : "Học ghi nhớ"
     } - ${subjectCode} | FUO Learning`;
-  }, [practiceMode, subjectCode]);
+  }, [practiceMode, isMistakeDrillRequested, subjectCode]);
+
+  if (isMistakeDrillRequested && (!scopedQuestionIds || scopedQuestionIds.length === 0)) {
+    return (
+      <div className="max-w-xl mx-auto w-full px-space-3 sm:px-space-4 py-space-5 sm:py-space-6 text-center">
+        <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm flex flex-col items-center gap-space-4">
+          <h1 className="text-text-lg font-bold text-color-1">
+            Chưa có danh sách câu từng sai để luyện lại
+          </h1>
+          <p className="text-text-xs sm:text-text-sm text-color-1/80">
+            Hãy hoàn thành một lượt ôn tập cấp tốc hoặc quay lại chế độ luyện thi chuẩn của môn {subjectCode}.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-space-2">
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => navigate(`/subjects/${encodeURIComponent(subjectCode)}/practice/cram`)}
+              className="min-h-11"
+            >
+              Luyện cấp tốc bình thường
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => navigate(`/subjects/${encodeURIComponent(subjectCode)}`)}
+              className="min-h-11"
+            >
+              Về trang môn học
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <PracticeCockpitSession
-      key={`${subjectCode}-${practiceMode}-${sessionResetCounter}`}
+      key={`${subjectCode}-${practiceMode}-${isMistakeDrillRequested ? "mistakes" : "deck"}-${sessionResetCounter}`}
       subjectCode={subjectCode}
       practiceMode={practiceMode}
+      scopedQuestionIds={scopedQuestionIds}
       onTriggerRemountReset={() => setSessionResetCounter((prev) => prev + 1)}
     />
   );

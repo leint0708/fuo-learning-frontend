@@ -5,8 +5,18 @@ import { useCramSession } from "@/hooks/useCramSession";
 import { useLearnSession } from "@/hooks/useLearnSession";
 import { compareAnswers, getCommunityFallbackNotice } from "@/utils/answerComparison";
 import { getErrorMessage } from "@/utils/error";
-import type { BenchmarkMode, Question } from "@/types/exam";
-import type { PracticeMode } from "@/types/practice";
+import {
+  saveCramSessionSnapshot,
+  clearCramSessionSnapshot,
+  clearCramMistakeDrill,
+} from "@/utils/cramSessionStorage";
+import type { BenchmarkMode, CommunityStats, Question } from "@/types/exam";
+import type {
+  CramSessionEndReason,
+  CramSessionQuestionEntry,
+  CramSessionSnapshot,
+  PracticeMode,
+} from "@/types/practice";
 import type {
   WorkspaceCardBadge,
   WorkspaceEvaluationResult,
@@ -24,10 +34,63 @@ interface CachedAiRationale {
 
 interface PendingEvaluationCommit {
   cardId: string;
+  question: Question;
   selectedOptions: string;
   correctAnswer: string;
   isCorrect: boolean;
   explanation?: string;
+  optionByOptionAnalysis?: Record<string, string> | null;
+  communityStats?: CommunityStats | null;
+}
+
+function upsertCramSessionEntry(
+  entries: CramSessionQuestionEntry[],
+  commit: PendingEvaluationCommit
+): CramSessionQuestionEntry[] {
+  const nowIso = new Date().toISOString();
+  const existingIndex = entries.findIndex(
+    (entry) => entry.question.questionId === commit.cardId
+  );
+
+  if (existingIndex === -1) {
+    return [
+      ...entries,
+      {
+        question: commit.question,
+        sessionOrder: entries.length + 1,
+        attemptCount: 1,
+        mistakeCount: commit.isCorrect ? 0 : 1,
+        hadMistakes: !commit.isCorrect,
+        isMasteredInSession: commit.isCorrect,
+        firstSelectedOptions: commit.selectedOptions,
+        lastSelectedOptions: commit.selectedOptions,
+        correctAnswer: commit.correctAnswer,
+        aiExplanation: commit.explanation ?? null,
+        optionByOptionAnalysis: commit.optionByOptionAnalysis ?? null,
+        communityStats: commit.communityStats ?? null,
+        lastAnsweredAt: nowIso,
+      },
+    ];
+  }
+
+  const next = [...entries];
+  const existing = next[existingIndex];
+  if (!existing) return entries;
+
+  next[existingIndex] = {
+    ...existing,
+    attemptCount: existing.attemptCount + 1,
+    mistakeCount: commit.isCorrect ? existing.mistakeCount : existing.mistakeCount + 1,
+    hadMistakes: existing.hadMistakes || !commit.isCorrect,
+    isMasteredInSession: commit.isCorrect,
+    lastSelectedOptions: commit.selectedOptions,
+    correctAnswer: commit.correctAnswer,
+    aiExplanation: commit.explanation ?? existing.aiExplanation,
+    optionByOptionAnalysis: commit.optionByOptionAnalysis ?? existing.optionByOptionAnalysis,
+    communityStats: commit.communityStats ?? existing.communityStats,
+    lastAnsweredAt: nowIso,
+  };
+  return next;
 }
 
 export interface PracticeWorkspaceAdapterResult {
@@ -52,6 +115,8 @@ export interface PracticeWorkspaceAdapterResult {
   statsSummaryLabel: string;
   cram: ReturnType<typeof useCramSession>;
   learn: ReturnType<typeof useLearnSession>;
+  cramSessionEntries: CramSessionQuestionEntry[];
+  isScopedMistakeDrill: boolean;
   deckSize: number;
   isEvaluating: boolean;
   isAdvancingDeferred: boolean;
@@ -75,6 +140,7 @@ export interface PracticeWorkspaceAdapterResult {
   retryAiAnalysis: () => Promise<void>;
   continueNextBatch: () => void;
   continueNextRound: () => void;
+  completeAndSaveCramSession: (endReason: CramSessionEndReason) => CramSessionSnapshot | null;
   resetPracticeSession: () => void;
 }
 
@@ -96,7 +162,8 @@ export function clearPracticeStorage(subjectCode: string, mode: PracticeMode): v
 export function usePracticeWorkspaceAdapter(
   subjectCode: string,
   practiceMode: PracticeMode,
-  onTriggerRemountReset: () => void
+  onTriggerRemountReset: () => void,
+  scopedQuestionIds?: string[]
 ): PracticeWorkspaceAdapterResult {
   const {
     data: questions,
@@ -109,10 +176,13 @@ export function usePracticeWorkspaceAdapter(
   });
 
   const validQuestions = useMemo(() => questions ?? [], [questions]);
+  const isScopedMistakeDrill =
+    practiceMode === "cram" && Boolean(scopedQuestionIds && scopedQuestionIds.length > 0);
 
   const cram = useCramSession({
     subjectCode,
     questions: validQuestions,
+    scopedQuestionIds,
   });
 
   const learn = useLearnSession({
@@ -129,6 +199,8 @@ export function usePracticeWorkspaceAdapter(
   const [evaluation, setEvaluation] = useState<WorkspaceEvaluationResult | null>(null);
   const [pendingCommit, setPendingCommit] = useState<PendingEvaluationCommit | null>(null);
   const [cramMissedIds, setCramMissedIds] = useState<Set<string>>(() => new Set());
+  const [cramSessionEntries, setCramSessionEntries] = useState<CramSessionQuestionEntry[]>([]);
+  const cramSessionEntriesRef = useRef<CramSessionQuestionEntry[]>([]);
   const [isAdvancingDeferred, setIsAdvancingDeferred] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiExplanations, setAiExplanations] = useState<Record<string, CachedAiRationale>>({});
@@ -188,10 +260,13 @@ export function usePracticeWorkspaceAdapter(
 
         setPendingCommit({
           cardId: targetCard.questionId,
+          question: targetCard,
           selectedOptions: choiceToEvaluate,
           correctAnswer: result.correctAnswer,
           isCorrect: isMatch,
           explanation: result.aiExplanation,
+          optionByOptionAnalysis: result.optionByOptionAnalysis ?? null,
+          communityStats: result.communityStats ?? null,
         });
       } catch (err) {
         setEvaluation({
@@ -287,6 +362,9 @@ export function usePracticeWorkspaceAdapter(
             return next;
           });
         }
+        const updatedEntries = upsertCramSessionEntry(cramSessionEntriesRef.current, commit);
+        cramSessionEntriesRef.current = updatedEntries;
+        setCramSessionEntries(updatedEntries);
         cram.recordAnswer(commit.cardId, commit.isCorrect);
       } else {
         learn.recordAnswer(
@@ -322,10 +400,13 @@ export function usePracticeWorkspaceAdapter(
             result.isCorrect || compareAnswers(choice, result.correctAnswer);
           commitToEngine({
             cardId: targetCard.questionId,
+            question: targetCard,
             selectedOptions: choice,
             correctAnswer: result.correctAnswer,
             isCorrect: isMatch,
             explanation: result.aiExplanation,
+            optionByOptionAnalysis: result.optionByOptionAnalysis ?? null,
+            communityStats: result.communityStats ?? null,
           });
           clearCardTransientState();
         } catch (err) {
@@ -426,8 +507,59 @@ export function usePracticeWorkspaceAdapter(
     clearCardTransientState();
   }, [learn, clearCardTransientState]);
 
+  const completeAndSaveCramSession = useCallback(
+    (endReason: CramSessionEndReason): CramSessionSnapshot | null => {
+      if (practiceMode !== "cram") return null;
+
+      let finalEntries = cramSessionEntriesRef.current;
+      let cumulativeMasteredCount = cram.masteredIds.size;
+
+      // Flush resolved-but-unadvanced evaluation if the user exits directly after feedback
+      if (evaluation?.status === "resolved" && pendingCommit) {
+        finalEntries = upsertCramSessionEntry(finalEntries, pendingCommit);
+        cramSessionEntriesRef.current = finalEntries;
+        setCramSessionEntries(finalEntries);
+        if (pendingCommit.isCorrect && !cram.masteredIds.has(pendingCommit.cardId)) {
+          cumulativeMasteredCount += 1;
+        }
+        cram.recordAnswer(pendingCommit.cardId, pendingCommit.isCorrect);
+        clearCardTransientState();
+      }
+
+      if (finalEntries.length === 0) return null;
+
+      const snapshot: CramSessionSnapshot = {
+        subjectCode,
+        scope: isScopedMistakeDrill ? "mistakes" : "deck",
+        endReason,
+        completedAt: new Date().toISOString(),
+        totalDeckSize: validQuestions.length,
+        cumulativeMasteredCount,
+        entries: finalEntries,
+      };
+      saveCramSessionSnapshot(snapshot);
+      return snapshot;
+    },
+    [
+      practiceMode,
+      cram,
+      evaluation?.status,
+      pendingCommit,
+      subjectCode,
+      isScopedMistakeDrill,
+      validQuestions.length,
+      clearCardTransientState,
+    ]
+  );
+
   const resetPracticeSession = useCallback(() => {
     clearPracticeStorage(subjectCode, practiceMode);
+    if (practiceMode === "cram") {
+      clearCramSessionSnapshot(subjectCode);
+      clearCramMistakeDrill(subjectCode);
+      cramSessionEntriesRef.current = [];
+      setCramSessionEntries([]);
+    }
     clearCardTransientState();
     setCramMissedIds(new Set());
     onTriggerRemountReset();
@@ -542,7 +674,12 @@ export function usePracticeWorkspaceAdapter(
 
   const descriptor: WorkspaceSessionDescriptor = {
     mode: practiceMode,
-    title: practiceMode === "cram" ? "Luyện thi cấp tốc" : "Học ghi nhớ",
+    title:
+      practiceMode === "cram"
+        ? isScopedMistakeDrill
+          ? "Luyện lại câu từng sai"
+          : "Luyện thi cấp tốc"
+        : "Học ghi nhớ",
     exitRoute: `/subjects/${subjectCode}`,
     exitLabel: "Thoát",
     supportsFreeNavigation: false,
@@ -594,6 +731,8 @@ export function usePracticeWorkspaceAdapter(
     statsSummaryLabel,
     cram,
     learn,
+    cramSessionEntries,
+    isScopedMistakeDrill,
     deckSize: validQuestions.length,
     isEvaluating: evaluation?.status === "loading",
     isAdvancingDeferred,
@@ -611,6 +750,7 @@ export function usePracticeWorkspaceAdapter(
     retryAiAnalysis,
     continueNextBatch,
     continueNextRound,
+    completeAndSaveCramSession,
     resetPracticeSession,
   };
 }

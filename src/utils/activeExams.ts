@@ -1,4 +1,5 @@
 import type { FeedbackMode } from "@/types/exam";
+import { clearAllCramSessionStorage } from "./cramSessionStorage";
 
 const STORAGE_KEY = "fuo_active_exams";
 const ENDED_ATTEMPTS_KEY = "fuo_ended_attempts";
@@ -161,6 +162,7 @@ export function clearExamSessionStorage(): void {
       }
     }
     keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+    clearAllCramSessionStorage();
   } catch {
     // Ignore storage access errors
   }

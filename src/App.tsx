@@ -39,6 +39,11 @@ const PracticeWorkspaceView = lazy(() =>
     default: m.PracticeWorkspaceView,
   }))
 );
+const CramReviewView = lazy(() =>
+  import("@/features/practice/CramReviewView").then((m) => ({
+    default: m.CramReviewView,
+  }))
+);
 
 export const App: React.FC = () => {
   const { initAuth } = useAuthStore();
@@ -103,6 +108,14 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute>
                   <SubjectDetailView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/subjects/:code/practice/cram/review"
+              element={
+                <ProtectedRoute>
+                  <CramReviewView />
                 </ProtectedRoute>
               }
             />

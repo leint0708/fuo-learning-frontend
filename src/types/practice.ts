@@ -82,3 +82,38 @@ export interface InstantAnswerResult {
   benchmarkSource?: BenchmarkMode;
   communityStats?: CommunityStats | null;
 }
+
+export type CramSessionEndReason = "completed" | "batch_stop" | "early_exit";
+export type CramSessionScope = "deck" | "mistakes";
+
+export interface CramSessionQuestionEntry {
+  question: Question;
+  sessionOrder: number;
+  attemptCount: number;
+  mistakeCount: number;
+  hadMistakes: boolean;
+  isMasteredInSession: boolean;
+  firstSelectedOptions: string;
+  lastSelectedOptions: string;
+  correctAnswer: string;
+  aiExplanation: string | null;
+  optionByOptionAnalysis: Record<string, string> | null;
+  communityStats: CommunityStats | null;
+  lastAnsweredAt: string;
+}
+
+export interface CramSessionSnapshot {
+  subjectCode: string;
+  scope: CramSessionScope;
+  endReason: CramSessionEndReason;
+  completedAt: string;
+  totalDeckSize: number;
+  cumulativeMasteredCount: number;
+  entries: CramSessionQuestionEntry[];
+}
+
+export interface CramMistakeDrillPayload {
+  subjectCode: string;
+  questionIds: string[];
+  createdAt: string;
+}

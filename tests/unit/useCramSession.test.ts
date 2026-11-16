@@ -135,4 +135,35 @@ describe("useCramSession hook", () => {
     expect(result.current.activeQueue.length).toBe(5);
     expect(result.current.isBatchCompleted).toBe(false);
   });
+
+  it("supports scopedQuestionIds drill including already-mastered struggled cards without overwriting unrelated masteredIds", () => {
+    localStorage.setItem("fuo_cram_mastered_MAD101", JSON.stringify(["q_1", "q_2"]));
+    const questions = createMockQuestions(5);
+
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+        scopedQuestionIds: ["q_2", "q_4"],
+      })
+    );
+
+    // Even though q_2 is already mastered in localStorage, scoped drill includes both q_2 and q_4
+    expect(result.current.deckPool.map((q) => q.questionId)).toEqual(["q_2", "q_4"]);
+    expect(result.current.currentBatch).toHaveLength(2);
+
+    // Master both scoped cards and verify q_1 remains persisted alongside newly mastered q_4
+    for (let i = 0; i < 2; i++) {
+      const card = result.current.currentCard;
+      if (card) {
+        act(() => {
+          result.current.recordAnswer(card.questionId, true);
+        });
+      }
+    }
+
+    expect(result.current.isSessionCompleted).toBe(true);
+    const persisted = JSON.parse(localStorage.getItem("fuo_cram_mastered_MAD101") || "[]") as string[];
+    expect(persisted).toEqual(expect.arrayContaining(["q_1", "q_2", "q_4"]));
+  });
 });

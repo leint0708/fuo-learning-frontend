@@ -19,12 +19,20 @@ import { resolveImageUrl } from "@/utils/imageUrl";
 import { useZoomPan } from "@/hooks/useZoomPan";
 import type { ReviewQuestionItem as ReviewItemType } from "@/types/review";
 
+export interface ReviewContextBadge {
+  label: string;
+  tone?: "neutral" | "warning" | "success" | "danger";
+}
+
 export interface QuestionReviewItemProps {
   item: ReviewItemType;
   index: number;
   elementId?: string;
   isActive?: boolean;
   expandSignal?: { version: number; expanded: boolean };
+  contextBadges?: ReviewContextBadge[];
+  statusBadgeOverride?: { label: string; variant: "success" | "danger" | "warning" | "neutral" };
+  firstSelectedLabel?: string | null;
   onOpenAiModal?: (item: ReviewItemType, displayNumber: number) => void;
   onFocusQuestion?: (displayNumber: number) => void;
 }
@@ -41,6 +49,9 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
   elementId,
   isActive = false,
   expandSignal,
+  contextBadges,
+  statusBadgeOverride,
+  firstSelectedLabel,
   onOpenAiModal,
   onFocusQuestion,
 }) => {
@@ -154,7 +165,11 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-space-1">
-          {isUserCorrect ? (
+          {statusBadgeOverride ? (
+            <Badge variant={statusBadgeOverride.variant} className="flex items-center gap-1 tabular-nums">
+              <span>{statusBadgeOverride.label}</span>
+            </Badge>
+          ) : isUserCorrect ? (
             <Badge variant="success" className="flex items-center gap-1">
               <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Trả lời đúng</span>
@@ -180,6 +195,16 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
               <span>Nguồn: Đáp án AI (chưa có bình chọn)</span>
             </Badge>
           )}
+
+          {contextBadges?.map((badge) => (
+            <Badge
+              key={badge.label}
+              variant={badge.tone ?? "neutral"}
+              className="tabular-nums"
+            >
+              {badge.label}
+            </Badge>
+          ))}
         </div>
       </div>
 
@@ -398,6 +423,13 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
               {correctAnswer || "Chưa có"}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Optional First-Attempt Note (used by Cram session review when user retried after mistakes) */}
+      {firstSelectedLabel && (
+        <div className="px-space-3 py-space-1 bg-color-5/20 border-2 border-color-1 rounded-2xl text-text-xs font-bold text-color-1">
+          {firstSelectedLabel}
         </div>
       )}
 

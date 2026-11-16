@@ -5,6 +5,7 @@ export interface UseCramSessionOptions {
   subjectCode: string;
   questions: Question[];
   initialMasteredIds?: string[];
+  scopedQuestionIds?: string[];
   batchSize?: number;
 }
 
@@ -29,6 +30,7 @@ export function useCramSession({
   subjectCode,
   questions,
   initialMasteredIds,
+  scopedQuestionIds,
   batchSize = 10,
 }: UseCramSessionOptions) {
   // Load previously mastered card IDs from localStorage or prop
@@ -42,10 +44,14 @@ export function useCramSession({
     }
   });
 
-  // Eligible unmastered pool for the current session
+  // Eligible pool for the current session: scoped mistake drill OR unmastered cards
   const deckPool = useMemo(() => {
+    if (scopedQuestionIds && scopedQuestionIds.length > 0) {
+      const scopedSet = new Set(scopedQuestionIds);
+      return questions.filter((q) => scopedSet.has(q.questionId));
+    }
     return questions.filter((q) => !masteredIds.has(q.questionId));
-  }, [questions, masteredIds]);
+  }, [questions, masteredIds, scopedQuestionIds]);
 
   // Stable session pool reference for slicing batches
   const sessionPoolRef = useRef<Question[]>([]);
