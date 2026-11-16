@@ -42,8 +42,14 @@ export const CramReviewSummaryCard: React.FC<CramReviewSummaryCardProps> = ({
   const normalizedDeckTotal = Math.max(totalDeckSize, cumulativeMasteredCount, totalPracticed, 1);
   const hasZeroMistakes = hadMistakesCount === 0 && totalPracticed > 0;
 
+  const hasRemainingDeckCards = scope === "deck" && cumulativeMasteredCount < totalDeckSize;
+
   const badgeLabel =
-    scope === "mistakes" ? "HOÀN THÀNH ÔN CÂU TỪNG SAI" : "HOÀN THÀNH PHIÊN CẤP TỐC";
+    scope === "mistakes"
+      ? "HOÀN THÀNH ÔN CÂU TỪNG SAI"
+      : hasRemainingDeckCards
+        ? "HOÀN THÀNH ĐỢT ÔN TẬP"
+        : "HOÀN THÀNH PHIÊN CẤP TỐC";
 
   const headline =
     scope === "mistakes"

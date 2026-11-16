@@ -339,7 +339,7 @@ describe("Practice Workflow Integration", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("exits straight to subject detail when quitting via Thoát or Dừng bài luyện tập, and opens review only after finishing session with scoped ?scope=mistakes re-drill", async () => {
+  it("exits straight to subject detail when quitting via Thoát, opens review after each finished Cram batch/session, and supports scoped ?scope=mistakes re-drill", async () => {
     const cramDeck = Array.from({ length: 11 }, (_, idx) => ({
       question_id: `c_${idx + 1}`,
       subject_code: "SWE201",
@@ -364,7 +364,7 @@ describe("Practice Workflow Integration", () => {
       })
     );
 
-    // 1) Exiting via Thoát after answering cards returns directly to subject detail with no review snapshot
+    // 1) Exiting via Thoát mid-batch after answering cards returns directly to subject detail with no review snapshot
     const earlyExitRender = renderPractice("/subjects/SWE201/practice/cram");
     await screen.findByText("Luyện thi cấp tốc");
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
@@ -376,22 +376,21 @@ describe("Practice Workflow Integration", () => {
     earlyExitRender.unmount();
     localStorage.clear();
 
-    // 2) Clearing batch 1 of 2 and clicking "Dừng bài luyện tập" also exits directly to subject detail
-    const batchStopRender = renderPractice("/subjects/SWE201/practice/cram");
+    // 2) Finishing Batch 1 (10 cards) opens CramReviewView directly for the 10 learned questions
+    renderPractice("/subjects/SWE201/practice/cram");
     await screen.findByText("Luyện thi cấp tốc");
     for (let i = 0; i < 10; i++) {
       fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
       await screen.findByText(/Chính xác! Giỏi lắm!/i);
       fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
     }
-    const batchModal = await screen.findByRole("dialog", { name: /Hoàn thành Đợt 1\/2!/i });
-    fireEvent.click(within(batchModal).getByRole("button", { name: /Dừng bài luyện tập/i }));
-    expect(await screen.findByText("Subject Detail Route Reached")).toBeInTheDocument();
-    expect(loadCramSessionSnapshot("SWE201")).toBeNull();
-    batchStopRender.unmount();
 
-    // 3) Finishing remaining batch (completing the session) opens CramReviewView; miss once then answer right
-    renderPractice("/subjects/SWE201/practice/cram");
+    expect(await screen.findByText("HOÀN THÀNH ĐỢT ÔN TẬP")).toBeInTheDocument();
+    expect(screen.getByText("10 câu")).toBeInTheDocument();
+    expect(loadCramSessionSnapshot("SWE201")?.entries).toHaveLength(10);
+
+    // 3) Continue next unmastered batch -> loads Card 11 -> miss once then master -> finishes full session -> opens review & mistake drill
+    fireEvent.click(screen.getAllByRole("button", { name: /Tiếp tục đợt chưa học/i })[0]!);
     await screen.findByText("Card 11 Concept");
 
     fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));

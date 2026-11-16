@@ -11,7 +11,6 @@ import { FeedbackExplanationCard } from "@/features/workspace/FeedbackExplanatio
 import { CockpitInspectorRail } from "@/features/workspace/CockpitInspectorRail";
 import { ShortcutHelpModal } from "@/features/workspace/ShortcutHelpModal";
 import { AiAnswerModal } from "@/features/exam/AiAnswerModal";
-import { CramBatchModal } from "./CramBatchModal";
 import { LearnRoundSummaryModal } from "./LearnRoundSummaryModal";
 import { usePracticeWorkspaceAdapter } from "./usePracticeWorkspaceAdapter";
 import { useZoomPan } from "@/hooks/useZoomPan";
@@ -59,19 +58,19 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
   const hasAutoCompletedCramRef = useRef(false);
   const cramReviewRoute = `/subjects/${encodeURIComponent(subjectCode)}/practice/cram/review`;
 
+  const hasCompletedCramSession =
+    practiceMode === "cram" &&
+    (adapter.cram.isBatchCompleted || adapter.sessionStatus === "completed");
+
   useEffect(() => {
-    if (
-      practiceMode === "cram" &&
-      adapter.sessionStatus === "completed" &&
-      !hasAutoCompletedCramRef.current
-    ) {
+    if (hasCompletedCramSession && !hasAutoCompletedCramRef.current) {
       hasAutoCompletedCramRef.current = true;
       const snapshot = adapter.completeAndSaveCramSession();
       if (snapshot) {
         navigate(cramReviewRoute, { replace: true });
       }
     }
-  }, [practiceMode, adapter, navigate, cramReviewRoute]);
+  }, [hasCompletedCramSession, adapter, navigate, cramReviewRoute]);
 
   const resetPanRef = useRef(zoomPan.setPanOffset);
   resetPanRef.current = zoomPan.setPanOffset;
@@ -171,7 +170,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
     );
   }
 
-  if (adapter.sessionStatus === "completed") {
+  if (adapter.sessionStatus === "completed" || hasCompletedCramSession) {
     if (practiceMode === "cram") {
       return (
         <div
@@ -446,19 +445,6 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
       aiButtonLabel="AI Explanation"
       modals={
         <>
-          {practiceMode === "cram" && (
-            <CramBatchModal
-              isOpen={adapter.cram.isBatchCompleted && !adapter.cram.isSessionCompleted}
-              batchNumber={adapter.cram.batchIndex + 1}
-              totalBatches={adapter.cram.totalBatches}
-              batchSize={adapter.cram.currentBatch.length}
-              cumulativeMastered={adapter.cram.masteredIds.size}
-              totalDeckSize={adapter.deckSize}
-              onContinueNextBatch={adapter.continueNextBatch}
-              onFinishSession={() => navigate(`/subjects/${subjectCode}`)}
-            />
-          )}
-
           {practiceMode === "learn" && (
             <LearnRoundSummaryModal
               isOpen={adapter.learn.isRoundCompleted}
