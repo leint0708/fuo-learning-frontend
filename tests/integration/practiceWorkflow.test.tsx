@@ -591,4 +591,39 @@ describe("Practice Workflow Integration", () => {
       screen.getByRole("progressbar", { name: "Ôn câu từng sai: 0/1 câu" })
     ).toBeInTheDocument();
   });
+
+  it("requests the full subject bank without 50/60 caps and loads all >60 questions in both Cram and Learn modes", async () => {
+    const requestedUrls: string[] = [];
+    const fullDeck = Array.from({ length: 65 }, (_, idx) => ({
+      question_id: `full_${idx + 1}`,
+      subject_code: "NWC204",
+      question_type: "single_choice",
+      question_text: `Full Bank Question ${idx + 1}`,
+      image_url: null,
+      options: { A: "A", B: "B", C: "C", D: "D" },
+    }));
+
+    server.use(
+      http.get("*/api/v1/questions/drills", ({ request }) => {
+        requestedUrls.push(request.url);
+        return HttpResponse.json(fullDeck);
+      })
+    );
+
+    const cramRender = renderPractice("/subjects/NWC204/practice/cram");
+    await waitFor(() => {
+      expect(screen.getByText(/Đợt 1\/7/i)).toBeInTheDocument();
+    });
+    expect(requestedUrls[0]).toContain("subject_code=NWC204");
+    expect(requestedUrls[0]).toContain("all=true");
+    expect(requestedUrls[0]).toContain("count=10000");
+
+    cramRender.unmount();
+
+    renderPractice("/subjects/NWC204/practice/learn");
+    await waitFor(() => {
+      expect(screen.getByText(/Đang học \(7\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Chưa học \(58\)/i)).toBeInTheDocument();
+    });
+  });
 });

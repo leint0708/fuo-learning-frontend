@@ -177,7 +177,7 @@ export function usePracticeWorkspaceAdapter(
     error,
   } = useQuery({
     queryKey: ["practiceQuestions", subjectCode],
-    queryFn: () => getPracticeQuestions(subjectCode, 60),
+    queryFn: () => getPracticeQuestions(subjectCode),
     staleTime: 5 * 60 * 1000,
   });
 

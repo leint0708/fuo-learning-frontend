@@ -5,12 +5,17 @@ import type { InstantAnswerResult } from "@/types/practice";
 
 /**
  * Fetches practice questions for a given subject.
- * Defaults to 50 questions or full available question bank.
+ * Requests the full subject question bank unless an explicit positive count is provided.
  */
 export async function getPracticeQuestions(
   subjectCode: string,
-  count = 50
+  count?: number
 ): Promise<Question[]> {
+  const query =
+    typeof count === "number" && Number.isFinite(count) && count > 0
+      ? `subject_code=${encodeURIComponent(subjectCode)}&count=${Math.floor(count)}`
+      : `subject_code=${encodeURIComponent(subjectCode)}&all=true&count=10000`;
+
   const data = await apiClient<
     Array<{
       question_id: string;
@@ -20,7 +25,7 @@ export async function getPracticeQuestions(
       image_url: string | null;
       options: Record<string, string>;
     }>
-  >(`/api/v1/questions/drills?subject_code=${encodeURIComponent(subjectCode)}&count=${count}`);
+  >(`/api/v1/questions/drills?${query}`);
 
   return data.map((q, idx) => ({
     questionId: q.question_id,
