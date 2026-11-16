@@ -124,17 +124,19 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               </span>
               <span className="text-color-2 font-bold tabular-nums">{questionCount} câu</span>
             </label>
-            <input
-              type="range"
-              role="slider"
-              aria-label="Số lượng câu hỏi"
-              min={5}
-              max={Math.max(5, maxAvailableQuestions)}
-              step={1}
-              value={questionCount}
-              onChange={(e) => setQuestionCount(Number(e.target.value))}
-              className="w-full accent-color-2 cursor-pointer h-2 bg-color-6 rounded-lg"
-            />
+            <div className="min-h-11 flex items-center">
+              <input
+                type="range"
+                role="slider"
+                aria-label="Số lượng câu hỏi"
+                min={5}
+                max={Math.max(5, maxAvailableQuestions)}
+                step={1}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(Number(e.target.value))}
+                className="w-full accent-color-2 cursor-pointer h-3 bg-color-6 rounded-lg"
+              />
+            </div>
             <div className="flex justify-between text-text-xs text-color-1/75 mt-space-1 font-bold tabular-nums">
               <span>5 câu</span>
               <span>Tối đa: {maxAvailableQuestions} câu</span>
@@ -170,12 +172,12 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
             </span>
           </label>
 
-          <div className="flex items-center gap-space-2 mb-space-2">
+          <div className="flex flex-wrap items-center gap-space-2 mb-space-2">
             <button
               type="button"
               aria-pressed={isUntimed}
               onClick={() => setIsUntimed(!isUntimed)}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold border-2 transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
+              className={`min-h-11 px-space-3 py-space-1 rounded-full text-[13px] sm:text-text-xs font-bold border-2 transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                 isUntimed
                   ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
                   : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -187,7 +189,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
 
           {!isUntimed && (
             <div className="space-y-space-3">
-              <div className="grid grid-cols-4 gap-space-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-2">
                 {[15, 30, 45, 60].map((mins) => {
                   const isSelected = durationMinutes === mins;
                   return (
@@ -199,7 +201,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
                         setDurationMinutes(mins);
                         setCustomDurationInput(String(mins));
                       }}
-                      className={`py-1.5 rounded-full text-text-xs font-bold border-2 transition-all tabular-nums outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
+                      className={`min-h-11 py-space-1 px-space-2 rounded-full text-[13px] sm:text-text-xs font-bold border-2 transition-all tabular-nums outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                         isSelected
                           ? "bg-color-2 text-color-7 border-color-2 shadow-xs"
                           : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -212,11 +214,11 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
               </div>
 
               {/* Custom Duration Input */}
-              <div className="flex items-center gap-space-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-space-2">
                 <span className="text-text-xs font-bold text-color-1/80 shrink-0">
                   Hoặc tự nhập:
                 </span>
-                <div className="relative flex-1 flex items-center">
+                <div className="relative flex-1 min-w-[160px] flex items-center">
                   <input
                     type="number"
                     role="spinbutton"
@@ -245,7 +247,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
                         setCustomDurationInput(String(num));
                       }
                     }}
-                    className="w-full py-1.5 px-3 rounded-full text-text-xs font-bold border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 focus:outline-none focus:border-color-1 focus-visible:ring-4 focus-visible:ring-color-5 shadow-xs tabular-nums"
+                    className="w-full min-h-11 py-space-1 pl-space-3 pr-14 rounded-full text-text-xs font-bold border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 focus:outline-none focus:border-color-1 focus-visible:ring-4 focus-visible:ring-color-5 shadow-xs tabular-nums"
                   />
                   <span className="absolute right-3 text-text-xs font-bold text-color-1/75 pointer-events-none">
                     phút
@@ -305,7 +307,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
             <ShieldCheck className="w-4 h-4 text-color-2" />
             Nguồn đối chiếu đáp án chuẩn
           </label>
-          <div className="grid grid-cols-2 gap-space-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-3">
             <button
               type="button"
               aria-pressed={benchmarkModeState === "ai"}

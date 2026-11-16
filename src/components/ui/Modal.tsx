@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { X } from "lucide-react";
 
@@ -110,7 +111,7 @@ export const Modal: React.FC<ModalProps> = ({
     xl: "max-w-5xl",
   };
 
-  return (
+  const modalNode = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-space-2 sm:p-space-4 bg-black/60 backdrop-blur-sm transition-opacity duration-fast overflow-y-auto"
       onClick={onClose}
@@ -130,7 +131,7 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-3 sm:px-space-5 sm:py-space-4 border-b-2 border-color-1 bg-color-6">
-          <h3 id={titleId} className="font-bold text-text-lg truncate">
+          <h3 id={titleId} className="font-bold text-text-base sm:text-text-lg line-clamp-2 min-w-0 leading-snug">
             {title}
           </h3>
           <button
@@ -148,4 +149,6 @@ export const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalNode, document.body) : modalNode;
 };

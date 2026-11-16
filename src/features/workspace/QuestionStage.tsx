@@ -149,7 +149,7 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerCancel}
-            className={`relative min-h-[280px] sm:min-h-[380px] max-h-[60vh] overflow-hidden select-none bg-color-6/60 flex items-start justify-center p-space-4 ${
+            className={`relative min-h-[200px] max-h-[38vh] sm:min-h-[260px] sm:max-h-[45vh] md:min-h-[380px] md:max-h-[60vh] overflow-hidden select-none bg-color-6/60 flex items-start justify-center p-space-2 sm:p-space-4 ${
               isPanActive ? "touch-none" : "touch-pan-y"
             } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           >
@@ -177,7 +177,10 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
           </div>
 
           {/* Bottom Diagram Controls */}
-          <div className="px-space-4 py-space-2 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
+          <div className="px-space-3 sm:px-space-4 py-space-2 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
+            <span className="text-text-2xs font-bold text-color-1/75 md:hidden">
+              Chụm 2 ngón để phóng to / thu nhỏ
+            </span>
             <span className="text-text-2xs font-bold text-color-1/75 hidden md:inline">
               Kéo để di chuyển • Ctrl + Cuộn hoặc chụm ngón tay để phóng to / thu nhỏ
             </span>

@@ -30,6 +30,7 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
     containerRef,
     transformStyle,
     isDragging,
+    isPanActive,
   } = useZoomPan({ minZoom: 0.5, maxZoom: 3.0, zoomStep: 0.25, initialZoom: 1.0 });
 
   const isUserCorrect = item.isCorrect;
@@ -38,10 +39,10 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
   const hasCommunityData = item.communityStats && item.communityStats.validVoteCount > 0;
 
   return (
-    <Card className="p-space-5 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm space-y-space-4">
+    <Card className="p-space-4 sm:p-space-5 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm space-y-space-4">
       {/* Question Header & Status */}
       <div className="flex flex-wrap items-center justify-between gap-space-2 pb-space-3 border-b-2 border-color-6">
-        <div className="flex items-center gap-space-2">
+        <div className="flex flex-wrap items-center gap-space-2">
           <span
             className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-text-xs border-2 shadow-2xs ${
               isUserCorrect
@@ -56,7 +57,7 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
           </h4>
         </div>
 
-        <div className="flex items-center gap-space-2">
+        <div className="flex flex-wrap items-center gap-space-2">
           {isUserCorrect ? (
             <Badge variant="success" className="flex items-center gap-1">
               <Check className="w-3.5 h-3.5" /> Trả lời đúng
@@ -98,9 +99,9 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className={`relative flex items-center justify-center min-h-[220px] max-h-[460px] p-space-3 select-none touch-none overflow-hidden bg-color-6/30 ${
-              isDragging ? "cursor-grabbing" : "cursor-grab"
-            }`}
+            className={`relative flex items-center justify-center min-h-[220px] max-h-[460px] p-space-3 select-none overflow-hidden bg-color-6/30 ${
+              isPanActive ? "touch-none" : "touch-pan-y"
+            } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           >
             {/* Zoom Level Indicator Tag */}
             <div className="absolute top-space-2 left-space-2 z-10 px-space-2 py-0.5 rounded-full bg-color-7/90 border border-color-1 text-text-xs font-bold shadow-2xs">
@@ -121,21 +122,24 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
 
           {/* Bottom Zoom Controls Bar */}
           <div className="px-space-3 py-1.5 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
+            <span className="text-text-2xs font-bold text-color-1/75 md:hidden">
+              Chụm 2 ngón để phóng to / thu nhỏ
+            </span>
             <span className="text-text-xs font-bold text-color-1/75 hidden sm:inline">
               Kéo để di chuyển • Ctrl + Cuộn chuột để phóng to / thu nhỏ
             </span>
-            <div className="flex items-center gap-1.5 ml-auto">
+            <div className="flex flex-wrap items-center gap-1.5 ml-auto">
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 onClick={zoomIn}
                 disabled={zoomLevel >= 3.0}
-                className="flex items-center gap-1 px-space-2 py-1 text-text-xs"
+                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs"
                 title="Phóng to (Ctrl + Cuộn chuột lên)"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
-                <span>Zoom in</span>
+                <span>Phóng to</span>
               </Button>
 
               <Button
@@ -144,11 +148,11 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
                 size="sm"
                 onClick={zoomOut}
                 disabled={zoomLevel <= 0.5}
-                className="flex items-center gap-1 px-space-2 py-1 text-text-xs"
+                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs"
                 title="Thu nhỏ (Ctrl + Cuộn chuột xuống)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
-                <span>Zoom out</span>
+                <span>Thu nhỏ</span>
               </Button>
 
               <Button
@@ -156,11 +160,11 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
                 variant="secondary"
                 size="sm"
                 onClick={resetZoom}
-                className="flex items-center gap-1 px-space-2 py-1 text-text-xs"
+                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs"
                 title="Khôi phục kích thước gốc"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Original</span>
+                <span>Kích thước gốc</span>
               </Button>
             </div>
           </div>
@@ -189,17 +193,17 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
       </div>
 
       {/* AI Explanation Box */}
-      <div className="p-space-4 bg-color-2/5 border-2 border-color-2/30 rounded-2xl">
-        <div className="flex items-center justify-between mb-space-2">
-          <div className="flex items-center gap-1.5 font-bold text-text-xs text-color-2">
-            <Bot className="w-4 h-4" />
+      <div className="p-space-3 sm:p-space-4 bg-color-2/5 border-2 border-color-2/30 rounded-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-space-2 mb-space-2">
+          <div className="flex items-center gap-1.5 font-bold text-[13px] sm:text-text-xs text-color-2">
+            <Bot className="w-4 h-4 shrink-0" />
             <span>Lời giải từ AI ({item.aiModel || "gemini-3-flash-preview"}):</span>
           </div>
           {item.optionByOptionAnalysis && (
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-text-xs font-bold text-color-2 hover:underline flex items-center gap-0.5 cursor-pointer"
+              className="min-h-11 px-space-2 -mr-space-2 text-[13px] sm:text-text-xs font-bold text-color-2 hover:underline flex items-center gap-0.5 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-color-5"
             >
               <span>{isExpanded ? "Thu gọn phân tích" : "Chi tiết từng phương án"}</span>
               {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}

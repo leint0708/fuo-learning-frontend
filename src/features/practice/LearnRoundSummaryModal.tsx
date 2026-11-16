@@ -132,7 +132,7 @@ export const LearnRoundSummaryModal: React.FC<LearnRoundSummaryModalProps> = ({
                       : "border-color-1 bg-color-4/10"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-space-3 mb-space-2">
+                  <div className="flex flex-wrap sm:flex-nowrap items-start justify-between gap-space-2 sm:gap-space-3 mb-space-2">
                     <div className="flex items-start gap-space-2 min-w-0 flex-1">
                       <span
                         className={`w-7 h-7 rounded-full border border-color-1 flex items-center justify-center shrink-0 mt-0.5 ${
@@ -178,15 +178,15 @@ export const LearnRoundSummaryModal: React.FC<LearnRoundSummaryModalProps> = ({
                     {/* Status Badge */}
                     <div className="shrink-0">
                       {item.status === "learned" ? (
-                        <span className="px-space-3 py-space-1 text-text-xs font-bold rounded-full bg-color-3 text-color-7 border border-color-1 shadow-xs">
+                        <span className="inline-flex items-center px-space-2 sm:px-space-3 py-0.5 sm:py-space-1 text-[13px] sm:text-text-xs font-bold rounded-full bg-color-3 text-color-7 border border-color-1 shadow-xs">
                           Đã tốt nghiệp
                         </span>
                       ) : item.isCorrect ? (
-                        <span className="px-space-3 py-space-1 text-text-xs font-bold rounded-full bg-color-5 text-color-1 border border-color-1 shadow-xs">
+                        <span className="inline-flex items-center px-space-2 sm:px-space-3 py-0.5 sm:py-space-1 text-[13px] sm:text-text-xs font-bold rounded-full bg-color-5 text-color-1 border border-color-1 shadow-xs">
                           Đang tiến bộ
                         </span>
                       ) : (
-                        <span className="px-space-3 py-space-1 text-text-xs font-bold rounded-full bg-color-4 text-color-1 border border-color-1 shadow-xs">
+                        <span className="inline-flex items-center px-space-2 sm:px-space-3 py-0.5 sm:py-space-1 text-[13px] sm:text-text-xs font-bold rounded-full bg-color-4 text-color-1 border border-color-1 shadow-xs">
                           Cần lặp lại
                         </span>
                       )}

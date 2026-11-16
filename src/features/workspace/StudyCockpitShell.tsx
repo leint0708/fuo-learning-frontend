@@ -49,12 +49,12 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
         {banners}
 
         {hasVisualMedia ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-4 items-start">
-            <div className="lg:col-span-7 flex flex-col gap-space-4">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-space-3 lg:gap-space-4 items-start">
+            <div className="md:col-span-7 flex flex-col gap-space-4 md:sticky md:top-[84px]">
               {stageContent}
             </div>
 
-            <div className="lg:col-span-5 flex flex-col gap-space-4 lg:sticky lg:top-[76px] lg:max-h-[calc(100vh-92px)] lg:overflow-y-auto lg:pr-space-1">
+            <div className="md:col-span-5 flex flex-col gap-space-4 md:sticky md:top-[84px] md:max-h-[calc(100vh-148px)] lg:max-h-[calc(100vh-100px)] md:overflow-y-auto md:pr-space-1">
               {choiceContent}
               <div className="hidden lg:block">{navigatorContent}</div>
             </div>
@@ -66,7 +66,7 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
               {choiceContent}
             </div>
 
-            <div className="hidden lg:flex lg:col-span-4 flex-col gap-space-4 lg:sticky lg:top-[76px] lg:max-h-[calc(100vh-92px)] lg:overflow-y-auto lg:pr-space-1">
+            <div className="hidden lg:flex lg:col-span-4 flex-col gap-space-4 lg:sticky lg:top-[84px] lg:max-h-[calc(100vh-100px)] lg:overflow-y-auto lg:pr-space-1">
               {navigatorContent}
             </div>
           </div>
@@ -106,7 +106,7 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
           <button
             type="button"
             onClick={onOpenMobileNavigator}
-            className="min-h-11 min-w-0 max-w-[140px] sm:max-w-none px-space-2 sm:px-space-3 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-text-xs inline-flex items-center gap-space-1 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 tabular-nums"
+            className="min-h-11 min-w-0 max-w-[165px] sm:max-w-none px-space-2 sm:px-space-3 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-[13px] sm:text-text-xs inline-flex items-center gap-space-1 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 tabular-nums"
           >
             <List className="w-4 h-4 shrink-0" />
             <span className="truncate">{mobileStatusLabel}</span>

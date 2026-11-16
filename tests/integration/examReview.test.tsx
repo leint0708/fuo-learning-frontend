@@ -108,27 +108,32 @@ describe("Exam Review Integration Tests", () => {
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute("src", "/static/exams/MAD101/MAD101%20-%20FA25/Q2.webp");
 
-    // Check zoom controls exist
-    const zoomInBtn = screen.getByRole("button", { name: /zoom in/i });
-    const zoomOutBtn = screen.getByRole("button", { name: /zoom out/i });
-    const originalBtn = screen.getByRole("button", { name: /original/i });
+    // Check zoom controls exist (localized to Vietnamese)
+    const zoomInBtn = screen.getByRole("button", { name: /Phóng to/i });
+    const zoomOutBtn = screen.getByRole("button", { name: /Thu nhỏ/i });
+    const originalBtn = screen.getByRole("button", { name: /Kích thước gốc/i });
 
     expect(zoomInBtn).toBeInTheDocument();
     expect(zoomOutBtn).toBeInTheDocument();
     expect(originalBtn).toBeInTheDocument();
     expect(screen.getByText("100%")).toBeInTheDocument();
 
-    // Clicking Zoom in increases zoom to 125%
+    // Unzoomed diagram viewport allows vertical touch scrolling (touch-pan-y)
+    const viewport = img.closest(".relative");
+    expect(viewport).not.toBeNull();
+    expect(viewport!.className).toContain("touch-pan-y");
+    expect(viewport!.className).not.toContain("touch-none");
+
+    // Clicking Phóng to increases zoom to 125% and activates touch-none pan
     fireEvent.click(zoomInBtn);
     expect(screen.getByText("125%")).toBeInTheDocument();
+    expect(viewport!.className).toContain("touch-none");
 
-    // Clicking Original resets zoom to 100%
+    // Clicking Kích thước gốc resets zoom to 100%
     fireEvent.click(originalBtn);
     expect(screen.getByText("100%")).toBeInTheDocument();
 
     // Ctrl + scroll wheel up zooms in to 125%
-    const viewport = img.closest(".relative");
-    expect(viewport).not.toBeNull();
     fireEvent.wheel(viewport!, { ctrlKey: true, deltaY: -100 });
     expect(screen.getByText("125%")).toBeInTheDocument();
 

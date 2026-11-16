@@ -130,8 +130,8 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
 
   if (adapter.sessionStatus === "error" || adapter.sessionStatus === "empty") {
     return (
-      <div className="max-w-xl mx-auto w-full px-space-4 py-space-8 text-center">
-        <Card className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
+      <div className="max-w-xl mx-auto w-full px-space-3 sm:px-space-4 py-space-5 sm:py-space-6 text-center">
+        <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
           <h1 className="text-text-lg font-bold text-color-1">
             {adapter.loadErrorMessage ||
               "Không có câu hỏi luyện tập nào khả dụng cho môn này."}
@@ -151,8 +151,8 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
 
   if (adapter.sessionStatus === "completed") {
     return (
-      <div className="max-w-xl mx-auto w-full px-space-4 py-space-8 text-center">
-        <Card className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
+      <div className="max-w-xl mx-auto w-full px-space-3 sm:px-space-4 py-space-5 sm:py-space-6 text-center">
+        <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col items-center gap-space-4">
           <div className="w-16 h-16 rounded-full bg-color-5 border-2 border-color-1 flex items-center justify-center text-color-1 shadow-xs">
             <Trophy className="w-8 h-8" aria-hidden="true" />
           </div>
@@ -216,11 +216,11 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
             },
           }}
           statusSlot={
-            <div className="flex items-center gap-space-2">
-              <span className="text-text-xs font-bold text-color-1 tabular-nums">
+            <div className="flex items-center gap-space-1 sm:gap-space-2">
+              <span className="text-[13px] sm:text-text-xs font-bold text-color-1 tabular-nums whitespace-nowrap">
                 {adapter.subProgressText}
               </span>
-              <span className="inline-flex items-center gap-space-1 px-space-3 py-space-1 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 tabular-nums">
+              <span className="hidden sm:inline-flex items-center gap-space-1 px-space-3 py-space-1 rounded-full bg-color-6 border-2 border-color-1 text-text-xs font-bold text-color-1 tabular-nums whitespace-nowrap">
                 {practiceMode === "cram" ? (
                   <span className="w-5 h-5 rounded-full bg-color-5 text-color-1 flex items-center justify-center">
                     <Zap className="w-3.5 h-3.5" aria-hidden="true" />
@@ -302,7 +302,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
                 </div>
               )}
 
-            <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
+            <div className="hidden md:flex bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex-wrap items-center justify-between gap-space-2">
               <span className="text-text-xs font-bold text-color-1">
                 Phân tích chi tiết &amp; loại trừ đáp án
               </span>
@@ -341,33 +341,33 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
       onNext={adapter.advanceNext}
       onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
       mobilePrimaryAction={
-        <div className="flex items-center gap-space-1">
-          {currentCard?.questionType === "multiple_choice" &&
-            adapter.feedbackMode === "instant" &&
-            !isEvaluated && (
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={!adapter.selectedOptions || adapter.isEvaluating}
-                onClick={() => {
-                  void adapter.submitCheck();
-                }}
-                className="min-h-11"
-              >
-                Kiểm tra
-              </Button>
-            )}
+        currentCard?.questionType === "multiple_choice" &&
+        adapter.feedbackMode === "instant" &&
+        !isEvaluated &&
+        Boolean(adapter.selectedOptions) ? (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={adapter.isEvaluating}
+            onClick={() => {
+              void adapter.submitCheck();
+            }}
+            className="min-h-11 whitespace-nowrap"
+          >
+            Kiểm tra
+          </Button>
+        ) : (
           <Button
             variant="secondary"
             size="sm"
             onClick={adapter.openAiAnalysis}
             aria-label="Phân tích AI"
-            className="min-h-11 inline-flex items-center gap-space-1"
+            className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
           >
             <Sparkles className="w-4 h-4" />
             <span>AI</span>
           </Button>
-        </div>
+        )
       }
       modals={
         <>

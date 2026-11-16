@@ -91,7 +91,7 @@ export const RegisterForm: React.FC = () => {
             id="register-error"
             role="alert"
             aria-live="assertive"
-            className="mb-space-4 px-space-4 py-space-2 bg-color-4/15 border-2 border-color-4 text-color-1 rounded-full flex items-center gap-space-2 text-text-xs font-bold"
+            className="mb-space-4 px-space-4 py-space-3 bg-color-4/15 border-2 border-color-4 text-color-1 rounded-2xl flex items-start gap-space-2 text-[13px] sm:text-text-xs font-bold"
           >
             <AlertCircle className="w-5 h-5 shrink-0 text-color-4" />
             <span>{typeof error === "string" ? error : getErrorMessage(error)}</span>
@@ -291,7 +291,7 @@ export const RegisterForm: React.FC = () => {
           Đã có tài khoản?{" "}
           <Link
             to="/login"
-            className="font-bold text-color-2 underline hover:text-color-1 rounded-full px-space-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 transition-colors duration-fast"
+            className="inline-flex items-center min-h-11 font-bold text-color-2 underline hover:text-color-1 rounded-full px-space-2 outline-none focus-visible:ring-2 focus-visible:ring-color-5 transition-colors duration-fast"
           >
             Đăng nhập ngay
           </Link>

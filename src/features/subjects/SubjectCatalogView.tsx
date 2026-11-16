@@ -161,7 +161,7 @@ export const SubjectCatalogView: React.FC = () => {
                 }
               }}
               placeholder="Tìm mã hoặc tên môn (vd: MAD101, PRM392)..."
-              className="w-full pl-space-6 pr-space-6 py-space-2 rounded-full border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 outline-none focus-visible:ring-4 focus-visible:ring-color-5 shadow-xs text-text-sm"
+              className="w-full pl-11 pr-12 py-space-2 rounded-full border-2 border-color-1 bg-color-7 text-color-1 placeholder:text-color-1/70 outline-none focus-visible:ring-4 focus-visible:ring-color-5 shadow-xs text-text-sm"
             />
             {searchQuery ? (
               <button
@@ -263,7 +263,7 @@ export const SubjectCatalogView: React.FC = () => {
               aria-pressed={activeFilter === "all"}
               data-impeccable-ignore="hard-offset-shadow"
               onClick={() => setActiveFilter("all")}
-              className={`min-h-[40px] px-space-3 py-space-1 rounded-full border-2 text-text-xs font-bold transition-all duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
+              className={`min-h-11 px-space-3 py-space-1 rounded-full border-2 text-[13px] sm:text-text-xs font-bold transition-all duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
                 activeFilter === "all"
                   ? "bg-color-2 text-color-7 border-color-1 shadow-xs"
                   : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -278,7 +278,7 @@ export const SubjectCatalogView: React.FC = () => {
                 aria-pressed={activeFilter === "in_progress"}
                 data-impeccable-ignore="hard-offset-shadow"
                 onClick={() => setActiveFilter("in_progress")}
-                className={`min-h-[40px] px-space-3 py-space-1 rounded-full border-2 text-text-xs font-bold transition-all duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
+                className={`min-h-11 px-space-3 py-space-1 rounded-full border-2 text-[13px] sm:text-text-xs font-bold transition-all duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
                   activeFilter === "in_progress"
                     ? "bg-color-3 text-color-7 border-color-1 shadow-xs"
                     : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"
@@ -295,7 +295,7 @@ export const SubjectCatalogView: React.FC = () => {
                 aria-pressed={activeFilter === prefix}
                 data-impeccable-ignore="hard-offset-shadow"
                 onClick={() => setActiveFilter(prefix)}
-                className={`min-h-[40px] px-space-3 py-space-1 rounded-full border-2 text-text-xs font-bold transition-all duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
+                className={`min-h-11 px-space-3 py-space-1 rounded-full border-2 text-[13px] sm:text-text-xs font-bold transition-all duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
                   activeFilter === prefix
                     ? "bg-color-5 text-color-1 border-color-1 shadow-xs"
                     : "bg-color-7 text-color-1 border-color-1 hover:bg-color-6"

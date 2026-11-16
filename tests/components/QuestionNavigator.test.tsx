@@ -84,4 +84,32 @@ describe("QuestionNavigator Component Tests", () => {
 
     expect(screen.getByRole("button", { name: /Câu trước/i })).toBeDisabled();
   });
+
+  it("portals mobile drawer Modal to document.body even when rendered inside a display:none wrapper", () => {
+    const items = [
+      { id: "q_1", number: 1, isAnswered: false, isCurrent: true },
+      { id: "q_2", number: 2, isAnswered: true, isCurrent: false },
+    ];
+
+    render(
+      <div data-testid="hidden-desktop-rail" style={{ display: "none" }}>
+        <QuestionNavigator
+          title="Danh sách câu hỏi"
+          items={items}
+          activeIndex={0}
+          answeredCount={1}
+          totalCount={2}
+          onSelectQuestion={vi.fn()}
+          isMobileDrawerOpen={true}
+          onCloseMobileDrawer={vi.fn()}
+        />
+      </div>
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Danh sách câu hỏi" });
+    expect(dialog).toBeInTheDocument();
+    const hiddenWrapper = screen.getByTestId("hidden-desktop-rail");
+    expect(hiddenWrapper.contains(dialog)).toBe(false);
+    expect(document.body.contains(dialog)).toBe(true);
+  });
 });

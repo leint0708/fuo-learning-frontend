@@ -27,9 +27,9 @@ export const ProfileView: React.FC = () => {
   });
 
   return (
-    <div className="max-w-6xl mx-auto w-full px-space-4 py-space-6 flex flex-col gap-space-6">
+    <div className="max-w-6xl mx-auto w-full px-space-3 sm:px-space-4 py-space-5 sm:py-space-6 flex flex-col gap-space-5 sm:gap-space-6">
       {/* Profile Overview Card */}
-      <Card className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-space-5">
+      <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-space-4 sm:gap-space-5">
         <div
           data-impeccable-ignore="hard-offset-shadow"
           className="w-20 h-20 rounded-full bg-color-2 text-color-7 flex items-center justify-center border-2 border-color-1 shadow-sm shrink-0"
@@ -100,47 +100,47 @@ export const ProfileView: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-space-4">
-            <Card className="p-space-4 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-space-2 sm:gap-space-4">
+            <Card className="p-space-3 sm:p-space-4 text-center">
               <div className="inline-flex p-space-2 rounded-full bg-color-2/10 text-color-2 mb-space-1">
                 <Award className="w-5 h-5" />
               </div>
-              <div className="text-text-xl font-bold text-color-1">
+              <div className="text-text-lg sm:text-text-xl font-bold text-color-1 tabular-nums">
                 {stats?.total_attempts_count ?? 0}
               </div>
-              <div className="text-text-xs font-bold text-color-1/75">Lượt thi đã làm</div>
+              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Lượt thi đã làm</div>
             </Card>
 
-            <Card className="p-space-4 text-center">
+            <Card className="p-space-3 sm:p-space-4 text-center">
               <div className="inline-flex p-space-2 rounded-full bg-color-3/10 text-color-3 mb-space-1">
                 <CheckCircle className="w-5 h-5" />
               </div>
-              <div className="text-text-xl font-bold text-color-3">
+              <div className="text-text-lg sm:text-text-xl font-bold text-color-3 tabular-nums">
                 {stats?.total_exams_passed ?? 0}
               </div>
-              <div className="text-text-xs font-bold text-color-1/75">Đề thi đã đạt</div>
+              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Đề thi đã đạt</div>
             </Card>
 
-            <Card className="p-space-4 text-center">
+            <Card className="p-space-3 sm:p-space-4 text-center">
               <div className="inline-flex p-space-2 rounded-full bg-color-5/10 text-color-5 mb-space-1">
                 <BarChart2 className="w-5 h-5" />
               </div>
-              <div className="text-text-xl font-bold text-color-1">
+              <div className="text-text-lg sm:text-text-xl font-bold text-color-1 tabular-nums">
                 {stats?.overall_average_score
                   ? `${stats.overall_average_score.toFixed(1)}/10`
                   : "0.0/10"}
               </div>
-              <div className="text-text-xs font-bold text-color-1/75">Điểm trung bình</div>
+              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Điểm trung bình</div>
             </Card>
 
-            <Card className="p-space-4 text-center">
+            <Card className="p-space-3 sm:p-space-4 text-center">
               <div className="inline-flex p-space-2 rounded-full bg-color-2/10 text-color-2 mb-space-1">
                 <Clock className="w-5 h-5" />
               </div>
-              <div className="text-text-xl font-bold text-color-1">
+              <div className="text-text-lg sm:text-text-xl font-bold text-color-1 tabular-nums">
                 {stats?.total_practice_duration_minutes ?? 0}p
               </div>
-              <div className="text-text-xs font-bold text-color-1/75">Thời gian làm bài</div>
+              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Thời gian làm bài</div>
             </Card>
           </div>
         )}
@@ -153,9 +153,9 @@ export const ProfileView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-space-4">
             {stats.subject_breakdowns.map((sub) => (
               <Card key={sub.subject_code} className="p-space-4">
-                <div className="flex justify-between items-start mb-space-2">
-                  <h3 className="font-bold text-text-sm text-color-1">{sub.subject_code}</h3>
-                  <Badge variant="neutral">{sub.attempts_count} lượt thi</Badge>
+                <div className="flex justify-between items-start gap-space-2 mb-space-2">
+                  <h3 className="font-bold text-text-sm text-color-1 min-w-0 truncate">{sub.subject_code}</h3>
+                  <Badge variant="neutral" className="shrink-0">{sub.attempts_count} lượt thi</Badge>
                 </div>
                 <p className="text-text-xs text-color-1/75 mb-space-3 line-clamp-1">
                   {sub.subject_title}

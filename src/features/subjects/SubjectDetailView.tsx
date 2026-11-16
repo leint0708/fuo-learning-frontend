@@ -121,7 +121,7 @@ export const SubjectDetailView: React.FC = () => {
       <div>
         <Link
           to="/"
-          className="inline-flex items-center gap-space-2 text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5"
+          className="min-h-11 inline-flex items-center gap-space-2 text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all outline-none focus-visible:ring-4 focus-visible:ring-color-5"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Quay lại danh sách môn học</span>
@@ -131,11 +131,11 @@ export const SubjectDetailView: React.FC = () => {
       {/* Subject Hero Header */}
       <Card
         data-impeccable-ignore="hard-offset-shadow"
-        className="p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-space-5"
+        className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-space-4 sm:gap-space-5"
       >
-        <div className="space-y-space-2">
+        <div className="space-y-space-2 min-w-0">
           <div className="flex flex-wrap items-center gap-space-2">
-            <span className="text-text-2xl font-black text-color-1 tracking-tight">
+            <span className="text-text-xl sm:text-text-2xl font-black text-color-1 tracking-tight">
               {subjectCode}
             </span>
             <Badge variant="primary">Ngân hàng đề thi chính thức</Badge>
@@ -150,7 +150,7 @@ export const SubjectDetailView: React.FC = () => {
         </div>
 
         {/* Quick Meta Counters */}
-        <div className="shrink-0 flex items-center gap-space-3 bg-color-6/40 border-2 border-color-1 rounded-3xl p-space-3 shadow-xs">
+        <div className="shrink-0 w-full md:w-auto flex flex-wrap sm:flex-nowrap items-center justify-around md:justify-start gap-space-3 bg-color-6/40 border-2 border-color-1 rounded-3xl p-space-3 shadow-xs">
           <div className="flex items-center gap-space-2 px-space-2">
             <BookOpen className="w-4 h-4 text-color-2" />
             <div className="text-left">
@@ -229,7 +229,7 @@ export const SubjectDetailView: React.FC = () => {
         {startError && (
           <div
             role="alert"
-            className="p-space-4 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl font-bold flex items-center justify-between gap-space-3 shadow-xs"
+            className="p-space-4 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl font-bold flex flex-wrap items-center justify-between gap-space-3 shadow-xs"
           >
             <div className="flex items-center gap-space-2">
               <AlertCircle className="w-5 h-5 shrink-0" />
@@ -279,7 +279,7 @@ export const SubjectDetailView: React.FC = () => {
         ) : !exams || exams.length === 0 ? (
           <Card
             data-impeccable-ignore="hard-offset-shadow"
-            className="p-space-8 text-center bg-color-7 border-2 border-color-1 shadow-sm"
+            className="p-space-5 sm:p-space-6 text-center bg-color-7 border-2 border-color-1 shadow-sm"
           >
             <p className="text-text-sm font-bold text-color-1/75 mb-space-3">
               Chưa có đề thi chuẩn cho môn này.
@@ -320,13 +320,13 @@ export const SubjectDetailView: React.FC = () => {
                   </div>
 
                   {/* 1-Click Launch + Custom Mode */}
-                  <div className="flex items-center gap-space-2">
+                  <div className="flex flex-wrap items-center gap-space-2">
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => handleOpenStandardExam(exam.id, exam.totalQuestions)}
                       aria-label={`Tùy chỉnh cấu hình đề ${exam.code}`}
-                      className="flex items-center gap-1 border-2 border-color-1 shadow-2xs hover:shadow-xs"
+                      className="min-h-11 flex items-center gap-1 border-2 border-color-1 shadow-2xs hover:shadow-xs"
                     >
                       <Sliders className="w-3.5 h-3.5" />
                       <span>Tùy chỉnh</span>
@@ -344,7 +344,7 @@ export const SubjectDetailView: React.FC = () => {
                       }
                       isLoading={startingExamId === exam.id}
                       aria-label={`Bắt đầu thi đề ${exam.code} - ${exam.title}`}
-                      className="flex items-center gap-1.5 shadow-2xs hover:shadow-xs"
+                      className="min-h-11 flex items-center gap-1.5 shadow-2xs hover:shadow-xs"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       <span>Bắt đầu thi</span>

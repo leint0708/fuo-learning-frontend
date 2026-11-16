@@ -65,7 +65,7 @@ export const SubmitConfirmModal: React.FC<SubmitConfirmModalProps> = ({
         )}
 
         {/* Stats Preview */}
-        <div className="p-space-4 bg-color-6 border-2 border-color-1 rounded-2xl grid grid-cols-2 gap-space-3 text-center tabular-nums">
+        <div className="p-space-3 sm:p-space-4 bg-color-6 border-2 border-color-1 rounded-2xl grid grid-cols-1 sm:grid-cols-2 gap-space-3 text-center tabular-nums">
           <div>
             <div className="text-text-lg font-bold text-color-1">
               {answeredCount}/{totalQuestions}

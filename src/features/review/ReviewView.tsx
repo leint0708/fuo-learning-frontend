@@ -67,12 +67,12 @@ export const ReviewView: React.FC = () => {
   });
 
   return (
-    <div className="max-w-4xl mx-auto w-full px-space-3 sm:px-space-5 py-space-6 flex flex-col gap-space-6">
+    <div className="max-w-4xl mx-auto w-full px-space-3 sm:px-space-5 py-space-5 sm:py-space-6 flex flex-col gap-space-5 sm:gap-space-6">
       {/* Top Action Bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-space-2">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all"
+          className="min-h-11 inline-flex items-center gap-2 text-[13px] sm:text-text-xs font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-7 shadow-xs transition-all"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Về danh sách môn học</span>
@@ -82,7 +82,7 @@ export const ReviewView: React.FC = () => {
           variant="secondary"
           size="sm"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5"
+          className="min-h-11 flex items-center gap-1.5"
         >
           <RotateCcw className="w-4 h-4" />
           <span>Luyện lại đề này</span>
@@ -106,12 +106,12 @@ export const ReviewView: React.FC = () => {
           <h3 className="text-text-lg font-bold text-color-1">Xem lại câu hỏi và lời giải</h3>
 
           {/* Filter Pills */}
-          <div className="flex items-center gap-space-1 bg-color-7 p-1 border-2 border-color-1 rounded-full shadow-xs tabular-nums">
+          <div className="flex flex-wrap items-center gap-space-1 bg-color-7 p-1 border-2 border-color-1 rounded-2xl sm:rounded-full shadow-xs tabular-nums max-w-full">
             <button
               type="button"
               aria-pressed={filterMode === "all"}
               onClick={() => setFilterMode("all")}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`min-h-11 px-space-3 py-space-1 rounded-full text-[13px] sm:text-text-xs font-bold transition-all outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "all"
                   ? "bg-color-2 text-color-7 shadow-xs"
                   : "text-color-1 hover:bg-color-6"
@@ -123,7 +123,7 @@ export const ReviewView: React.FC = () => {
               type="button"
               aria-pressed={filterMode === "correct"}
               onClick={() => setFilterMode("correct")}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`min-h-11 px-space-3 py-space-1 rounded-full text-[13px] sm:text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "correct"
                   ? "bg-color-3 text-color-7 shadow-xs"
                   : "text-color-3 hover:bg-color-6"
@@ -136,7 +136,7 @@ export const ReviewView: React.FC = () => {
               type="button"
               aria-pressed={filterMode === "incorrect"}
               onClick={() => setFilterMode("incorrect")}
-              className={`px-space-3 py-1 rounded-full text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
+              className={`min-h-11 px-space-3 py-space-1 rounded-full text-[13px] sm:text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "incorrect"
                   ? "bg-color-4 text-color-7 shadow-xs"
                   : "text-color-4 hover:bg-color-6"

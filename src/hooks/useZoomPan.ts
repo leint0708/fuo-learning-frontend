@@ -202,6 +202,9 @@ export function useZoomPan(options: UseZoomPanOptions = {}) {
         }
         return;
       }
+      if (zoomRef.current <= 1.0) {
+        return;
+      }
     }
 
     if (activePointerIdRef.current !== null && activePointerIdRef.current !== pointerId) {

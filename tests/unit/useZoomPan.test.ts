@@ -62,8 +62,8 @@ describe("useZoomPan", () => {
     expect(result.current.panOffset.y).toBeGreaterThanOrEqual(-240);
   });
 
-  it("does not let handleMouseUp cancel an active pointer-captured drag", () => {
-    const { result } = renderHook(() => useZoomPan({ initialZoom: 1.0 }));
+  it("does not let handleMouseUp cancel an active pointer-captured drag when zoomed in", () => {
+    const { result } = renderHook(() => useZoomPan({ initialZoom: 1.5 }));
     const mockTarget = document.createElement("div");
 
     act(() => {
@@ -86,6 +86,23 @@ describe("useZoomPan", () => {
     act(() => {
       result.current.handlePointerUp({
         pointerId: 7,
+        currentTarget: mockTarget,
+      } as unknown as React.PointerEvent<HTMLDivElement>);
+    });
+    expect(result.current.isDragging).toBe(false);
+  });
+
+  it("does not initiate single-finger touch drag at 1.0x zoom so vertical mobile scrolling stays free", () => {
+    const { result } = renderHook(() => useZoomPan({ initialZoom: 1.0 }));
+    const mockTarget = document.createElement("div");
+
+    act(() => {
+      result.current.handlePointerDown({
+        pointerId: 8,
+        pointerType: "touch",
+        button: 0,
+        clientX: 20,
+        clientY: 20,
         currentTarget: mockTarget,
       } as unknown as React.PointerEvent<HTMLDivElement>);
     });

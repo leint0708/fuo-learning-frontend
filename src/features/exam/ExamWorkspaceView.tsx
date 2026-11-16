@@ -239,7 +239,7 @@ export const ExamWorkspaceView: React.FC = () => {
               data-testid="exam-timer-box"
               role={adapter.timer.isWarning ? "status" : undefined}
               aria-live={adapter.timer.isWarning ? "polite" : undefined}
-              className={`min-h-11 px-space-3 py-space-1 rounded-full border-2 border-color-1 inline-flex items-center gap-space-1 font-bold text-text-xs tabular-nums shrink-0 ${
+              className={`min-h-11 px-space-2 sm:px-space-3 py-space-1 rounded-full border-2 border-color-1 inline-flex items-center gap-space-1 font-bold text-[13px] sm:text-text-xs tabular-nums shrink-0 ${
                 adapter.timer.isWarning
                   ? "bg-color-4 text-color-1 animate-pulse"
                   : adapter.timer.isUntimed
@@ -319,7 +319,7 @@ export const ExamWorkspaceView: React.FC = () => {
             />
           )}
 
-          <div className="bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex flex-wrap items-center justify-between gap-space-2">
+          <div className="hidden md:flex bg-color-7 p-space-3 rounded-2xl border-2 border-color-1 flex-wrap items-center justify-between gap-space-2">
             <span className="text-text-xs font-bold text-color-1">
               Phân tích chi tiết &amp; loại trừ đáp án
             </span>

@@ -288,8 +288,11 @@ describe("Practice Workflow Integration", () => {
 
     renderPractice("/subjects/MAD101/practice/cram");
     await waitFor(() => {
-      expect(screen.getByText("Deferred Card One")).toBeInTheDocument();
+      expect(screen.getByText(/Deferred Card (One|Two)/i)).toBeInTheDocument();
     });
+    const firstCardTitle = screen.getByText(/Deferred Card (One|Two)/i).textContent;
+    const expectedNextTitle =
+      firstCardTitle === "Deferred Card One" ? "Deferred Card Two" : "Deferred Card One";
 
     // Switch header toggle to "Chờ tổng kết"
     const deferredBtn = screen.getByRole("button", { name: /Chờ tổng kết/i });
@@ -304,10 +307,10 @@ describe("Practice Workflow Integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
     expect(submittedChoices).toHaveLength(0);
 
-    // Clicking "Tiếp tục" submits C and advances directly to Deferred Card Two
+    // Clicking "Tiếp tục" submits C and advances directly to the second card
     fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
     await waitFor(() => {
-      expect(screen.getByText("Deferred Card Two")).toBeInTheDocument();
+      expect(screen.getByText(expectedNextTitle)).toBeInTheDocument();
     });
     expect(submittedChoices).toEqual(["C"]);
   });

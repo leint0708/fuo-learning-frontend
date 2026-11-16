@@ -18,35 +18,35 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 bg-color-7 border-b-2 border-color-1 shadow-xs">
-      <div className="max-w-7xl mx-auto px-space-4 sm:px-space-5 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-space-2 sm:px-space-5 h-16 flex items-center justify-between gap-space-2">
         {/* Brand */}
         <Link
           to="/"
-          className="flex items-center gap-space-2 text-color-1 font-bold text-text-lg hover:text-color-2 rounded-full outline-none focus-visible:ring-4 focus-visible:ring-color-5 transition-colors duration-fast"
+          className="min-h-11 px-space-1 min-w-0 flex items-center gap-space-1 sm:gap-space-2 text-color-1 font-bold text-text-sm sm:text-text-lg hover:text-color-2 rounded-full outline-none focus-visible:ring-4 focus-visible:ring-color-5 transition-colors duration-fast"
         >
           <div
             data-impeccable-ignore="hard-offset-shadow"
-            className="w-10 h-10 rounded-full bg-color-2 flex items-center justify-center text-color-7 border-2 border-color-1 shadow-sm"
+            className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full bg-color-2 flex items-center justify-center text-color-7 border-2 border-color-1 shadow-sm"
           >
-            <BookOpen className="w-5 h-5" />
+            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <span>FUO Learning</span>
+          <span className="truncate">FUO Learning</span>
         </Link>
 
         {/* Navigation items */}
-        <nav className="flex items-center gap-space-3">
+        <nav className="flex items-center gap-space-2 sm:gap-space-3 shrink-0">
           <Link
             to="/"
-            className="text-text-sm font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full hover:bg-color-6 outline-none focus-visible:ring-4 focus-visible:ring-color-5 transition-colors duration-fast"
+            className="hidden sm:inline-flex items-center min-h-11 text-text-sm font-bold text-color-1 hover:text-color-2 px-space-3 py-space-1 rounded-full hover:bg-color-6 outline-none focus-visible:ring-4 focus-visible:ring-color-5 transition-colors duration-fast"
           >
             Môn học
           </Link>
 
           {isAuthenticated ? (
-            <div className="flex items-center gap-space-2">
+            <div className="flex items-center gap-space-1 sm:gap-space-2">
               <Link
                 to="/profile"
-                className="flex items-center gap-space-1 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-6 hover:bg-color-7 font-bold text-text-xs shadow-xs outline-none focus-visible:ring-4 focus-visible:ring-color-5 transition-colors duration-fast"
+                className="min-h-11 flex items-center gap-space-1 px-space-2 sm:px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-6 hover:bg-color-7 font-bold text-[13px] sm:text-text-xs shadow-xs outline-none focus-visible:ring-4 focus-visible:ring-color-5 transition-colors duration-fast"
               >
                 <User className="w-4 h-4" />
                 <span className="hidden sm:inline">{user?.fullName || "Học viên"}</span>
@@ -55,7 +55,7 @@ export const Navbar: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="text-color-4 hover:bg-color-4/10 gap-space-1"
+                className="min-h-11 px-space-2 sm:px-space-3 text-color-4 hover:bg-color-4/10 gap-space-1 whitespace-nowrap"
                 title="Đăng xuất"
               >
                 <LogOut className="w-4 h-4" />
@@ -63,15 +63,15 @@ export const Navbar: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-space-2">
+            <div className="flex items-center gap-space-1 sm:gap-space-2">
               <Button
                 variant={isLoginPage ? "primary" : "secondary"}
                 size="sm"
                 onClick={() => navigate("/login")}
                 aria-current={isLoginPage ? "page" : undefined}
-                className="gap-space-1"
+                className="min-h-11 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs gap-space-1 whitespace-nowrap"
               >
-                <LogIn className="w-4 h-4" />
+                <LogIn className="w-4 h-4 shrink-0" />
                 <span>Đăng nhập</span>
               </Button>
               <Button
@@ -79,6 +79,7 @@ export const Navbar: React.FC = () => {
                 size="sm"
                 onClick={() => navigate("/register")}
                 aria-current={isRegisterPage ? "page" : undefined}
+                className="min-h-11 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs whitespace-nowrap"
               >
                 Đăng ký
               </Button>

@@ -57,26 +57,26 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-color-7 border-b-2 border-color-1 shadow-xs">
-      <div className="max-w-7xl mx-auto px-space-2 sm:px-space-4 py-space-1 flex flex-wrap items-center justify-between gap-space-2 min-h-[56px]">
+      <div className="max-w-7xl mx-auto px-space-2 sm:px-space-4 py-space-1 flex flex-wrap lg:flex-nowrap items-center justify-between gap-space-1 sm:gap-space-2 min-h-[56px]">
         {/* Left: Exit + Mode Badge + Primary Heading */}
-        <div className="flex items-center gap-space-2 min-w-0 flex-1">
+        <div className="flex items-center gap-space-1 sm:gap-space-2 min-w-0 flex-1">
           <button
             type="button"
             onClick={onExit}
             aria-label={exitLabel}
-            className="min-h-11 px-space-3 py-space-1 inline-flex items-center gap-space-1 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-text-xs hover:bg-color-5 transition-colors duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 shrink-0"
+            className="min-h-11 px-space-2 sm:px-space-3 py-space-1 inline-flex items-center gap-space-1 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-[13px] sm:text-text-xs hover:bg-color-5 transition-colors duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">{exitLabel}</span>
           </button>
 
           {modeBadge && (
-            <Badge variant={badgeVariant} className="shrink-0 hidden md:inline-flex">
+            <Badge variant={badgeVariant} className="shrink-0 hidden xl:inline-flex">
               {modeBadge.label}
             </Badge>
           )}
 
-          <h1 className="text-text-sm sm:text-text-base font-bold text-color-1 truncate min-w-0">
+          <h1 className="text-text-xs sm:text-text-sm lg:text-text-base font-bold text-color-1 truncate min-w-0">
             {title}
           </h1>
         </div>
@@ -96,7 +96,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => modeToggle.onChange(opt.value)}
-                  className={`min-h-11 px-space-3 rounded-full text-text-2xs sm:text-text-xs font-bold transition-colors duration-fast cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-color-5 whitespace-nowrap ${
+                  className={`min-h-11 px-space-2 sm:px-space-3 rounded-full text-[13px] sm:text-text-xs font-bold transition-colors duration-fast cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-color-5 whitespace-nowrap ${
                     isSelected
                       ? "bg-color-2 text-color-7 shadow-2xs"
                       : "bg-transparent text-color-1 hover:bg-color-7"
@@ -110,7 +110,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         )}
 
         {/* Center/Compact Progress */}
-        <div className="w-full sm:w-auto sm:min-w-[200px] sm:max-w-[260px] order-3 sm:order-2">
+        <div className="w-full sm:w-auto sm:min-w-[160px] sm:max-w-[220px] lg:min-w-[175px] xl:min-w-[210px] order-3 sm:order-2">
           <ProgressBar
             current={progressCurrent}
             total={Math.max(1, progressTotal)}
@@ -125,7 +125,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
               {saveStatus === "saving" && (
                 <span className="min-h-11 inline-flex items-center gap-space-1 px-space-2 rounded-full bg-color-6 text-color-1 border border-color-1 text-text-2xs font-bold">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span className="hidden md:inline">Đang lưu...</span>
+                  <span className="hidden xl:inline">Đang lưu...</span>
                 </span>
               )}
               {saveStatus === "saved" && (
@@ -133,7 +133,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
                   <span className="w-5 h-5 rounded-full bg-color-3 text-color-7 inline-flex items-center justify-center">
                     <Check className="w-3 h-3" aria-hidden="true" />
                   </span>
-                  <span className="hidden md:inline">Đã lưu</span>
+                  <span className="hidden xl:inline">Đã lưu</span>
                 </span>
               )}
               {saveStatus === "error" && (
@@ -156,10 +156,10 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             onClick={onOpenShortcuts}
             aria-label="Phím tắt (?)"
             title="Phím tắt (?)"
-            className="min-h-11 min-w-11 px-space-2 inline-flex items-center justify-center gap-space-1 rounded-full bg-color-7 text-color-1 border-2 border-color-1 hover:bg-color-6 font-bold text-text-xs cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5"
+            className="hidden md:inline-flex min-h-11 min-w-11 px-space-2 items-center justify-center gap-space-1 rounded-full bg-color-7 text-color-1 border-2 border-color-1 hover:bg-color-6 font-bold text-text-xs cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5"
           >
             <HelpCircle className="w-4 h-4" />
-            <span className="hidden lg:inline">?</span>
+            <span className="hidden xl:inline">?</span>
           </button>
 
           {primaryActionSlot}
