@@ -10,7 +10,8 @@ export interface ResultScoreCardProps {
   percentageScore: number;
   totalScore: number;
   isPassed: boolean;
-  durationSeconds: number;
+  durationSeconds?: number | null;
+  submittedAt?: string;
 }
 
 export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
@@ -21,9 +22,17 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
   totalScore,
   isPassed,
   durationSeconds,
+  submittedAt,
 }) => {
-  const minutes = Math.floor(durationSeconds / 60);
-  const seconds = durationSeconds % 60;
+  const hasDuration = typeof durationSeconds === "number" && durationSeconds > 0;
+  const minutes = hasDuration ? Math.floor(durationSeconds / 60) : 0;
+  const seconds = hasDuration ? durationSeconds % 60 : 0;
+  const submittedTimeLabel = submittedAt
+    ? new Date(submittedAt).toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "Hoàn thành";
 
   return (
     <Card className="p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm text-center max-w-3xl mx-auto w-full">
@@ -70,7 +79,7 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
           <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Tỷ lệ chính xác</div>
           <div
             className={`text-text-lg sm:text-text-xl font-bold mt-space-1 ${
-              isPassed ? "text-color-3" : "text-color-4"
+              isPassed ? "text-color-3" : "text-color-1"
             }`}
           >
             {percentageScore.toFixed(1)}%
@@ -88,10 +97,11 @@ export const ResultScoreCard: React.FC<ResultScoreCardProps> = ({
 
         <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border border-color-1/30 min-w-0">
           <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75 flex items-center justify-center gap-space-1">
-            <Clock className="w-4 h-4 text-color-1 shrink-0" /> Thời gian làm
+            <Clock className="w-4 h-4 text-color-1 shrink-0" />{" "}
+            {hasDuration ? "Thời gian làm" : "Nộp bài lúc"}
           </div>
           <div className="text-text-lg sm:text-text-xl font-bold text-color-1 mt-space-1">
-            {minutes}p {seconds}s
+            {hasDuration ? `${minutes}p ${seconds}s` : submittedTimeLabel}
           </div>
         </div>
       </div>

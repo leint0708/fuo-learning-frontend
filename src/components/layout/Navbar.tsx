@@ -46,19 +46,22 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center gap-space-1 sm:gap-space-2">
               <Link
                 to="/profile"
+                aria-label="Hồ sơ cá nhân"
+                title={user?.fullName || "Hồ sơ cá nhân"}
                 className="min-h-11 flex items-center gap-space-1 px-space-2 sm:px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-6 hover:bg-color-7 font-bold text-[13px] sm:text-text-xs shadow-xs outline-none focus-visible:ring-4 focus-visible:ring-color-5 transition-colors duration-fast"
               >
-                <User className="w-4 h-4" />
+                <User className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span className="hidden sm:inline">{user?.fullName || "Học viên"}</span>
               </Link>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleLogout}
-                className="min-h-11 px-space-2 sm:px-space-3 text-color-4 hover:bg-color-4/10 gap-space-1 whitespace-nowrap"
+                aria-label="Đăng xuất"
+                className="min-h-11 px-space-2 sm:px-space-3 text-color-1 hover:bg-color-4/15 gap-space-1 whitespace-nowrap"
                 title="Đăng xuất"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span className="hidden sm:inline">Đăng xuất</span>
               </Button>
             </div>

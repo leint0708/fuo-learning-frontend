@@ -15,18 +15,18 @@ export const Badge: React.FC<BadgeProps> = ({
   className,
 }) => {
   const variantStyles = {
-    default: "bg-color-6 text-color-1 border-color-1",
+    default: "bg-color-6 text-color-1 border-color-1/40",
     primary: "bg-color-2 text-color-7 border-color-2",
     success: "bg-color-3 text-color-7 border-color-3",
     danger: "bg-color-4 text-color-1 border-color-1",
     warning: "bg-color-5 text-color-1 border-color-1",
-    neutral: "bg-color-7 text-color-1 border-color-1",
+    neutral: "bg-color-7 text-color-1 border-color-1/40",
   };
 
   return (
     <span
       className={clsx(
-        "inline-flex items-center max-w-full px-space-2 py-0.5 rounded-full text-[13px] leading-tight sm:text-text-xs font-bold border shadow-xs tracking-wide whitespace-normal",
+        "inline-flex items-center max-w-full px-space-2 py-0.5 rounded-full text-text-2xs sm:text-text-xs font-bold border tracking-wide whitespace-normal",
         variantStyles[variant],
         className
       )}

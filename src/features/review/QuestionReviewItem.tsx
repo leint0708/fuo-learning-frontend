@@ -44,10 +44,10 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
       <div className="flex flex-wrap items-center justify-between gap-space-2 pb-space-3 border-b-2 border-color-6">
         <div className="flex flex-wrap items-center gap-space-2">
           <span
-            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-text-xs border-2 shadow-2xs ${
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-text-xs border-2 tabular-nums ${
               isUserCorrect
-                ? "bg-color-3 text-color-7 border-color-3"
-                : "bg-color-4 text-color-7 border-color-4"
+                ? "bg-color-3 text-color-7 border-color-1"
+                : "bg-color-4 text-color-1 border-color-1"
             }`}
           >
             {index + 1}

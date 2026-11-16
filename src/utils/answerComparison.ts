@@ -1,3 +1,20 @@
+import type { BenchmarkMode, CommunityStats } from "@/types/exam";
+
+/**
+ * Returns a non-blocking notice when the user selected community answers
+ * but no valid community votes exist yet and AI fallback was used.
+ */
+export function getCommunityFallbackNotice(
+  benchmarkMode: BenchmarkMode,
+  communityStats?: CommunityStats | null
+): string | null {
+  if (benchmarkMode !== "community") return null;
+  const hasVotes = Boolean(
+    communityStats?.communityAnswer && communityStats.validVoteCount > 0
+  );
+  return hasVotes ? null : "Chưa có dữ liệu cộng đồng — đang dùng đáp án AI";
+}
+
 /**
  * Normalizes an answer string by trimming, uppercasing, and sorting characters alphabetically.
  * E.g., "bca " -> "ABC"

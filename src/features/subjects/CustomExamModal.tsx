@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sliders, Clock, HelpCircle, Eye, ShieldCheck, AlertCircle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -17,6 +17,7 @@ export interface CustomExamModalProps {
   maxAvailableQuestions?: number;
   isCustomExam?: boolean;
   fixedQuestionCount?: number;
+  defaultDurationMinutes?: number;
   onStartExam?: (config: ExamConfigOptions) => void;
 }
 
@@ -28,19 +29,40 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
   maxAvailableQuestions = 50,
   isCustomExam = true,
   fixedQuestionCount = 50,
+  defaultDurationMinutes,
   onStartExam,
 }) => {
   const navigate = useNavigate();
   const { setFeedbackMode, setBenchmarkMode } = useExamUiStore();
 
-  const [questionCount, setQuestionCount] = useState<number>(Math.min(20, maxAvailableQuestions));
-  const [durationMinutes, setDurationMinutes] = useState<number>(30);
-  const [customDurationInput, setCustomDurationInput] = useState<string>("");
+  const [questionCount, setQuestionCount] = useState<number>(
+    maxAvailableQuestions > 0 ? Math.min(20, Math.max(5, maxAvailableQuestions)) : 20
+  );
+  const [durationMinutes, setDurationMinutes] = useState<number>(defaultDurationMinutes ?? 30);
+  const [customDurationInput, setCustomDurationInput] = useState<string>(
+    defaultDurationMinutes ? String(defaultDurationMinutes) : ""
+  );
   const [isUntimed, setIsUntimed] = useState<boolean>(false);
   const [feedbackModeState, setFeedbackModeState] = useState<FeedbackMode>("instant");
   const [benchmarkModeState, setBenchmarkModeState] = useState<BenchmarkMode>("ai");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (maxAvailableQuestions > 0) {
+      setQuestionCount((prev) =>
+        prev < 5 || prev > maxAvailableQuestions
+          ? Math.min(20, Math.max(5, maxAvailableQuestions))
+          : prev
+      );
+    }
+    if (defaultDurationMinutes && defaultDurationMinutes > 0) {
+      setDurationMinutes(defaultDurationMinutes);
+      setCustomDurationInput(String(defaultDurationMinutes));
+    }
+    setError(null);
+  }, [isOpen, defaultDurationMinutes, maxAvailableQuestions]);
 
   const handleStartExam = async () => {
     setIsLoading(true);
@@ -108,8 +130,8 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
     >
       <div className="space-y-space-5">
         {error && (
-          <div className="p-space-3 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl text-text-xs font-bold flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="p-space-3 bg-color-4/15 border-2 border-color-4 text-color-1 rounded-3xl text-text-xs font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-color-4" />
             <span>{typeof error === "string" ? error : getErrorMessage(error)}</span>
           </div>
         )}
@@ -117,7 +139,10 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
         {/* Question Count Setting */}
         {isCustomExam ? (
           <div>
-            <label className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-space-2">
+            <label
+              htmlFor="custom-exam-question-count"
+              className="flex items-center justify-between text-text-xs font-bold text-color-1 mb-space-2"
+            >
               <span className="flex items-center gap-1.5">
                 <HelpCircle className="w-4 h-4 text-color-2" />
                 Số lượng câu hỏi
@@ -126,6 +151,7 @@ export const CustomExamModal: React.FC<CustomExamModalProps> = ({
             </label>
             <div className="min-h-11 flex items-center">
               <input
+                id="custom-exam-question-count"
                 type="range"
                 role="slider"
                 aria-label="Số lượng câu hỏi"

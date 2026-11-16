@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Trophy, RotateCcw, Home, Check } from "lucide-react";
+import { Trophy, RotateCcw, Home, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { StudyCockpitShell } from "@/features/workspace/StudyCockpitShell";
 import { CockpitHeader } from "@/features/workspace/CockpitHeader";
 import { QuestionStage } from "@/features/workspace/QuestionStage";
@@ -32,6 +33,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
   const navigate = useNavigate();
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
   const [isMobileNavigatorOpen, setIsMobileNavigatorOpen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [failedDiagramIds, setFailedDiagramIds] = useState<Record<string, boolean>>({});
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
@@ -196,11 +198,52 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
           title={adapter.descriptor.title}
           exitLabel={adapter.descriptor.exitLabel}
           onExit={() => navigate(adapter.descriptor.exitRoute)}
-          progressLabel={adapter.progressLabel}
-          progressCurrent={adapter.progressCurrent}
-          progressTotal={adapter.progressTotal}
-          progressCurrentBadge={adapter.progressCurrent}
-          progressTotalBadge={adapter.progressTotal}
+          progressLabel={
+            practiceMode === "cram"
+              ? `Tiến độ Cram: ${adapter.cram.masteredIds.size}/${adapter.deckSize} câu`
+              : `Tiến độ Learn: ${adapter.learn.graduatedPool.length}/${adapter.deckSize} câu đã thuộc`
+          }
+          progressCurrent={
+            practiceMode === "cram"
+              ? adapter.cram.masteredIds.size
+              : adapter.learn.graduatedPool.length
+          }
+          progressTotal={adapter.deckSize || adapter.progressTotal}
+          progressCurrentBadge={
+            practiceMode === "cram"
+              ? adapter.cram.masteredIds.size
+              : adapter.learn.graduatedPool.length
+          }
+          progressTotalBadge={adapter.deckSize || adapter.progressTotal}
+          progressVariant={practiceMode}
+          learnActiveCount={adapter.learn.activePool.length}
+          modeSubLegend={
+            practiceMode === "learn" ? (
+              <>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full bg-color-3 border border-color-1"
+                    aria-hidden="true"
+                  />
+                  <span>Đã thuộc ({adapter.learn.graduatedPool.length})</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full bg-color-5 border border-color-1"
+                    aria-hidden="true"
+                  />
+                  <span>Đang học ({adapter.learn.activePool.length})</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full bg-color-6 border border-color-1"
+                    aria-hidden="true"
+                  />
+                  <span>Chưa học ({adapter.learn.waitingPool.length})</span>
+                </span>
+              </>
+            ) : undefined
+          }
           modeSwitcher={{
             currentMode: practiceMode,
             label: practiceMode === "cram" ? "Cram" : "Learn",
@@ -214,19 +257,19 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
               }
             },
           }}
-          modeToggle={{
-            ariaLabel: "Chế độ chấm điểm",
-            value: adapter.feedbackMode,
+          answerSourceToggle={{
+            ariaLabel: "Nguồn đáp án",
+            value: adapter.benchmarkMode,
             options: [
-              { value: "instant", label: "Chấm tức thì" },
-              { value: "deferred", label: "Chờ tổng kết" },
+              { value: "ai", label: "Đáp án AI" },
+              { value: "community", label: "Cộng đồng" },
             ],
             onChange: (value) => {
-              adapter.setFeedbackMode(value === "deferred" ? "deferred" : "instant");
+              adapter.setBenchmarkMode(value === "community" ? "community" : "ai");
             },
           }}
           onOpenShortcuts={() => setIsShortcutHelpOpen(true)}
-          onResetAction={adapter.resetPracticeSession}
+          onResetAction={() => setIsResetConfirmOpen(true)}
           resetLabel="Luyện lại từ đầu"
         />
       }
@@ -351,7 +394,7 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
       onNext={adapter.advanceNext}
       onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
       onOpenAiAnalysis={adapter.openAiAnalysis}
-      aiButtonLabel="FUO AI"
+      aiButtonLabel="AI Explanation"
       modals={
         <>
           {practiceMode === "cram" && (
@@ -406,6 +449,50 @@ const PracticeCockpitSession: React.FC<PracticeCockpitSessionProps> = ({
             mode="practice"
             hasVisualMedia={hasVisualMedia}
           />
+
+          <Modal
+            isOpen={isResetConfirmOpen}
+            onClose={() => setIsResetConfirmOpen(false)}
+            title="Xác nhận đặt lại tiến độ"
+            size="sm"
+          >
+            <div className="flex flex-col gap-space-4">
+              <div className="flex items-start gap-space-3 p-space-4 rounded-2xl bg-color-5/25 border-2 border-color-1 text-color-1">
+                <div className="w-10 h-10 rounded-full bg-color-5 text-color-1 border-2 border-color-1 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <div className="flex flex-col gap-space-1">
+                  <p className="text-text-sm font-bold text-color-1">
+                    Đặt lại toàn bộ tiến độ luyện tập?
+                  </p>
+                  <p className="text-text-xs font-medium text-color-1">
+                    Hành động này sẽ xóa các câu đã thuộc của môn {subjectCode} trong chế độ này và bắt đầu lại từ đầu.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-space-2 pt-space-2 border-t-2 border-color-6">
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => setIsResetConfirmOpen(false)}
+                  className="min-h-11"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  variant="danger"
+                  size="md"
+                  onClick={() => {
+                    setIsResetConfirmOpen(false);
+                    adapter.resetPracticeSession();
+                  }}
+                  className="min-h-11"
+                >
+                  Đặt lại tiến độ
+                </Button>
+              </div>
+            </div>
+          </Modal>
         </>
       }
     />

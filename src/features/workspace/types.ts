@@ -59,6 +59,7 @@ export interface WorkspaceEvaluationResult {
   optionByOptionAnalysis?: Record<string, string> | null;
   aiModel?: string;
   errorMessage?: string | null;
+  communityFallbackNotice?: string | null;
   resolvedAt?: number;
 }
 

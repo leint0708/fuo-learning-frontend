@@ -51,9 +51,12 @@ export const LoginForm: React.FC = () => {
     }
   };
 
+  const isEmailError = Boolean(error) && (!email.trim() || Boolean(email.trim() && password));
+  const isPasswordError = Boolean(error) && (!password || Boolean(email.trim() && password));
+
   return (
-    <div className="flex-1 flex items-center justify-center p-space-4 sm:p-space-6">
-      <Card className="w-full max-w-md p-space-5 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm rounded-3xl">
+    <div className="flex-1 flex items-center justify-center p-space-3 sm:p-space-6">
+      <Card className="w-full max-w-md p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm rounded-3xl">
         <div className="text-center mb-space-5">
           <div
             data-impeccable-ignore="hard-offset-shadow"
@@ -103,11 +106,11 @@ export const LoginForm: React.FC = () => {
               placeholder="example@fpt.edu.vn"
               required
               disabled={isLoading}
-              aria-invalid={!!error}
+              aria-invalid={isEmailError}
               aria-describedby={error ? "login-error" : undefined}
               className={clsx(
                 "w-full px-space-4 py-space-2 rounded-full border-2 bg-color-6 text-color-1 placeholder:text-color-1/70 outline-none hover:border-color-2 focus-visible:ring-4 focus-visible:ring-color-5 transition-all duration-fast text-text-sm disabled:opacity-60 disabled:cursor-not-allowed",
-                error ? "border-color-4" : "border-color-1"
+                isEmailError ? "border-color-4" : "border-color-1"
               )}
             />
           </div>
@@ -133,11 +136,11 @@ export const LoginForm: React.FC = () => {
                 placeholder="Nhập mật khẩu của bạn"
                 required
                 disabled={isLoading}
-                aria-invalid={!!error}
+                aria-invalid={isPasswordError}
                 aria-describedby={error ? "login-error" : undefined}
                 className={clsx(
                   "w-full pl-space-4 pr-14 py-space-2 rounded-full border-2 bg-color-6 text-color-1 placeholder:text-color-1/70 outline-none hover:border-color-2 focus-visible:ring-4 focus-visible:ring-color-5 transition-all duration-fast text-text-sm disabled:opacity-60 disabled:cursor-not-allowed",
-                  error ? "border-color-4" : "border-color-1"
+                  isPasswordError ? "border-color-4" : "border-color-1"
                 )}
               />
               <button

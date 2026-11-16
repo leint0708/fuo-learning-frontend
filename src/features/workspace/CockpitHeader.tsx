@@ -28,6 +28,9 @@ export interface CockpitHeaderProps {
   progressTotal: number;
   progressCurrentBadge?: number;
   progressTotalBadge?: number;
+  progressVariant?: "cram" | "learn" | "exam";
+  learnActiveCount?: number;
+  modeSubLegend?: React.ReactNode;
   modeSwitcher?: {
     currentMode: "cram" | "learn" | "exam";
     label: string;
@@ -38,7 +41,7 @@ export interface CockpitHeaderProps {
     label: string;
     tone: "primary" | "accent" | "warning" | "neutral";
   };
-  modeToggle?: {
+  answerSourceToggle?: {
     ariaLabel: string;
     value: string;
     options: Array<{ value: string; label: string }>;
@@ -68,8 +71,11 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   progressTotal,
   progressCurrentBadge,
   progressTotalBadge,
+  progressVariant,
+  learnActiveCount = 0,
+  modeSubLegend,
   modeSwitcher,
-  modeToggle,
+  answerSourceToggle,
   statusSlot,
   saveStatus = "idle",
   onRetrySave,
@@ -105,9 +111,18 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
   }, [isModeMenuOpen]);
 
   const safeTotal = Math.max(1, progressTotal);
-  const percentage = Math.min(100, Math.max(0, Math.round((progressCurrent / safeTotal) * 100)));
+  const clampedCurrent = Math.min(safeTotal, Math.max(0, progressCurrent));
+  const percentage = Math.min(100, Math.max(0, Math.round((clampedCurrent / safeTotal) * 100)));
+  const learnActivePct = Math.min(
+    100 - percentage,
+    Math.max(0, Math.round((Math.max(0, learnActiveCount) / safeTotal) * 100))
+  );
+  const segmentCount = Math.max(1, Math.min(12, Math.ceil(safeTotal / 10)));
+  const itemsPerSegment = safeTotal / segmentCount;
   const leftNumber = progressCurrentBadge ?? progressCurrent;
   const rightNumber = progressTotalBadge ?? progressTotal;
+  const leftBadgeToneClass =
+    progressVariant === "learn" ? "bg-color-3 text-color-7" : "bg-color-2 text-color-7";
 
   const hasDropdown =
     Boolean(modeSwitcher?.options?.length) && Boolean(modeSwitcher?.onSelectMode);
@@ -124,7 +139,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-30 bg-color-7 border-b-2 border-color-1 shadow-xs">
-      <div className="max-w-[1600px] mx-auto px-space-2 sm:px-space-4 py-space-1 flex flex-wrap lg:flex-nowrap items-center justify-between gap-space-2 min-h-[60px]">
+      <div className="max-w-[1600px] mx-auto px-space-2 sm:px-space-4 py-space-1 flex flex-wrap lg:flex-nowrap items-center justify-between gap-space-1.5 sm:gap-space-2 min-h-[54px] sm:min-h-[60px]">
         {/* Left: Exit + Mode Pill/Dropdown + Timer Slot */}
         <div className="flex items-center gap-space-1 sm:gap-space-2 min-w-0">
           <button
@@ -132,7 +147,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             onClick={onExit}
             aria-label={exitLabel}
             title={exitLabel}
-            className="min-h-11 px-space-2 sm:px-space-3 inline-flex items-center gap-space-1 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-[13px] sm:text-text-xs hover:bg-color-5 transition-colors duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 shrink-0"
+            className="min-h-11 px-space-2 sm:px-space-3 inline-flex items-center gap-space-1 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-text-2xs sm:text-text-xs hover:bg-color-5 transition-colors duration-fast cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 shrink-0"
           >
             <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span className="hidden xl:inline">{exitLabel}</span>
@@ -210,27 +225,87 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
         {/* Hidden Accessible Heading if modeSwitcher replaced visible title */}
         {modeSwitcher && <h1 className="sr-only">{title}</h1>}
 
-        {/* Center: Pill Capsule Progress Bar: (current) ──── [bar] ──── (total) */}
-        <div className="w-full lg:flex-1 lg:max-w-lg order-3 lg:order-2 flex items-center gap-space-2 px-space-1">
-          <span className="min-w-8 h-8 px-space-2 rounded-full bg-color-2 text-color-7 border-2 border-color-1 text-[13px] font-bold inline-flex items-center justify-center tabular-nums shrink-0 shadow-2xs">
+        {/* Center: Mode-Specific Progress Bar */}
+        <div className="w-full lg:flex-1 lg:max-w-lg order-3 lg:order-2 flex items-center gap-space-1.5 sm:gap-space-2 px-space-1">
+          <span
+            className={`min-w-7 h-7 sm:min-w-8 sm:h-8 px-space-1.5 sm:px-space-2 rounded-full ${leftBadgeToneClass} border-2 border-color-1 text-text-2xs sm:text-[13px] font-bold inline-flex items-center justify-center tabular-nums shrink-0 shadow-2xs`}
+          >
             {leftNumber}
           </span>
 
-          <div
-            role="progressbar"
-            aria-label={progressLabel}
-            aria-valuenow={progressCurrent}
-            aria-valuemin={0}
-            aria-valuemax={safeTotal}
-            className="flex-1 h-3.5 bg-color-6 border-2 border-color-1 rounded-full overflow-hidden p-0.5"
-          >
+          {progressVariant === "cram" || progressVariant === "exam" ? (
             <div
-              className="h-full bg-color-2 rounded-full transition-all duration-300 ease-out"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
+              role="progressbar"
+              aria-label={progressLabel}
+              aria-valuenow={progressCurrent}
+              aria-valuemin={0}
+              aria-valuemax={safeTotal}
+              data-progress-variant={progressVariant}
+              className="flex-1 flex items-center gap-1.5"
+            >
+              {Array.from({ length: segmentCount }, (_, idx) => {
+                const start = idx * itemsPerSegment;
+                const fillRatio = Math.min(
+                  1,
+                  Math.max(0, (clampedCurrent - start) / itemsPerSegment)
+                );
+                const fillPct = Math.round(fillRatio * 100);
+                return (
+                  <div
+                    key={idx}
+                    data-segment-index={idx}
+                    className="flex-1 h-2.5 bg-color-6 border border-color-1 rounded-full overflow-hidden"
+                  >
+                    <div
+                      className="h-full bg-color-2 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${fillPct}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : progressVariant === "learn" ? (
+            <div
+              role="progressbar"
+              aria-label={progressLabel}
+              aria-valuenow={progressCurrent}
+              aria-valuemin={0}
+              aria-valuemax={safeTotal}
+              data-progress-variant="learn"
+              className="flex-1 h-3 bg-color-6 border-2 border-color-1 rounded-full overflow-hidden p-0.5 flex"
+            >
+              {percentage > 0 && (
+                <div
+                  data-learn-segment="mastered"
+                  className="h-full bg-color-3 transition-all duration-300 ease-out"
+                  style={{ width: `${percentage}%` }}
+                />
+              )}
+              {learnActivePct > 0 && (
+                <div
+                  data-learn-segment="active"
+                  className="h-full bg-color-5 transition-all duration-300 ease-out"
+                  style={{ width: `${learnActivePct}%` }}
+                />
+              )}
+            </div>
+          ) : (
+            <div
+              role="progressbar"
+              aria-label={progressLabel}
+              aria-valuenow={progressCurrent}
+              aria-valuemin={0}
+              aria-valuemax={safeTotal}
+              className="flex-1 h-3.5 bg-color-6 border-2 border-color-1 rounded-full overflow-hidden p-0.5"
+            >
+              <div
+                className="h-full bg-color-2 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+          )}
 
-          <span className="min-w-8 h-8 px-space-2 rounded-full bg-color-6 text-color-1 border-2 border-color-1 text-[13px] font-bold inline-flex items-center justify-center tabular-nums shrink-0">
+          <span className="min-w-7 h-7 sm:min-w-8 sm:h-8 px-space-1.5 sm:px-space-2 rounded-full bg-color-6 text-color-1 border-2 border-color-1 text-text-2xs sm:text-[13px] font-bold inline-flex items-center justify-center tabular-nums shrink-0">
             {rightNumber}
           </span>
         </div>
@@ -284,7 +359,7 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
             <CockpitSettingsPopover
               isOpen={isSettingsOpen}
               onClose={() => setIsSettingsOpen(false)}
-              modeToggle={modeToggle}
+              answerSourceToggle={answerSourceToggle}
               onOpenShortcuts={onOpenShortcuts}
             />
           </div>
@@ -302,6 +377,12 @@ export const CockpitHeader: React.FC<CockpitHeaderProps> = ({
           )}
         </div>
       </div>
+
+      {modeSubLegend && (
+        <div className="max-w-[1600px] mx-auto px-space-2 sm:px-space-4 pb-space-1.5 flex flex-wrap items-center gap-x-space-3 gap-y-0.5 text-[11px] sm:text-text-2xs font-bold text-color-1/85">
+          {modeSubLegend}
+        </div>
+      )}
     </header>
   );
 };

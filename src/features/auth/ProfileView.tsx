@@ -1,6 +1,16 @@
 import React, { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { User, Award, CheckCircle, Clock, BarChart2, AlertCircle, RotateCcw } from "lucide-react";
+import {
+  User,
+  Award,
+  CheckCircle,
+  Clock,
+  BarChart2,
+  AlertCircle,
+  RotateCcw,
+  ChevronRight,
+} from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -100,47 +110,55 @@ export const ProfileView: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-space-2 sm:gap-space-4">
-            <Card className="p-space-3 sm:p-space-4 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-space-2 sm:gap-space-3 lg:gap-space-4">
+            <Card className="p-space-3 lg:p-space-4 text-center">
               <div className="inline-flex p-space-2 rounded-full bg-color-2/10 text-color-2 mb-space-1">
                 <Award className="w-5 h-5" />
               </div>
-              <div className="text-text-lg sm:text-text-xl font-bold text-color-1 tabular-nums">
+              <div className="text-text-lg lg:text-text-xl font-bold text-color-1 tabular-nums">
                 {stats?.total_attempts_count ?? 0}
               </div>
-              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Lượt thi đã làm</div>
+              <div className="text-text-2xs lg:text-text-xs font-bold text-color-1/75">
+                Lượt thi đã làm
+              </div>
             </Card>
 
-            <Card className="p-space-3 sm:p-space-4 text-center">
+            <Card className="p-space-3 lg:p-space-4 text-center">
               <div className="inline-flex p-space-2 rounded-full bg-color-3/10 text-color-3 mb-space-1">
                 <CheckCircle className="w-5 h-5" />
               </div>
-              <div className="text-text-lg sm:text-text-xl font-bold text-color-3 tabular-nums">
+              <div className="text-text-lg lg:text-text-xl font-bold text-color-3 tabular-nums">
                 {stats?.total_exams_passed ?? 0}
               </div>
-              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Đề thi đã đạt</div>
+              <div className="text-text-2xs lg:text-text-xs font-bold text-color-1/75">
+                Đề thi đã đạt
+              </div>
             </Card>
 
-            <Card className="p-space-3 sm:p-space-4 text-center">
-              <div className="inline-flex p-space-2 rounded-full bg-color-5/10 text-color-5 mb-space-1">
+            <Card className="p-space-3 lg:p-space-4 text-center">
+              <div className="inline-flex p-space-2 rounded-full bg-color-5/25 text-color-1 border border-color-1/25 mb-space-1">
                 <BarChart2 className="w-5 h-5" />
               </div>
-              <div className="text-text-lg sm:text-text-xl font-bold text-color-1 tabular-nums">
+              <div className="text-text-lg lg:text-text-xl font-bold text-color-1 tabular-nums">
                 {stats?.overall_average_score
                   ? `${stats.overall_average_score.toFixed(1)}/10`
                   : "0.0/10"}
               </div>
-              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Điểm trung bình</div>
+              <div className="text-text-2xs lg:text-text-xs font-bold text-color-1/75">
+                Điểm trung bình
+              </div>
             </Card>
 
-            <Card className="p-space-3 sm:p-space-4 text-center">
+            <Card className="p-space-3 lg:p-space-4 text-center">
               <div className="inline-flex p-space-2 rounded-full bg-color-2/10 text-color-2 mb-space-1">
                 <Clock className="w-5 h-5" />
               </div>
-              <div className="text-text-lg sm:text-text-xl font-bold text-color-1 tabular-nums">
+              <div className="text-text-lg lg:text-text-xl font-bold text-color-1 tabular-nums">
                 {stats?.total_practice_duration_minutes ?? 0}p
               </div>
-              <div className="text-[13px] sm:text-text-xs font-bold text-color-1/75">Thời gian làm bài</div>
+              <div className="text-text-2xs lg:text-text-xs font-bold text-color-1/75">
+                Thời gian làm bài
+              </div>
             </Card>
           </div>
         )}
@@ -152,19 +170,39 @@ export const ProfileView: React.FC = () => {
           <h2 className="text-text-lg font-bold text-color-1 mb-space-4">Chi tiết theo môn học</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-space-4">
             {stats.subject_breakdowns.map((sub) => (
-              <Card key={sub.subject_code} className="p-space-4">
-                <div className="flex justify-between items-start gap-space-2 mb-space-2">
-                  <h3 className="font-bold text-text-sm text-color-1 min-w-0 truncate">{sub.subject_code}</h3>
-                  <Badge variant="neutral" className="shrink-0">{sub.attempts_count} lượt thi</Badge>
-                </div>
-                <p className="text-text-xs text-color-1/75 mb-space-3 line-clamp-1">
-                  {sub.subject_title}
-                </p>
-                <div className="flex justify-between items-center text-text-xs font-bold pt-space-2 border-t border-color-1/20">
-                  <span>Điểm TB: {sub.average_score.toFixed(1)}</span>
-                  <span className="text-color-3">Đạt: {sub.passed_exams_count}</span>
-                </div>
-              </Card>
+              <Link
+                key={sub.subject_code}
+                to={`/subjects/${encodeURIComponent(sub.subject_code)}`}
+                aria-label={`Mở môn ${sub.subject_code} — ${sub.subject_title}`}
+                className="group block rounded-3xl outline-none focus-visible:ring-4 focus-visible:ring-color-5"
+              >
+                <Card
+                  data-impeccable-ignore="hard-offset-shadow"
+                  className="p-space-4 h-full transition-all duration-fast group-hover:border-color-2 group-hover:-translate-y-0.5 group-hover:shadow-md"
+                >
+                  <div className="flex justify-between items-start gap-space-2 mb-space-2">
+                    <h3 className="font-bold text-text-sm text-color-1 min-w-0 truncate">
+                      {sub.subject_code}
+                    </h3>
+                    <Badge variant="neutral" className="shrink-0 tabular-nums">
+                      {sub.attempts_count} lượt thi
+                    </Badge>
+                  </div>
+                  <p className="text-text-xs text-color-1/75 mb-space-3 line-clamp-1">
+                    {sub.subject_title}
+                  </p>
+                  <div className="flex justify-between items-center text-text-xs font-bold pt-space-2 border-t border-color-1/20 tabular-nums">
+                    <span>Điểm TB: {sub.average_score.toFixed(1)}</span>
+                    <span className="inline-flex items-center gap-1 text-color-3">
+                      <span>Đạt: {sub.passed_exams_count}</span>
+                      <ChevronRight
+                        className="w-4 h-4 text-color-1/60 group-hover:text-color-2 transition-colors"
+                        aria-hidden="true"
+                      />
+                    </span>
+                  </div>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>

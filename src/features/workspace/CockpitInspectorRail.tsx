@@ -5,6 +5,7 @@ import {
   Check,
   Eraser,
   CheckCircle2,
+  XCircle,
   Zap,
   Brain,
 } from "lucide-react";
@@ -352,6 +353,12 @@ export const CockpitInspectorRail: React.FC<CockpitInspectorRailProps> = ({
           <CheckCircle2 className="w-3.5 h-3.5 text-color-3" aria-hidden="true" />
           <span>Đúng</span>
         </span>
+        {feedbackMode === "instant" && (
+          <span className="inline-flex items-center gap-1">
+            <XCircle className="w-3.5 h-3.5 text-color-4" aria-hidden="true" />
+            <span>Chưa đúng</span>
+          </span>
+        )}
       </div>
     </div>
   );

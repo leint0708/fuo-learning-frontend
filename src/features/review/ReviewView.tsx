@@ -7,6 +7,7 @@ import { ResultScoreCard } from "./ResultScoreCard";
 import { QuestionReviewItem } from "./QuestionReviewItem";
 import { getAttemptReview } from "@/api/attempts";
 import { getErrorMessage } from "@/utils/error";
+import { inferSubjectCode } from "@/utils/activeExams";
 
 export const ReviewView: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -39,7 +40,7 @@ export const ReviewView: React.FC = () => {
     return (
       <div className="flex-1 flex items-center justify-center p-space-4">
         <div className="max-w-md p-space-6 bg-color-7 border-2 border-color-4 text-center rounded-3xl shadow-sm">
-          <h3 className="text-text-lg font-bold text-color-4 mb-2">Không tìm thấy kết quả</h3>
+          <h3 className="text-text-lg font-bold text-color-1 mb-2">Không tìm thấy kết quả</h3>
           <p className="text-text-xs text-color-1/70 mb-space-4">
             {error
               ? getErrorMessage(error, "Bài thi chưa hoàn thành hoặc kết quả không tồn tại.")
@@ -59,6 +60,8 @@ export const ReviewView: React.FC = () => {
   const percentageScore = review.percentageScore ?? (totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0);
   const totalScore = (percentageScore / 100) * 10;
   const isPassed = review.isPassed ?? percentageScore >= 70.0;
+  const subjectCode = inferSubjectCode(review.examTitle);
+  const retryRoute = subjectCode ? `/subjects/${subjectCode}` : "/";
 
   const filteredQuestions = questions.filter((q) => {
     if (filterMode === "correct") return q.isCorrect;
@@ -81,7 +84,7 @@ export const ReviewView: React.FC = () => {
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate(retryRoute)}
           className="min-h-11 flex items-center gap-1.5"
         >
           <RotateCcw className="w-4 h-4" />
@@ -97,7 +100,8 @@ export const ReviewView: React.FC = () => {
         percentageScore={percentageScore}
         totalScore={totalScore}
         isPassed={isPassed}
-        durationSeconds={1250}
+        durationSeconds={review.durationSeconds}
+        submittedAt={review.submittedAt}
       />
 
       {/* Filter Tabs & Review List */}
@@ -126,7 +130,7 @@ export const ReviewView: React.FC = () => {
               className={`min-h-11 px-space-3 py-space-1 rounded-full text-[13px] sm:text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "correct"
                   ? "bg-color-3 text-color-7 shadow-xs"
-                  : "text-color-3 hover:bg-color-6"
+                  : "text-color-1 hover:bg-color-3/15"
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -138,8 +142,8 @@ export const ReviewView: React.FC = () => {
               onClick={() => setFilterMode("incorrect")}
               className={`min-h-11 px-space-3 py-space-1 rounded-full text-[13px] sm:text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-color-5 cursor-pointer ${
                 filterMode === "incorrect"
-                  ? "bg-color-4 text-color-7 shadow-xs"
-                  : "text-color-4 hover:bg-color-6"
+                  ? "bg-color-4 text-color-1 border border-color-1 shadow-xs"
+                  : "text-color-1 hover:bg-color-4/15"
               }`}
             >
               <XCircle className="w-3.5 h-3.5" />

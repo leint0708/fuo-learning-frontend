@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -10,7 +10,6 @@ import {
   Play,
   Sparkles,
   BookOpen,
-  AlertCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -19,26 +18,27 @@ import { CustomExamModal } from "./CustomExamModal";
 import { SubjectPracticeActions } from "./SubjectPracticeActions";
 import { ActiveExamsSection } from "./ActiveExamsSection";
 import { getSubject, getSubjectExams } from "@/api/subjects";
-import { startExamAttempt } from "@/api/attempts";
 import { getErrorMessage } from "@/utils/error";
 import { getSubjectLocalProgress } from "@/utils/practiceProgress";
-import { upsertActiveExam } from "@/utils/activeExams";
 
 export const SubjectDetailView: React.FC = () => {
   const { code } = useParams<{ code: string }>();
-  const navigate = useNavigate();
 
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<string | undefined>(undefined);
   const [isCustomExamMode, setIsCustomExamMode] = useState<boolean>(true);
   const [fixedExamQuestions, setFixedExamQuestions] = useState<number>(50);
-
-  const [startingExamId, setStartingExamId] = useState<string | null>(null);
-  const [startError, setStartError] = useState<string | null>(null);
+  const [selectedExamDuration, setSelectedExamDuration] = useState<number | undefined>(undefined);
 
   const subjectCode = code || "MAD101";
 
-  const { data: subject, isLoading: isSubjectLoading } = useQuery({
+  const {
+    data: subject,
+    isLoading: isSubjectLoading,
+    isError: isSubjectError,
+    error: subjectError,
+    refetch: refetchSubject,
+  } = useQuery({
     queryKey: ["subject", subjectCode],
     queryFn: () => getSubject(subjectCode),
   });
@@ -69,50 +69,20 @@ export const SubjectDetailView: React.FC = () => {
   const handleOpenNewCustomExam = () => {
     setSelectedExamId(undefined);
     setIsCustomExamMode(true);
+    setSelectedExamDuration(undefined);
     setIsCustomModalOpen(true);
   };
 
-  const handleOpenStandardExam = (examId: string, questionsCount: number) => {
+  const handleOpenStandardExam = (
+    examId: string,
+    questionsCount: number,
+    durationMinutes?: number
+  ) => {
     setSelectedExamId(examId);
     setIsCustomExamMode(false);
     setFixedExamQuestions(questionsCount);
+    setSelectedExamDuration(durationMinutes);
     setIsCustomModalOpen(true);
-  };
-
-  const handleDirectStartExam = async (
-    examId: string,
-    questionCount: number,
-    durationMinutes: number
-  ) => {
-    setStartingExamId(examId);
-    setStartError(null);
-    try {
-      const attempt = await startExamAttempt(examId, {
-        questionCount,
-        durationMinutes,
-        feedbackMode: "post_exam",
-        benchmarkMode: "ai",
-      });
-      upsertActiveExam({
-        attemptId: attempt.attemptId,
-        examId: attempt.examId,
-        examTitle: attempt.examTitle,
-        subjectCode,
-        totalQuestions: attempt.questions.length,
-        answeredCount: 0,
-        startedAt: attempt.startedAt,
-        expiresAt: attempt.expiresAt,
-        feedbackMode: "post_exam",
-        updatedAt: new Date().toISOString(),
-      });
-      navigate(`/attempts/${attempt.attemptId}`);
-    } catch (err) {
-      setStartError(
-        getErrorMessage(err, "Không thể khởi tạo bài thi. Vui lòng thử lại sau.")
-      );
-    } finally {
-      setStartingExamId(null);
-    }
   };
 
   return (
@@ -127,6 +97,29 @@ export const SubjectDetailView: React.FC = () => {
           <span>Quay lại danh sách môn học</span>
         </Link>
       </div>
+
+      {/* Non-blocking alert if subject metadata failed to load */}
+      {isSubjectError && !isSubjectLoading && (
+        <div
+          role="alert"
+          className="p-space-3 rounded-2xl bg-color-4/15 border-2 border-color-4 text-color-1 flex flex-wrap items-center justify-between gap-space-2"
+        >
+          <span className="text-text-xs font-bold">
+            {getErrorMessage(subjectError, "Không thể tải thông tin chi tiết môn học.")}
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void refetchSubject();
+            }}
+            className="min-h-11 inline-flex items-center gap-space-1 shrink-0"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Thử lại</span>
+          </Button>
+        </div>
+      )}
 
       {/* Subject Hero Header */}
       <Card
@@ -209,7 +202,7 @@ export const SubjectDetailView: React.FC = () => {
               Ngân hàng Đề thi Học kỳ
             </h2>
             <p className="text-text-xs text-color-1/70 mt-0.5">
-              Các bộ đề thi chuẩn định dạng FE/PE. Nhấn &ldquo;Bắt đầu thi&rdquo; để làm ngay hoặc tùy chỉnh thời gian/số câu.
+              Các bộ đề thi chuẩn định dạng FE/PE. Nhấn &ldquo;Vào thi&rdquo; để tùy chỉnh thời gian, chế độ và bắt đầu làm bài.
             </p>
           </div>
 
@@ -225,27 +218,6 @@ export const SubjectDetailView: React.FC = () => {
           </Button>
         </div>
 
-        {/* Start error notification if direct attempt creation fails */}
-        {startError && (
-          <div
-            role="alert"
-            className="p-space-4 bg-color-4/10 border-2 border-color-4 text-color-4 rounded-3xl font-bold flex flex-wrap items-center justify-between gap-space-3 shadow-xs"
-          >
-            <div className="flex items-center gap-space-2">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <span className="text-text-xs">{startError}</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setStartError(null)}
-              className="text-color-4 hover:bg-color-4/20 text-text-xs font-bold"
-            >
-              Đóng
-            </Button>
-          </div>
-        )}
-
         {isExamsLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-space-4">
             {[1, 2, 3, 4].map((i) => (
@@ -260,7 +232,7 @@ export const SubjectDetailView: React.FC = () => {
             role="alert"
             className="text-center p-space-6 bg-color-7 border-2 border-color-4 text-color-1 rounded-3xl font-bold flex flex-col items-center gap-space-3 shadow-sm"
           >
-            <p className="text-color-4 text-text-sm">
+            <p className="text-color-1 text-text-sm">
               {getErrorMessage(
                 examsError,
                 "Không thể tải danh sách đề thi. Vui lòng thử lại sau."
@@ -319,35 +291,23 @@ export const SubjectDetailView: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* 1-Click Launch + Custom Mode */}
-                  <div className="flex flex-wrap items-center gap-space-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleOpenStandardExam(exam.id, exam.totalQuestions)}
-                      aria-label={`Tùy chỉnh cấu hình đề ${exam.code}`}
-                      className="min-h-11 flex items-center gap-1 border-2 border-color-1 shadow-2xs hover:shadow-xs"
-                    >
-                      <Sliders className="w-3.5 h-3.5" />
-                      <span>Tùy chỉnh</span>
-                    </Button>
-
+                  {/* Single Vào thi Entry Launching Config Modal */}
+                  <div className="flex items-center">
                     <Button
                       variant="primary"
                       size="sm"
                       onClick={() =>
-                        handleDirectStartExam(
+                        handleOpenStandardExam(
                           exam.id,
                           exam.totalQuestions,
                           exam.durationMinutes
                         )
                       }
-                      isLoading={startingExamId === exam.id}
-                      aria-label={`Bắt đầu thi đề ${exam.code} - ${exam.title}`}
+                      aria-label={`Vào thi đề ${exam.code} - ${exam.title}`}
                       className="min-h-11 flex items-center gap-1.5 shadow-2xs hover:shadow-xs"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Bắt đầu thi</span>
+                      <span>Vào thi</span>
                     </Button>
                   </div>
                 </div>
@@ -366,6 +326,7 @@ export const SubjectDetailView: React.FC = () => {
         maxAvailableQuestions={totalBankQuestions}
         isCustomExam={isCustomExamMode}
         fixedQuestionCount={fixedExamQuestions}
+        defaultDurationMinutes={selectedExamDuration}
       />
     </div>
   );

@@ -82,11 +82,11 @@ describe("Rebuilt Cockpit Components (Inspector Rail, Header Popover, 3-Zone She
     expect(screen.getByText("Câu hỏi (1/1 đã trả lời):")).toBeInTheDocument();
   });
 
-  it("switches practice modes via header dropdown and toggles feedback mode inside ⚙ Settings popover", () => {
+  it("switches practice modes via header dropdown, toggles answer source inside ⚙ Settings popover, and renders mode-specific progress bars", () => {
     const onSelectMode = vi.fn();
-    const onFeedbackChange = vi.fn();
+    const onAnswerSourceChange = vi.fn();
 
-    render(
+    const { rerender } = render(
       <MemoryRouter>
         <Routes>
           <Route
@@ -96,9 +96,10 @@ describe("Rebuilt Cockpit Components (Inspector Rail, Header Popover, 3-Zone She
                 title="Luyện thi cấp tốc"
                 exitLabel="Thoát"
                 onExit={vi.fn()}
-                progressLabel="1/12 câu"
-                progressCurrent={1}
-                progressTotal={12}
+                progressLabel="24/50 câu"
+                progressCurrent={24}
+                progressTotal={50}
+                progressVariant="cram"
                 modeSwitcher={{
                   currentMode: "cram",
                   label: "Cram",
@@ -108,14 +109,14 @@ describe("Rebuilt Cockpit Components (Inspector Rail, Header Popover, 3-Zone She
                   ],
                   onSelectMode,
                 }}
-                modeToggle={{
-                  ariaLabel: "Chế độ chấm điểm",
-                  value: "instant",
+                answerSourceToggle={{
+                  ariaLabel: "Nguồn đáp án",
+                  value: "ai",
                   options: [
-                    { value: "instant", label: "Chấm tức thì" },
-                    { value: "deferred", label: "Chờ tổng kết" },
+                    { value: "ai", label: "Đáp án AI" },
+                    { value: "community", label: "Cộng đồng" },
                   ],
-                  onChange: onFeedbackChange,
+                  onChange: onAnswerSourceChange,
                 }}
                 onOpenShortcuts={vi.fn()}
               />
@@ -125,12 +126,50 @@ describe("Rebuilt Cockpit Components (Inspector Rail, Header Popover, 3-Zone She
       </MemoryRouter>
     );
 
+    const cramBar = screen.getByRole("progressbar", { name: "24/50 câu" });
+    expect(cramBar).toHaveAttribute("data-progress-variant", "cram");
+    expect(cramBar.querySelectorAll("[data-segment-index]")).toHaveLength(5);
+
     fireEvent.click(screen.getByRole("button", { name: /Cram/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Ghi nhớ \(Learn\)/i }));
     expect(onSelectMode).toHaveBeenCalledWith("learn");
 
     fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Chờ tổng kết/i }));
-    expect(onFeedbackChange).toHaveBeenCalledWith("deferred");
+    fireEvent.click(screen.getByRole("button", { name: /Cộng đồng/i }));
+    expect(onAnswerSourceChange).toHaveBeenCalledWith("community");
+
+    rerender(
+      <MemoryRouter>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <CockpitHeader
+                title="Học ghi nhớ"
+                exitLabel="Thoát"
+                onExit={vi.fn()}
+                progressLabel="18/50 câu"
+                progressCurrent={18}
+                progressTotal={50}
+                progressVariant="learn"
+                learnActiveCount={7}
+                modeSubLegend={<span>Đã thuộc (18) • Đang học (7)</span>}
+                modeSwitcher={{
+                  currentMode: "learn",
+                  label: "Learn",
+                }}
+                onOpenShortcuts={vi.fn()}
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const learnBar = screen.getByRole("progressbar", { name: "18/50 câu" });
+    expect(learnBar).toHaveAttribute("data-progress-variant", "learn");
+    expect(learnBar.querySelector('[data-learn-segment="mastered"]')).toBeInTheDocument();
+    expect(learnBar.querySelector('[data-learn-segment="active"]')).toBeInTheDocument();
+    expect(screen.getByText(/Đã thuộc \(18\)/i)).toBeInTheDocument();
   });
 });

@@ -73,8 +73,8 @@ describe("Practice Workflow Integration", () => {
     expect(screen.queryByText("Đúng theo công thức")).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    // Opening on-demand "Xem giải thích AI" (FUO AI) button reveals optionByOptionAnalysis & rationale inside AiAnswerModal
-    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    // Opening on-demand "AI Explanation" button reveals optionByOptionAnalysis & rationale inside AiAnswerModal
+    fireEvent.click(screen.getByRole("button", { name: /AI Explanation/i }));
     const aiDialog = await screen.findByRole("dialog", {
       name: /Giải thích chi tiết từ AI/i,
     });
@@ -155,7 +155,7 @@ describe("Practice Workflow Integration", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Recovered explanation")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    fireEvent.click(screen.getByRole("button", { name: /AI Explanation/i }));
     const aiDialog = await screen.findByRole("dialog", {
       name: /Giải thích chi tiết từ AI/i,
     });
@@ -231,7 +231,7 @@ describe("Practice Workflow Integration", () => {
     });
 
     // Open AI explanation without picking any option
-    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    fireEvent.click(screen.getByRole("button", { name: /AI Explanation/i }));
     const aiDialog = await screen.findByRole("dialog", {
       name: /Giải thích chi tiết từ AI/i,
     });
@@ -250,70 +250,78 @@ describe("Practice Workflow Integration", () => {
     expect(screen.queryByText(/Chưa chính xác/i)).not.toBeInTheDocument();
   });
 
-  it("supports switching between Chấm tức thì and Chờ tổng kết mid-session in Practice", async () => {
-    const submittedChoices: string[] = [];
+  it("supports switching answer source to Cộng đồng mid-session and renders Learn dot legend", async () => {
+    const benchmarkModes: Array<string | undefined> = [];
     server.use(
       http.get("*/api/v1/questions/drills", () => {
         return HttpResponse.json([
           {
-            question_id: "deferred_1",
+            question_id: "src_1",
             subject_code: "MAD101",
             question_type: "single_choice",
-            question_text: "Deferred Card One",
+            question_text: "Source Toggle Card One",
             image_url: null,
             options: { A: "Choice A1", B: "Choice B1", C: "Choice C1" },
           },
           {
-            question_id: "deferred_2",
+            question_id: "src_2",
             subject_code: "MAD101",
             question_type: "single_choice",
-            question_text: "Deferred Card Two",
+            question_text: "Source Toggle Card Two",
             image_url: null,
             options: { A: "Choice A2", B: "Choice B2", C: "Choice C2" },
           },
         ]);
       }),
       http.post("*/api/v1/questions/:questionId/check", async ({ request }) => {
-        const body = (await request.json()) as { selected_options?: string };
-        submittedChoices.push(body.selected_options ?? "");
+        const body = (await request.json()) as {
+          selected_options?: string;
+          benchmark_mode?: string;
+        };
+        benchmarkModes.push(body.benchmark_mode);
         return HttpResponse.json({
-          question_id: "deferred_1",
+          question_id: "src_1",
           selected_options: body.selected_options ?? "C",
           correct_answer: "C",
           is_correct: body.selected_options === "C",
-          ai_explanation: "Deferred mode rationale.",
+          benchmark_source: "ai",
+          community_stats: null,
+          ai_explanation: "AI fallback rationale.",
         });
       })
     );
 
-    renderPractice("/subjects/MAD101/practice/cram");
+    renderPractice("/subjects/MAD101/practice/learn");
     await waitFor(() => {
-      expect(screen.getByText(/Deferred Card (One|Two)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Source Toggle Card (One|Two)/i)).toBeInTheDocument();
     });
-    const firstCardTitle = screen.getByText(/Deferred Card (One|Two)/i).textContent;
-    const expectedNextTitle =
-      firstCardTitle === "Deferred Card One" ? "Deferred Card Two" : "Deferred Card One";
 
-    // Open Settings ⚙ popover and switch toggle to "Chờ tổng kết"
+    // Learn dot legend renders live counts in header
+    expect(screen.getByText(/Đã thuộc \(0\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Đang học \(2\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chưa học \(0\)/i)).toBeInTheDocument();
+
+    // Open Settings ⚙ popover and switch answer source to "Cộng đồng"
     fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
-    const deferredBtn = await screen.findByRole("button", { name: /Chờ tổng kết/i });
-    fireEvent.click(deferredBtn);
-    expect(deferredBtn).toHaveAttribute("aria-pressed", "true");
+    const communityBtn = await screen.findByRole("button", { name: /^Cộng đồng$/i });
+    fireEvent.click(communityBtn);
+    expect(communityBtn).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(window, { key: "Escape" });
 
-    // Pick A -> change mind to C -> no instant grading badge yet
-    fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
-    expect(submittedChoices).toHaveLength(0);
-    expect(screen.queryByText(/Chưa chính xác/i)).not.toBeInTheDocument();
-
+    // Pick C -> sends benchmark_mode: "community" and shows non-blocking fallback notice when community votes are absent
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
-    expect(submittedChoices).toHaveLength(0);
+    expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Chưa có dữ liệu cộng đồng — đang dùng đáp án AI/i)
+    ).toBeInTheDocument();
+    expect(benchmarkModes).toEqual(["community"]);
 
-    // Clicking bottom-bar "Câu tiếp" submits C and advances directly to the second card
-    fireEvent.click(screen.getByRole("button", { name: /^Câu tiếp$/i }));
-    await waitFor(() => {
-      expect(screen.getByText(expectedNextTitle)).toBeInTheDocument();
+    // Active header Reset asks confirmation before wiping mastery progress
+    fireEvent.click(screen.getByRole("button", { name: /Luyện lại từ đầu/i }));
+    const resetDialog = await screen.findByRole("dialog", {
+      name: /Xác nhận đặt lại tiến độ/i,
     });
-    expect(submittedChoices).toEqual(["C"]);
+    fireEvent.click(within(resetDialog).getByRole("button", { name: /^Hủy$/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getPracticeQuestions, checkPracticeAnswer } from "@/api/practice";
 import { useCramSession } from "@/hooks/useCramSession";
 import { useLearnSession } from "@/hooks/useLearnSession";
-import { compareAnswers } from "@/utils/answerComparison";
+import { compareAnswers, getCommunityFallbackNotice } from "@/utils/answerComparison";
 import { getErrorMessage } from "@/utils/error";
-import type { Question } from "@/types/exam";
+import type { BenchmarkMode, Question } from "@/types/exam";
 import type { PracticeMode } from "@/types/practice";
 import type {
   WorkspaceCardBadge,
@@ -39,6 +39,7 @@ export interface PracticeWorkspaceAdapterResult {
   masteryBadge: WorkspaceCardBadge | null;
   selectedOptions: string;
   feedbackMode: PracticeFeedbackMode;
+  benchmarkMode: BenchmarkMode;
   evaluation: WorkspaceEvaluationResult | null;
   navigatorItems: WorkspaceNavigatorItem[];
   activeNavIndex: number;
@@ -63,6 +64,7 @@ export interface PracticeWorkspaceAdapterResult {
     errorMessage: string | null;
   };
   setFeedbackMode: (mode: PracticeFeedbackMode) => void;
+  setBenchmarkMode: (mode: BenchmarkMode) => void;
   selectOption: (optionKey: string) => void;
   clearSelection: () => void;
   submitCheck: (overrideSelection?: string) => Promise<void>;
@@ -123,6 +125,7 @@ export function usePracticeWorkspaceAdapter(
   const [pinnedCard, setPinnedCard] = useState<Question | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<string>("");
   const [feedbackMode, setFeedbackModeState] = useState<PracticeFeedbackMode>("instant");
+  const [benchmarkMode, setBenchmarkMode] = useState<BenchmarkMode>("ai");
   const [evaluation, setEvaluation] = useState<WorkspaceEvaluationResult | null>(null);
   const [pendingCommit, setPendingCommit] = useState<PendingEvaluationCommit | null>(null);
   const [cramMissedIds, setCramMissedIds] = useState<Set<string>>(() => new Set());
@@ -161,9 +164,17 @@ export function usePracticeWorkspaceAdapter(
       });
 
       try {
-        const result = await checkPracticeAnswer(targetCard.questionId, choiceToEvaluate);
+        const result = await checkPracticeAnswer(
+          targetCard.questionId,
+          choiceToEvaluate,
+          benchmarkMode
+        );
         const isMatch =
           result.isCorrect || compareAnswers(choiceToEvaluate, result.correctAnswer);
+        const communityFallbackNotice = getCommunityFallbackNotice(
+          benchmarkMode,
+          result.communityStats
+        );
 
         setEvaluation({
           status: "resolved",
@@ -171,6 +182,7 @@ export function usePracticeWorkspaceAdapter(
           correctAnswer: result.correctAnswer,
           aiExplanation: result.aiExplanation,
           optionByOptionAnalysis: result.optionByOptionAnalysis ?? null,
+          communityFallbackNotice,
           resolvedAt: Date.now(),
         });
 
@@ -194,7 +206,7 @@ export function usePracticeWorkspaceAdapter(
         });
       }
     },
-    [pinnedCard, engineCard, evaluation?.status, selectedOptions]
+    [pinnedCard, engineCard, evaluation?.status, selectedOptions, benchmarkMode]
   );
 
   const retryEvaluation = useCallback(async () => {
@@ -305,7 +317,7 @@ export function usePracticeWorkspaceAdapter(
 
       void (async () => {
         try {
-          const result = await checkPracticeAnswer(targetCard.questionId, choice);
+          const result = await checkPracticeAnswer(targetCard.questionId, choice, benchmarkMode);
           const isMatch =
             result.isCorrect || compareAnswers(choice, result.correctAnswer);
           commitToEngine({
@@ -336,6 +348,7 @@ export function usePracticeWorkspaceAdapter(
     evaluation?.status,
     pendingCommit,
     feedbackMode,
+    benchmarkMode,
     currentCard,
     selectedOptions,
     isAdvancingDeferred,
@@ -352,7 +365,7 @@ export function usePracticeWorkspaceAdapter(
     });
 
     try {
-      const res = await checkPracticeAnswer(qId, probeOption);
+      const res = await checkPracticeAnswer(qId, probeOption, benchmarkMode);
       setAiExplanations((prev) => ({
         ...prev,
         [qId]: {
@@ -369,7 +382,7 @@ export function usePracticeWorkspaceAdapter(
     } finally {
       setAiLoadingIds((prev) => ({ ...prev, [qId]: false }));
     }
-  }, []);
+  }, [benchmarkMode]);
 
   const openAiAnalysis = useCallback(() => {
     setIsAiModalOpen(true);
@@ -565,6 +578,7 @@ export function usePracticeWorkspaceAdapter(
     masteryBadge,
     selectedOptions,
     feedbackMode,
+    benchmarkMode,
     evaluation,
     navigatorItems,
     activeNavIndex,
@@ -586,6 +600,7 @@ export function usePracticeWorkspaceAdapter(
     isAiModalOpen,
     aiModalState,
     setFeedbackMode,
+    setBenchmarkMode,
     selectOption,
     clearSelection,
     submitCheck,

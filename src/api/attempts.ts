@@ -182,6 +182,7 @@ export async function getAttemptReview(attemptId: string): Promise<AttemptReview
     percentage_score: number;
     is_passed: boolean;
     submitted_at: string;
+    duration_seconds?: number | null;
     questions: Array<{
       question_id: string;
       question_number: number;
@@ -212,6 +213,7 @@ export async function getAttemptReview(attemptId: string): Promise<AttemptReview
     percentageScore: data.percentage_score,
     isPassed: data.is_passed,
     submittedAt: data.submitted_at,
+    durationSeconds: typeof data.duration_seconds === "number" ? data.duration_seconds : null,
     questions: data.questions.map((q) => ({
       questionId: q.question_id,
       questionNumber: q.question_number,
@@ -241,7 +243,8 @@ export async function getAttemptReview(attemptId: string): Promise<AttemptReview
 
 export async function checkInstantAnswer(
   questionId: string,
-  selectedOptions: string
+  selectedOptions: string,
+  benchmarkMode: BenchmarkMode = "ai"
 ): Promise<{
   questionId: string;
   selectedOptions: string;
@@ -249,7 +252,22 @@ export async function checkInstantAnswer(
   isCorrect: boolean;
   aiExplanation: string;
   optionByOptionAnalysis?: Record<string, string>;
+  benchmarkSource?: BenchmarkMode;
+  communityStats?: {
+    totalComments: number;
+    validVoteCount: number;
+    topAnswerVotes: number;
+    agreementRatio: number;
+    communityAnswer: string | null;
+  } | null;
 }> {
+  const payload: { selected_options: string; benchmark_mode?: BenchmarkMode } = {
+    selected_options: selectedOptions,
+  };
+  if (benchmarkMode !== "ai") {
+    payload.benchmark_mode = benchmarkMode;
+  }
+
   const data = await apiClient<{
     question_id: string;
     selected_options: string;
@@ -257,9 +275,17 @@ export async function checkInstantAnswer(
     is_correct: boolean;
     ai_explanation: string;
     option_by_option_analysis?: Record<string, string>;
+    benchmark_source?: BenchmarkMode;
+    community_stats?: {
+      total_comments: number;
+      valid_vote_count: number;
+      top_answer_votes: number;
+      agreement_ratio: number;
+      community_answer: string | null;
+    } | null;
   }>(`/api/v1/questions/${encodeURIComponent(questionId)}/check`, {
     method: "POST",
-    body: JSON.stringify({ selected_options: selectedOptions }),
+    body: JSON.stringify(payload),
   });
 
   return {
@@ -269,5 +295,15 @@ export async function checkInstantAnswer(
     isCorrect: data.is_correct,
     aiExplanation: data.ai_explanation,
     optionByOptionAnalysis: data.option_by_option_analysis,
+    benchmarkSource: data.benchmark_source,
+    communityStats: data.community_stats
+      ? {
+          totalComments: data.community_stats.total_comments,
+          validVoteCount: data.community_stats.valid_vote_count,
+          topAnswerVotes: data.community_stats.top_answer_votes,
+          agreementRatio: data.community_stats.agreement_ratio,
+          communityAnswer: data.community_stats.community_answer,
+        }
+      : null,
   };
 }

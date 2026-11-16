@@ -11,6 +11,17 @@ body {
   font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
 ::selection {
   background-color: var(--color-5);
   color: var(--color-1);

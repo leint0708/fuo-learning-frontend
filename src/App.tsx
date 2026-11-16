@@ -50,7 +50,7 @@ export const App: React.FC = () => {
   }, [initAuth]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-color-6 text-color-1">
+    <div className="min-h-dvh flex flex-col bg-color-6 text-color-1">
       {!isCockpitRoute && <Navbar />}
       <main className="flex-1 flex flex-col">
         <Suspense

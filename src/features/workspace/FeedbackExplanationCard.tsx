@@ -102,6 +102,12 @@ export const FeedbackExplanationCard: React.FC<FeedbackExplanationCardProps> = (
         </span>
       </div>
 
+      {evaluation.communityFallbackNotice && (
+        <p className="text-[13px] font-bold text-color-1/80">
+          {evaluation.communityFallbackNotice}
+        </p>
+      )}
+
       {onContinue && (
         <Button
           variant="primary"

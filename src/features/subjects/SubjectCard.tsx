@@ -53,7 +53,7 @@ export const SubjectCard: React.FC<SubjectCardProps> = ({ subject }) => {
             </div>
             <Badge
               variant={subject.totalExams > 0 ? "primary" : "neutral"}
-              className="text-text-xs tabular-nums shrink-0"
+              className="text-text-2xs sm:text-text-xs tabular-nums shrink-0"
             >
               {subject.totalExams > 0 ? `${subject.totalExams} bộ đề thi` : "Chưa có đề thi"}
             </Badge>

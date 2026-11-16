@@ -355,8 +355,8 @@ describe("ExamWorkspaceView Integration Tests", () => {
       expect(screen.getByText("Post-exam AI check question")).toBeInTheDocument();
     });
 
-    // Open "Xem giải thích AI" in post_exam mode before selecting any answer
-    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    // Open "AI Explanation" in post_exam mode before selecting any answer
+    fireEvent.click(screen.getByRole("button", { name: /AI Explanation/i }));
 
     // First call errors -> no fake "C", shows explicit retry button
     expect(
@@ -427,6 +427,19 @@ describe("ExamWorkspaceView Integration Tests", () => {
           correct_answer: "C",
           ai_explanation: "C is primary.",
         });
+      }),
+      http.post("*/api/v1/attempts/:attemptId/submit", ({ params }) => {
+        return HttpResponse.json({
+          attempt_id: params.attemptId,
+          status: "completed",
+          total_questions: 1,
+          correct_answers_count: 1,
+          total_score: 10,
+          percentage_score: 100,
+          is_passed: true,
+          submitted_at: new Date().toISOString(),
+          duration_seconds: 60,
+        });
       })
     );
 
@@ -442,30 +455,35 @@ describe("ExamWorkspaceView Integration Tests", () => {
       name: /Xác nhận thoát phòng thi/i,
     });
     expect(
-      within(exitDialog).getByText(/Bạn có chắc muốn rời khỏi phòng thi lúc này/i)
+      within(exitDialog).getByText(/Bạn có chắc muốn thoát & kết thúc bài thi lúc này/i)
     ).toBeInTheDocument();
 
-    // Cancel keeps user in exam
+    // Continue keeps user in exam
     fireEvent.click(
       within(exitDialog).getByRole("button", { name: /Tiếp tục làm bài/i })
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByText("Which is primary?")).toBeInTheDocument();
 
-    // In instant mode after answer evaluation, exactly ONE "Xem giải thích AI" button appears
+    // In instant mode after answer evaluation, exactly ONE "AI Explanation" button appears
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
     expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
     expect(
-      screen.getAllByRole("button", { name: /Xem giải thích AI/i })
+      screen.getAllByRole("button", { name: /AI Explanation/i })
     ).toHaveLength(1);
 
-    // Re-open exit confirmation and confirm leaves to catalog home
-    fireEvent.click(screen.getByRole("button", { name: /Thoát phòng thi/i }));
+    // Simulating Browser Back (popstate) triggers the exact same exit confirmation modal
+    fireEvent(window, new PopStateEvent("popstate"));
     const exitDialog2 = await screen.findByRole("dialog", {
       name: /Xác nhận thoát phòng thi/i,
     });
-    fireEvent.click(within(exitDialog2).getByRole("button", { name: /Rời phòng thi/i }));
-    expect(await screen.findByText("Catalog Home Route Reached")).toBeInTheDocument();
+    expect(
+      within(exitDialog2).getByRole("button", { name: /Tiếp tục làm bài/i })
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(exitDialog2).getByRole("button", { name: /Thoát & kết thúc bài thi/i })
+    );
+    expect(await screen.findByText("Exam Review Route Reached")).toBeInTheDocument();
   });
 
   it("queues multiple failed saves across questions and flushes all pending answers on retry/submit", async () => {
@@ -562,8 +580,8 @@ describe("ExamWorkspaceView Integration Tests", () => {
     );
   });
 
-  it("supports switching feedbackMode mid-exam via header toggle and opens AI modal before picking an option", async () => {
-    const aiProbeSelections: string[] = [];
+  it("supports switching answer source to Cộng đồng mid-exam via Settings popover and opens AI Explanation before picking an option", async () => {
+    const aiProbeRequests: Array<{ selected?: string; benchmark?: string }> = [];
     server.use(
       http.get("*/api/v1/attempts/:attemptId", ({ params }) => {
         return HttpResponse.json({
@@ -589,11 +607,19 @@ describe("ExamWorkspaceView Integration Tests", () => {
         });
       }),
       http.post("*/api/v1/questions/:questionId/check", async ({ request }) => {
-        const body = (await request.json()) as { selected_options?: string };
-        aiProbeSelections.push(body.selected_options ?? "");
+        const body = (await request.json()) as {
+          selected_options?: string;
+          benchmark_mode?: string;
+        };
+        aiProbeRequests.push({
+          selected: body.selected_options,
+          benchmark: body.benchmark_mode,
+        });
         return HttpResponse.json({
           is_correct: body.selected_options === "C",
           correct_answer: "C",
+          benchmark_source: body.benchmark_mode === "community" ? "ai" : "ai",
+          community_stats: null,
           ai_explanation: "C is the unique valid statement.",
         });
       })
@@ -605,15 +631,15 @@ describe("ExamWorkspaceView Integration Tests", () => {
       expect(screen.getByText("Pick a valid statement.")).toBeInTheDocument();
     });
 
-    // Click "Xem giải thích AI" BEFORE selecting any option -> sends safe probe "A" and opens modal
-    fireEvent.click(screen.getByRole("button", { name: /Xem giải thích AI/i }));
+    // Click "AI Explanation" BEFORE selecting any option -> sends safe probe "A" and opens modal
+    fireEvent.click(screen.getByRole("button", { name: /AI Explanation/i }));
     const aiDialog = await screen.findByRole("dialog", {
       name: /Giải thích chi tiết từ AI/i,
     });
     expect(
       within(aiDialog).getByText("C is the unique valid statement.")
     ).toBeInTheDocument();
-    expect(aiProbeSelections).toEqual(["A"]);
+    expect(aiProbeRequests).toEqual([{ selected: "A", benchmark: undefined }]);
     expect(within(aiDialog).queryByText("Bạn chọn")).not.toBeInTheDocument();
 
     fireEvent.click(within(aiDialog).getByRole("button", { name: /Đóng cửa sổ/i }));
@@ -624,16 +650,20 @@ describe("ExamWorkspaceView Integration Tests", () => {
       "false"
     );
 
-    // Open Settings ⚙ popover and toggle feedbackMode from Thi chuẩn -> Chấm tức thì
+    // Open Settings ⚙ popover and toggle answer source to Cộng đồng
     fireEvent.click(screen.getByRole("button", { name: /Cài đặt phiên làm bài/i }));
-    const instantToggleBtn = await screen.findByRole("button", { name: /Chấm tức thì/i });
-    fireEvent.click(instantToggleBtn);
-    expect(instantToggleBtn).toHaveAttribute("aria-pressed", "true");
+    const communityBtn = await screen.findByRole("button", { name: /^Cộng đồng$/i });
+    fireEvent.click(communityBtn);
+    expect(communityBtn).toHaveAttribute("aria-pressed", "true");
     fireEvent.keyDown(window, { key: "Escape" });
 
-    // Picking C now triggers instant grading & updates fuo_active_exams
+    // Picking C sends benchmark_mode: "community", triggers instant grading & updates fuo_active_exams
     fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
     expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Chưa có dữ liệu cộng đồng — đang dùng đáp án AI/i)
+    ).toBeInTheDocument();
+    expect(aiProbeRequests[1]).toEqual({ selected: "C", benchmark: "community" });
 
     const stored = JSON.parse(localStorage.getItem("fuo_active_exams") || "[]") as Array<{
       attemptId: string;
@@ -646,5 +676,75 @@ describe("ExamWorkspaceView Integration Tests", () => {
     expect(probeRecord?.subjectCode).toBe("MAD101");
     expect(probeRecord?.answeredCount).toBe(1);
     expect(probeRecord?.feedbackMode).toBe("instant");
+  });
+
+  it("restores persisted post_exam feedbackMode on reload and resets currentQuestionIndex on mount", async () => {
+    useExamUiStore.getState().setQuestionIndex(5);
+    useExamUiStore.getState().setFeedbackMode("instant");
+    localStorage.setItem(
+      "fuo_active_exams",
+      JSON.stringify([
+        {
+          attemptId: "att_reload_post",
+          examId: "MAD101_SP26_FE",
+          examTitle: "Reload Post Exam",
+          subjectCode: "MAD101",
+          totalQuestions: 2,
+          answeredCount: 0,
+          startedAt: new Date().toISOString(),
+          expiresAt: null,
+          feedbackMode: "post_exam",
+          updatedAt: new Date().toISOString(),
+        },
+      ])
+    );
+
+    server.use(
+      http.get("*/api/v1/attempts/:attemptId", ({ params }) => {
+        return HttpResponse.json({
+          attempt_id: params.attemptId,
+          exam_id: "MAD101_SP26_FE",
+          exam_title: "Reload Post Exam",
+          status: "in_progress",
+          started_at: new Date().toISOString(),
+          expires_at: null,
+          time_remaining_seconds: 1800,
+          questions: [
+            {
+              question_id: "q_r1",
+              question_number: 1,
+              question_id_code: "Q1",
+              question_type: "single_choice",
+              question_text: "Question One After Reload",
+              image_url: null,
+              options: { A: "First", B: "Second" },
+              selected_options: null,
+            },
+            {
+              question_id: "q_r2",
+              question_number: 2,
+              question_id_code: "Q2",
+              question_type: "single_choice",
+              question_text: "Question Two",
+              image_url: null,
+              options: { A: "First", B: "Second" },
+              selected_options: null,
+            },
+          ],
+        });
+      })
+    );
+
+    renderExamWorkspace("att_reload_post");
+
+    await waitFor(() => {
+      expect(screen.getByText("Question One After Reload")).toBeInTheDocument();
+    });
+
+    // currentQuestionIndex reset to 0 and post_exam stayed locked (no instant grading call)
+    expect(useExamUiStore.getState().currentQuestionIndex).toBe(0);
+    expect(useExamUiStore.getState().feedbackMode).toBe("post_exam");
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
+    expect(screen.queryByText(/Chính xác|Chưa chính xác/i)).not.toBeInTheDocument();
   });
 });

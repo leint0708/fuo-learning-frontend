@@ -32,6 +32,7 @@ export interface StudyCockpitShellProps {
 export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
   header,
   banners,
+  hasVisualMedia = false,
   stageContent,
   evaluationBanner,
   mobileInlineKeypad,
@@ -45,13 +46,13 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
   onNext,
   onOpenMobileNavigator,
   onOpenAiAnalysis,
-  aiButtonLabel = "FUO AI",
+  aiButtonLabel = "AI Explanation",
   modals,
 }) => {
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-color-6 text-color-1">
+    <div className="min-h-dvh flex flex-col bg-color-6 text-color-1">
       {header}
 
       {/* Main 2-Column Workspace Frame */}
@@ -59,11 +60,17 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
         {/* Left/Center Main Canvas */}
         <section
           aria-label="Không gian câu hỏi"
-          className="flex-1 min-w-0 bg-color-7/70 border-2 border-color-1 rounded-3xl p-space-3 sm:p-space-5 flex flex-col justify-between gap-space-4 shadow-xs"
+          className="flex-1 min-w-0 bg-color-7/70 border-2 border-color-1 rounded-3xl p-space-3 sm:p-space-5 flex flex-col justify-between gap-space-3 shadow-xs"
         >
           {banners && <div className="w-full">{banners}</div>}
 
-          <div className="w-full max-w-3xl mx-auto flex flex-col gap-space-3 my-auto">
+          <div
+            className={
+              hasVisualMedia
+                ? "w-full flex-1 flex flex-col gap-space-3 min-h-0"
+                : "w-full max-w-3xl mx-auto flex flex-col gap-space-3 my-auto"
+            }
+          >
             {stageContent}
 
             {evaluationBanner}
@@ -72,21 +79,23 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
             {mobileInlineKeypad && <div className="lg:hidden">{mobileInlineKeypad}</div>}
           </div>
 
-          {/* Floating Bottom-Center FUO AI Pill inside Canvas */}
+          {/* Floating Bottom-Center AI Explanation Pill inside Canvas */}
           {onOpenAiAnalysis && (
-            <div className="flex justify-center pt-space-1">
+            <div className="w-full flex items-center justify-between gap-space-2 pt-space-1">
+              <div className="hidden sm:block flex-1" aria-hidden="true" />
               <Button
                 variant="primary"
                 size="md"
                 onClick={onOpenAiAnalysis}
-                aria-label="Xem giải thích AI"
-                className="min-h-11 px-space-5 inline-flex items-center gap-space-2 border-2 border-color-1 shadow-sm"
+                aria-label={aiButtonLabel}
+                className="min-h-11 px-space-5 mx-auto sm:mx-0 inline-flex items-center gap-space-2 border-2 border-color-1 shadow-sm shrink-0"
               >
                 <span className="w-6 h-6 rounded-full bg-color-5 text-color-1 border border-color-1 inline-flex items-center justify-center shrink-0">
                   <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
                 </span>
                 <span>{aiButtonLabel}</span>
               </Button>
+              <div className="hidden sm:block flex-1" aria-hidden="true" />
             </div>
           )}
         </section>
@@ -109,7 +118,7 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
               <span>Mở rộng</span>
             </button>
           ) : (
-            <div className="w-full lg:sticky lg:top-[76px]">
+            <div className="w-full lg:sticky lg:top-[96px]">
               {React.isValidElement<{ onCollapseDesktop?: () => void }>(navigatorContent)
                 ? React.cloneElement(navigatorContent, {
                     onCollapseDesktop: () => setIsInspectorCollapsed(true),
@@ -121,14 +130,16 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
       </div>
 
       {/* Unified Bottom Navigation Dock */}
-      <footer className="sticky bottom-0 z-20 bg-color-7 border-t-2 border-color-1 px-space-2 sm:px-space-4 py-space-2 shadow-xs">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-space-2">
+      <footer className="sticky bottom-0 z-20 bg-color-7 border-t-2 border-color-1 px-space-2 sm:px-space-4 py-space-1.5 sm:py-space-2 shadow-xs">
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-space-1.5 sm:gap-space-2 min-w-0">
           <Button
             variant="secondary"
             size="sm"
             disabled={!canPrev}
             onClick={onPrev}
-            className="min-h-11 px-space-3 sm:px-space-4 inline-flex items-center gap-space-1 shrink-0"
+            className={`min-h-11 px-space-2.5 sm:px-space-4 text-text-2xs sm:text-text-xs items-center gap-space-1 shrink-0 ${
+              !onPrev ? "hidden sm:inline-flex" : "inline-flex"
+            }`}
           >
             <ChevronLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{prevLabel}</span>
@@ -144,7 +155,7 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
             <button
               type="button"
               onClick={onOpenMobileNavigator}
-              className="lg:hidden min-h-11 min-w-0 max-w-[175px] sm:max-w-none px-space-3 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-[13px] sm:text-text-xs inline-flex items-center gap-space-1 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 tabular-nums"
+              className="lg:hidden min-h-11 flex-1 sm:flex-initial min-w-0 px-space-2.5 sm:px-space-3 rounded-full bg-color-6 text-color-1 border-2 border-color-1 font-bold text-text-2xs sm:text-text-xs inline-flex items-center justify-center gap-space-1 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 tabular-nums"
             >
               <List className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span className="truncate">{mobileStatusLabel}</span>
@@ -156,7 +167,7 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
             size="sm"
             disabled={!canNext}
             onClick={onNext}
-            className="min-h-11 px-space-3 sm:px-space-4 inline-flex items-center gap-space-1 shrink-0"
+            className="min-h-11 px-space-2.5 sm:px-space-4 text-text-2xs sm:text-text-xs inline-flex items-center gap-space-1 shrink-0"
           >
             <span>{nextLabel}</span>
             <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />

@@ -34,10 +34,19 @@ export const ActiveExamsSection: React.FC<ActiveExamsSectionProps> = ({ subjectC
   const [activeExams, setActiveExams] = useState<ActiveExamRecord[]>(() =>
     getActiveExams(subjectCode)
   );
+  const [, setTimeTick] = useState(0);
 
   useEffect(() => {
     setActiveExams(getActiveExams(subjectCode));
   }, [subjectCode]);
+
+  useEffect(() => {
+    if (activeExams.length === 0) return;
+    const timerId = window.setInterval(() => {
+      setTimeTick((prev) => prev + 1);
+    }, 30000);
+    return () => window.clearInterval(timerId);
+  }, [activeExams.length]);
 
   if (activeExams.length === 0) {
     return null;

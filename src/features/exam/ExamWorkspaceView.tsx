@@ -41,6 +41,7 @@ export const ExamWorkspaceView: React.FC = () => {
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const previousQuestionIdRef = useRef<string | null>(null);
+  const allowNavigationRef = useRef(false);
 
   const zoomPan = useZoomPan({
     minZoom: 0.5,
@@ -53,6 +54,35 @@ export const ExamWorkspaceView: React.FC = () => {
   resetPanRef.current = zoomPan.setPanOffset;
 
   const adapter = useExamWorkspaceAdapter(safeAttemptId);
+
+  useEffect(() => {
+    if (adapter.sessionStatus !== "ready" || adapter.timer.isExpired) return;
+    allowNavigationRef.current = false;
+
+    const currentState = window.history.state as { fuoExamGuard?: boolean } | null;
+    if (!currentState?.fuoExamGuard) {
+      window.history.pushState({ ...(currentState || {}), fuoExamGuard: true }, "");
+    }
+
+    const handlePopState = () => {
+      if (allowNavigationRef.current) return;
+      window.history.pushState({ fuoExamGuard: true }, "");
+      setIsExitConfirmOpen(true);
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (allowNavigationRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [adapter.sessionStatus, adapter.timer.isExpired]);
 
   const activeQuestion = adapter.currentQuestion;
   const activeQuestionId = activeQuestion?.questionId ?? "";
@@ -216,23 +246,24 @@ export const ExamWorkspaceView: React.FC = () => {
           exitLabel="Thoát phòng thi"
           onExit={() => setIsExitConfirmOpen(true)}
           progressLabel="Tiến độ bài thi"
-          progressCurrent={adapter.answeredCount}
+          progressCurrent={adapter.currentIndex + 1}
           progressTotal={adapter.totalQuestions}
           progressCurrentBadge={adapter.currentIndex + 1}
           progressTotalBadge={adapter.totalQuestions}
+          progressVariant="exam"
           modeSwitcher={{
             currentMode: "exam",
             label: "Thi thử",
           }}
-          modeToggle={{
-            ariaLabel: "Chế độ chấm điểm",
-            value: adapter.feedbackMode,
+          answerSourceToggle={{
+            ariaLabel: "Nguồn đáp án",
+            value: adapter.benchmarkMode,
             options: [
-              { value: "instant", label: "Chấm tức thì" },
-              { value: "post_exam", label: "Thi chuẩn" },
+              { value: "ai", label: "Đáp án AI" },
+              { value: "community", label: "Cộng đồng" },
             ],
             onChange: (value) => {
-              adapter.setFeedbackMode(value === "instant" ? "instant" : "post_exam");
+              adapter.setBenchmarkMode(value === "community" ? "community" : "ai");
             },
           }}
           saveStatus={adapter.saveStatus}
@@ -244,7 +275,7 @@ export const ExamWorkspaceView: React.FC = () => {
               data-testid="exam-timer-box"
               role={adapter.timer.isWarning ? "status" : undefined}
               aria-live={adapter.timer.isWarning ? "polite" : undefined}
-              className={`min-h-11 px-space-2 sm:px-space-3 py-space-1 rounded-full border-2 border-color-1 inline-flex items-center gap-space-1 font-bold text-[13px] sm:text-text-xs tabular-nums shrink-0 ${
+              className={`min-h-11 px-space-2 sm:px-space-3 py-space-1 rounded-full border-2 border-color-1 inline-flex items-center gap-space-1 font-bold text-text-2xs sm:text-text-xs tabular-nums shrink-0 whitespace-nowrap ${
                 adapter.timer.isWarning
                   ? "bg-color-4 text-color-1 animate-pulse"
                   : adapter.timer.isUntimed
@@ -259,9 +290,14 @@ export const ExamWorkspaceView: React.FC = () => {
                 aria-hidden="true"
               />
               <span>
-                {adapter.timer.isUntimed
-                  ? `Không giới hạn • ${adapter.timer.formattedElapsed}`
-                  : adapter.timer.formattedTime}
+                {adapter.timer.isUntimed ? (
+                  <>
+                    <span className="hidden sm:inline">Không giới hạn • </span>
+                    <span>{adapter.timer.formattedElapsed}</span>
+                  </>
+                ) : (
+                  adapter.timer.formattedTime
+                )}
               </span>
             </div>
           }
@@ -410,7 +446,7 @@ export const ExamWorkspaceView: React.FC = () => {
       onNext={adapter.navigateNext}
       onOpenMobileNavigator={() => setIsMobileNavigatorOpen(true)}
       onOpenAiAnalysis={adapter.openAiAnalysis}
-      aiButtonLabel="FUO AI"
+      aiButtonLabel="AI Explanation"
       modals={
         <>
           <AiAnswerModal
@@ -435,7 +471,11 @@ export const ExamWorkspaceView: React.FC = () => {
 
           <Modal
             isOpen={isExitConfirmOpen}
-            onClose={() => setIsExitConfirmOpen(false)}
+            onClose={() => {
+              if (!adapter.isSubmitting) {
+                setIsExitConfirmOpen(false);
+              }
+            }}
             title="Xác nhận thoát phòng thi"
             size="sm"
           >
@@ -446,12 +486,12 @@ export const ExamWorkspaceView: React.FC = () => {
                 </div>
                 <div className="flex flex-col gap-space-1">
                   <p className="text-text-sm font-bold text-color-1">
-                    Bạn có chắc muốn rời khỏi phòng thi lúc này?
+                    Bạn có chắc muốn thoát & kết thúc bài thi lúc này?
                   </p>
                   <p className="text-text-xs font-medium text-color-1">
                     {adapter.timer.isUntimed
-                      ? "Phiên làm bài chưa được nộp. Bạn có thể quay lại tiếp tục sau."
-                      : `Đồng hồ làm bài (${adapter.timer.formattedTime}) vẫn tiếp tục chạy trên hệ thống ngay cả khi bạn rời trang.`}
+                      ? "Thoát ngay sẽ nộp và kết thúc phiên làm bài hiện tại."
+                      : `Thoát ngay sẽ nộp và kết thúc phiên làm bài (${adapter.timer.formattedTime} còn lại). Bạn có thể chọn tiếp tục để làm tiếp.`}
                   </p>
                 </div>
               </div>
@@ -462,37 +502,41 @@ export const ExamWorkspaceView: React.FC = () => {
                   className="p-space-3 rounded-2xl bg-color-4/15 border-2 border-color-1 text-color-1 flex flex-wrap items-center justify-between gap-space-2"
                 >
                   <span className="text-text-xs font-bold">
-                    Cảnh báo: Còn {adapter.pendingSaveCount} đáp án chưa đồng bộ lên máy chủ.
+                    Còn {adapter.pendingSaveCount} đáp án chưa đồng bộ — hệ thống sẽ thử lưu lại trước khi kết thúc.
                   </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      void adapter.retrySave();
-                    }}
-                    className="min-h-11 shrink-0"
-                  >
-                    Lưu lại ngay
-                  </Button>
+                </div>
+              )}
+
+              {adapter.submitError && (
+                <div
+                  role="alert"
+                  className="p-space-3 rounded-2xl bg-color-4/15 border-2 border-color-1 text-color-1 text-text-xs font-bold"
+                >
+                  {adapter.submitError}
                 </div>
               )}
 
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-space-2 pt-space-2 border-t-2 border-color-6">
                 <Button
-                  variant="secondary"
+                  variant="danger"
                   size="md"
+                  isLoading={adapter.isSubmitting}
+                  disabled={adapter.isSubmitting}
                   onClick={() => {
-                    setIsExitConfirmOpen(false);
-                    navigate("/");
+                    allowNavigationRef.current = true;
+                    void adapter.confirmSubmit().finally(() => {
+                      allowNavigationRef.current = false;
+                    });
                   }}
                   className="min-h-11 inline-flex items-center justify-center gap-space-1"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Rời phòng thi</span>
+                  <span>Thoát & kết thúc bài thi</span>
                 </Button>
                 <Button
                   variant="primary"
                   size="md"
+                  disabled={adapter.isSubmitting}
                   onClick={() => setIsExitConfirmOpen(false)}
                   className="min-h-11"
                 >

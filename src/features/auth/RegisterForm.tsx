@@ -71,8 +71,8 @@ export const RegisterForm: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-space-4 sm:p-space-6">
-      <Card className="w-full max-w-md p-space-5 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm rounded-3xl">
+    <div className="flex-1 flex items-center justify-center p-space-3 sm:p-space-6">
+      <Card className="w-full max-w-md p-space-4 sm:p-space-6 bg-color-7 border-2 border-color-1 shadow-sm rounded-3xl">
         <div className="text-center mb-space-5">
           <div
             data-impeccable-ignore="hard-offset-shadow"

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { QuestionStage } from "@/features/workspace/QuestionStage";
 import type { Question } from "@/types/exam";
@@ -39,8 +39,9 @@ describe("QuestionStage Component Tests", () => {
     expect(viewport.className).toContain("touch-none");
   });
 
-  it("moves image error fallback outside pan capture surface so text stays selectable and retry works", () => {
-    render(<QuestionStage question={diagramQuestion} />);
+  it("moves image error fallback outside pan capture surface so text & options stay usable and retry works", () => {
+    const onSelect = vi.fn();
+    render(<QuestionStage question={diagramQuestion} onSelectOption={onSelect} />);
 
     const img = screen.getByRole("img", { name: /Hình minh họa câu 1/i });
     fireEvent.error(img);
@@ -48,6 +49,10 @@ describe("QuestionStage Component Tests", () => {
     expect(screen.getByText(/Inspect the state machine diagram below\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Thử tải lại hình ảnh/i })).toBeInTheDocument();
     expect(screen.queryByTestId("question-stage-viewport")).not.toBeInTheDocument();
+
+    const optA = screen.getByRole("button", { name: /Đáp án A: S0/i });
+    fireEvent.click(optA);
+    expect(onSelect).toHaveBeenCalledWith("A");
   });
 
   it("renders clean selectable text-only stage without empty canvas box when imageUrl is null", () => {

@@ -9,9 +9,10 @@ import {
 } from "@/api/attempts";
 import { useExamTimer } from "@/hooks/useExamTimer";
 import { useExamUiStore } from "@/stores/examUiStore";
+import { getCommunityFallbackNotice } from "@/utils/answerComparison";
 import { getErrorMessage } from "@/utils/error";
-import { inferSubjectCode, removeActiveExam, upsertActiveExam } from "@/utils/activeExams";
-import type { FeedbackMode, Question } from "@/types/exam";
+import { inferSubjectCode, getActiveExams, removeActiveExam, upsertActiveExam } from "@/utils/activeExams";
+import type { BenchmarkMode, FeedbackMode, Question } from "@/types/exam";
 import type {
   WorkspaceEvaluationResult,
   WorkspaceNavigatorItem,
@@ -24,6 +25,7 @@ interface CachedInstantResult {
   correctAnswer: string;
   aiExplanation: string;
   optionByOptionAnalysis?: Record<string, string>;
+  communityFallbackNotice?: string | null;
 }
 
 interface CachedAiRationale {
@@ -45,6 +47,8 @@ export interface ExamWorkspaceAdapterResult {
   selectedOptions: string;
   feedbackMode: FeedbackMode;
   setFeedbackMode: (mode: FeedbackMode) => void;
+  benchmarkMode: BenchmarkMode;
+  setBenchmarkMode: (mode: BenchmarkMode) => void;
   evaluation: WorkspaceEvaluationResult | null;
   saveStatus: WorkspaceSaveStatus;
   pendingSaveCount: number;
@@ -128,7 +132,19 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     closeSubmitConfirm,
     feedbackMode,
     setFeedbackMode,
+    benchmarkMode,
+    setBenchmarkMode,
+    resetSessionState,
   } = useExamUiStore();
+
+  // Isolate question index between attempts & restore persisted feedbackMode across page reloads
+  useEffect(() => {
+    resetSessionState();
+    const persisted = getActiveExams().find((item) => item.attemptId === safeAttemptId);
+    if (persisted?.feedbackMode) {
+      setFeedbackMode(persisted.feedbackMode);
+    }
+  }, [safeAttemptId, resetSessionState, setFeedbackMode]);
 
   const {
     data: attempt,
@@ -306,7 +322,11 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
       return next;
     });
     try {
-      const result = await checkInstantAnswer(qId, selected);
+      const result = await checkInstantAnswer(qId, selected, benchmarkMode);
+      const communityFallbackNotice = getCommunityFallbackNotice(
+        benchmarkMode,
+        result.communityStats
+      );
       setInstantResults((prev) => ({
         ...prev,
         [qId]: {
@@ -314,6 +334,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
           correctAnswer: result.correctAnswer,
           aiExplanation: result.aiExplanation,
           optionByOptionAnalysis: result.optionByOptionAnalysis,
+          communityFallbackNotice,
         },
       }));
       setAiExplanations((prev) => ({
@@ -335,7 +356,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     } finally {
       setEvaluatingQuestionId((prev) => (prev === qId ? null : prev));
     }
-  }, []);
+  }, [benchmarkMode]);
 
   const selectOption = useCallback(
     async (optionKey: string) => {
@@ -425,7 +446,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
       });
 
       try {
-        const res = await checkInstantAnswer(qId, selected);
+        const res = await checkInstantAnswer(qId, selected, benchmarkMode);
         setAiExplanations((prev) => ({
           ...prev,
           [qId]: {
@@ -446,7 +467,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
         setAiLoadingIds((prev) => ({ ...prev, [qId]: false }));
       }
     },
-    []
+    [benchmarkMode]
   );
 
   const openAiAnalysis = useCallback(() => {
@@ -513,6 +534,7 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
             correctAnswer: currentInstant.correctAnswer,
             aiExplanation: currentInstant.aiExplanation,
             optionByOptionAnalysis: currentInstant.optionByOptionAnalysis ?? null,
+            communityFallbackNotice: currentInstant.communityFallbackNotice ?? null,
           }
         : currentInstantError
           ? {
@@ -574,6 +596,8 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     selectedOptions: currentQuestion ? userAnswers[currentQuestion.questionId] || "" : "",
     feedbackMode,
     setFeedbackMode,
+    benchmarkMode,
+    setBenchmarkMode,
     evaluation,
     saveStatus,
     pendingSaveCount: Object.keys(failedSaves).length,

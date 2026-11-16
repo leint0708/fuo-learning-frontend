@@ -1,4 +1,4 @@
-import type { Question } from "./exam";
+import type { BenchmarkMode, CommunityStats, Question } from "./exam";
 
 export type PracticeMode = "cram" | "learn";
 
@@ -79,4 +79,6 @@ export interface InstantAnswerResult {
   isCorrect: boolean;
   aiExplanation: string;
   optionByOptionAnalysis?: Record<string, string>;
+  benchmarkSource?: BenchmarkMode;
+  communityStats?: CommunityStats | null;
 }

@@ -27,6 +27,7 @@ export interface AttemptReview {
   percentageScore: number;
   isPassed: boolean;
   submittedAt: string;
+  durationSeconds?: number | null;
   questions: ReviewQuestionItem[];
 }
 
