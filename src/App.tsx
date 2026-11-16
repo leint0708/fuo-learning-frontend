@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useMatch } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { GuestRoute } from "@/components/layout/GuestRoute";
 import { useAuthStore } from "@/stores/authStore";
 
 // Code-split Feature Views
@@ -71,8 +72,22 @@ export const App: React.FC = () => {
         >
           <Routes>
             {/* Public Auth Routes */}
-            <Route path="/login" element={<LoginForm />} />
-            <Route path="/register" element={<RegisterForm />} />
+            <Route
+              path="/login"
+              element={
+                <GuestRoute>
+                  <LoginForm />
+                </GuestRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <GuestRoute>
+                  <RegisterForm />
+                </GuestRoute>
+              }
+            />
 
             {/* Protected Learning Routes */}
             <Route

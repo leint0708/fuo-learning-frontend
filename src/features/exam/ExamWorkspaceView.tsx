@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Navigate } from "react-router-dom";
 import {
   Clock,
   Send,
@@ -145,6 +145,46 @@ export const ExamWorkspaceView: React.FC = () => {
     onResetZoom: zoomPan.resetZoom,
     onOpenShortcuts: () => setIsShortcutHelpOpen(true),
   });
+
+  if (adapter.sessionStatus === "ended") {
+    if (adapter.endedReason === "expired") {
+      return (
+        <div className="flex-1 flex items-center justify-center bg-color-6 p-space-4">
+          <Card className="max-w-md w-full p-space-6 bg-color-7 border-2 border-color-1 rounded-3xl text-center shadow-sm flex flex-col gap-space-4">
+            <div role="alert" aria-live="polite" className="flex flex-col items-center gap-space-2">
+              <div className="w-12 h-12 rounded-full bg-color-5 text-color-1 border-2 border-color-1 flex items-center justify-center">
+                <Clock className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <h1 className="text-text-lg font-bold text-color-1">Phiên thi đã kết thúc</h1>
+              <p className="text-text-xs font-medium text-color-1">
+                Bài thi này đã hết thời gian làm bài và không thể tiếp tục chỉnh sửa.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-space-2">
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => navigate(`/attempts/${safeAttemptId}/review`, { replace: true })}
+                className="min-h-11 flex-1"
+              >
+                Xem kết quả bài thi
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => navigate("/", { replace: true })}
+                className="min-h-11 flex-1"
+              >
+                Về trang chủ
+              </Button>
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
+    return <Navigate to={`/attempts/${safeAttemptId}/review`} replace />;
+  }
 
   if (adapter.sessionStatus === "loading") {
     return (

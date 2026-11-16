@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { UserProfile } from "@/types/auth";
-import { apiClient } from "@/api/client";
+import { apiClient, registerUnauthorizedHandler } from "@/api/client";
+import { queryClient } from "@/lib/queryClient";
+import { clearExamSessionStorage } from "@/utils/activeExams";
 
 interface AuthState {
   accessToken: string | null;
@@ -31,6 +33,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem("fuo_auth_token");
+    clearExamSessionStorage();
+    try {
+      queryClient.clear();
+    } catch {
+      // Ignore queryClient cleanup issues in isolated tests
+    }
     set({
       accessToken: null,
       user: null,
@@ -79,3 +87,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+registerUnauthorizedHandler(() => {
+  useAuthStore.getState().logout();
+});

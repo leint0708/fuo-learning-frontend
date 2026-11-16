@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getAttempt,
   saveAnswer,
@@ -11,7 +11,14 @@ import { useExamTimer } from "@/hooks/useExamTimer";
 import { useExamUiStore } from "@/stores/examUiStore";
 import { getCommunityFallbackNotice } from "@/utils/answerComparison";
 import { getErrorMessage } from "@/utils/error";
-import { inferSubjectCode, getActiveExams, removeActiveExam, upsertActiveExam } from "@/utils/activeExams";
+import {
+  inferSubjectCode,
+  getActiveExams,
+  getEndedAttemptReason,
+  markAttemptEnded,
+  removeActiveExam,
+  upsertActiveExam,
+} from "@/utils/activeExams";
 import type { BenchmarkMode, FeedbackMode, Question } from "@/types/exam";
 import type {
   WorkspaceEvaluationResult,
@@ -35,7 +42,8 @@ interface CachedAiRationale {
 }
 
 export interface ExamWorkspaceAdapterResult {
-  sessionStatus: "loading" | "error" | "ready";
+  sessionStatus: "loading" | "error" | "ended" | "ready";
+  endedReason: "completed" | "expired" | null;
   loadErrorMessage: string | null;
   examTitle: string;
   questions: Question[];
@@ -119,7 +127,10 @@ function writeDraftMap(storageKey: string, draft: Record<string, string>): void 
  */
 export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAdapterResult {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const draftStorageKey = `${DRAFT_STORAGE_PREFIX}${safeAttemptId}`;
+  const endedLocallyReason = getEndedAttemptReason(safeAttemptId);
+  const endedLocally = endedLocallyReason !== null;
 
   const {
     currentQuestionIndex,
@@ -154,6 +165,10 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
   } = useQuery({
     queryKey: ["attempt", safeAttemptId],
     queryFn: () => getAttempt(safeAttemptId),
+    enabled: Boolean(safeAttemptId) && !endedLocally,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
   });
 
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
@@ -244,8 +259,10 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     try {
       await flushFailedSaves();
       await submitAttempt(safeAttemptId);
+      markAttemptEnded(safeAttemptId);
       removeActiveExam(safeAttemptId);
       updateFailedSaves(() => ({}));
+      queryClient.removeQueries({ queryKey: ["attempt", safeAttemptId] });
       closeSubmitConfirm();
       navigate(`/attempts/${safeAttemptId}/review`, { replace: true });
     } catch (err) {
@@ -258,13 +275,16 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     } finally {
       setIsSubmitting(false);
     }
-  }, [safeAttemptId, flushFailedSaves, updateFailedSaves, closeSubmitConfirm, navigate]);
+  }, [safeAttemptId, flushFailedSaves, updateFailedSaves, queryClient, closeSubmitConfirm, navigate]);
 
   const isUntimed = attempt?.timeRemainingSeconds === null;
   const { formattedTime, formattedElapsed, isWarning, isExpired } = useExamTimer({
     initialSeconds: isUntimed ? null : (attempt?.timeRemainingSeconds ?? 3600),
-    isUntimed,
-    onExpire: confirmSubmit,
+    isUntimed: isUntimed || Boolean(attempt && attempt.status !== "in_progress"),
+    onExpire: () => {
+      if (!attempt || attempt.status !== "in_progress") return;
+      void confirmSubmit();
+    },
   });
 
   const questions = useMemo(() => attempt?.questions ?? [], [attempt?.questions]);
@@ -498,7 +518,15 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
 
   useEffect(() => {
     if (!attempt || !safeAttemptId) return;
-    if (attempt.status !== "in_progress" || isExpired) {
+    if (attempt.status !== "in_progress") {
+      markAttemptEnded(
+        safeAttemptId,
+        attempt.status === "expired" ? "expired" : "completed"
+      );
+      removeActiveExam(safeAttemptId);
+      return;
+    }
+    if (isExpired) {
       removeActiveExam(safeAttemptId);
       return;
     }
@@ -572,14 +600,25 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     errorMessage: currentQuestion ? aiErrors[currentQuestion.questionId] ?? null : null,
   };
 
-  const sessionStatus: ExamWorkspaceAdapterResult["sessionStatus"] = isLoading
-    ? "loading"
-    : error || !currentQuestion
-      ? "error"
-      : "ready";
+  const endedReason: ExamWorkspaceAdapterResult["endedReason"] =
+    endedLocallyReason ??
+    (attempt && attempt.status !== "in_progress"
+      ? attempt.status === "expired"
+        ? "expired"
+        : "completed"
+      : null);
+
+  const sessionStatus: ExamWorkspaceAdapterResult["sessionStatus"] = endedReason
+    ? "ended"
+    : isLoading
+      ? "loading"
+      : error || !currentQuestion
+        ? "error"
+        : "ready";
 
   return {
     sessionStatus,
+    endedReason,
     loadErrorMessage: error
       ? getErrorMessage(
           error,

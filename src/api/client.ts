@@ -20,6 +20,12 @@ export class ApiError extends Error {
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
+let unauthorizedHandler: (() => void) | null = null;
+
+export function registerUnauthorizedHandler(handler: () => void): void {
+  unauthorizedHandler = handler;
+}
+
 export async function apiClient<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -78,8 +84,12 @@ export async function apiClient<T>(
     }
 
     if (response.status === 401) {
-      // Clear token on unauthorized if needed
       localStorage.removeItem("fuo_auth_token");
+      const isAuthCredentialEndpoint =
+        endpoint.includes("/auth/login") || endpoint.includes("/auth/register");
+      if (!isAuthCredentialEndpoint) {
+        unauthorizedHandler?.();
+      }
     }
 
     throw new ApiError(response.status, errorMessage, details, code);

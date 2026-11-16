@@ -147,6 +147,8 @@ describe("ExamWorkspaceView Integration Tests", () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
     useExamUiStore.getState().resetSessionState();
     useExamUiStore.getState().setFeedbackMode("instant");
     queryClient = new QueryClient({
