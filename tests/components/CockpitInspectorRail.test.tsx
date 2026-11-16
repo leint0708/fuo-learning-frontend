@@ -50,23 +50,22 @@ describe("Rebuilt Cockpit Components (Inspector Rail, Header Popover, 3-Zone She
     expect(screen.getByTitle("Câu 2")).toBeInTheDocument();
   });
 
-  it("supports collapsing and expanding the right inspector rail inside StudyCockpitShell", () => {
-    render(
+  it("keeps the desktop inspector rail permanently visible without a collapse toggle and renders a single-line mastery badge", () => {
+    const { container } = render(
       <StudyCockpitShell
+        hasVisualMedia={true}
         header={<div>Header</div>}
         stageContent={<div>Paper Question Card</div>}
         navigatorContent={
           <CockpitInspectorRail
-            mode="exam"
+            mode="cram"
             options={{ A: "Opt A", B: "Opt B" }}
             sortedOptionKeys={["A", "B"]}
             selectedOptions="A"
-            feedbackMode="post_exam"
+            feedbackMode="instant"
             onSelectOption={vi.fn()}
+            statsSummaryLabel="0 đã thuộc"
             navigatorItems={[{ id: "q1", number: 1, isAnswered: true, isCurrent: true }]}
-            answeredCount={1}
-            totalQuestions={1}
-            onSelectQuestion={vi.fn()}
           />
         }
         mobileStatusLabel="1/1"
@@ -74,12 +73,16 @@ describe("Rebuilt Cockpit Components (Inspector Rail, Header Popover, 3-Zone She
       />
     );
 
-    expect(screen.getByText("Câu hỏi (1/1 đã trả lời):")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Thu gọn bảng thông tin/i }));
-    expect(screen.queryByText("Câu hỏi (1/1 đã trả lời):")).not.toBeInTheDocument();
+    expect(screen.getByText("Thông tin câu hỏi:")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Thu gọn bảng thông tin/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Mở rộng bảng thông tin/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Mở rộng bảng thông tin/i }));
-    expect(screen.getByText("Câu hỏi (1/1 đã trả lời):")).toBeInTheDocument();
+    const masteryPill = screen.getByText("0 đã thuộc");
+    expect(masteryPill.className).toContain("whitespace-nowrap");
+
+    const shellRoot = container.firstElementChild as HTMLElement;
+    expect(shellRoot.className).toContain("lg:h-dvh");
+    expect(shellRoot.className).toContain("lg:overflow-hidden");
   });
 
   it("switches practice modes via header dropdown, toggles answer source inside ⚙ Settings popover, and renders mode-specific progress bars", () => {

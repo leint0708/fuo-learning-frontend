@@ -44,8 +44,7 @@ export interface CockpitInspectorRailProps {
   answeredCount?: number;
   totalQuestions?: number;
   onSelectQuestion?: (index: number) => void;
-  // Desktop collapse & mobile drawer controls
-  onCollapseDesktop?: () => void;
+  // Mobile drawer controls
   isMobileDrawerOpen?: boolean;
   onCloseMobileDrawer?: () => void;
 }
@@ -79,7 +78,6 @@ export const CockpitInspectorRail: React.FC<CockpitInspectorRailProps> = ({
   answeredCount = 0,
   totalQuestions = 0,
   onSelectQuestion,
-  onCollapseDesktop,
   isMobileDrawerOpen = false,
   onCloseMobileDrawer,
 }) => {
@@ -211,7 +209,10 @@ export const CockpitInspectorRail: React.FC<CockpitInspectorRailProps> = ({
           <span>{mode === "cram" ? "Tiến độ cấp tốc" : "Nhóm thẻ đang học"}</span>
         </span>
         {statsSummaryLabel && (
-          <Badge variant={mode === "cram" ? "warning" : "success"}>
+          <Badge
+            variant={mode === "cram" ? "warning" : "success"}
+            className="whitespace-nowrap shrink-0 tabular-nums"
+          >
             {statsSummaryLabel}
           </Badge>
         )}
@@ -372,17 +373,6 @@ export const CockpitInspectorRail: React.FC<CockpitInspectorRailProps> = ({
       >
         <div className="flex items-center justify-between gap-space-2">
           <h2 className="text-text-sm font-bold text-color-1">{resolvedTitle}</h2>
-          {onCollapseDesktop && (
-            <button
-              type="button"
-              onClick={onCollapseDesktop}
-              aria-label="Thu gọn bảng thông tin"
-              className="min-h-11 px-space-2 -mr-space-2 rounded-full text-[13px] font-bold text-color-1/80 hover:text-color-1 hover:bg-color-6 inline-flex items-center gap-0.5 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-color-5"
-            >
-              <span>Thu gọn</span>
-              <ChevronRight className="w-4 h-4" aria-hidden="true" />
-            </button>
-          )}
         </div>
 
         {(mode === "cram" || mode === "learn") && renderPracticeMasteryCard()}

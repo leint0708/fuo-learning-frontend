@@ -170,11 +170,11 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
   return (
     <div className={`w-full flex flex-col gap-space-2 ${showInteractiveDiagram ? "flex-1 min-h-0" : ""}`}>
       {showInteractiveDiagram && imageSrcWithRetry ? (
-        /* Full-bleed edge-to-edge diagram viewport: wraps cleanly on < sm so pills never collide with zoom controls */
+        /* Full-bleed edge-to-edge diagram viewport: fits inside screen height on lg+ and wraps safely on < sm */
         <section
           data-impeccable-ignore="hard-offset-shadow"
           aria-label={`Nội dung câu ${question.questionNumber}`}
-          className="relative flex-1 min-h-[280px] sm:min-h-[420px] lg:min-h-[500px] w-full overflow-hidden rounded-2xl border-2 border-color-1 bg-color-7 flex flex-col"
+          className="relative flex-1 min-h-[240px] sm:min-h-[300px] lg:min-h-0 w-full overflow-hidden rounded-2xl border-2 border-color-1 bg-color-7 flex flex-col"
         >
           {/* Non-overlapping header row on mobile (< sm); floating top overlay on sm+ */}
           <div className="relative sm:absolute sm:inset-x-0 sm:top-0 z-10 flex flex-wrap items-center justify-between gap-space-1.5 sm:gap-space-2 p-space-2 sm:p-space-3 bg-color-7/95 sm:bg-transparent border-b border-color-1/15 sm:border-b-0 sm:pointer-events-none">
@@ -246,7 +246,7 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
             </div>
           </div>
 
-          {/* Edge-to-edge Interactive Pan & Zoom Viewport */}
+          {/* Edge-to-edge Fit-to-Screen Interactive Pan & Zoom Viewport */}
           <div
             ref={containerRef}
             data-testid="question-stage-viewport"
@@ -257,7 +257,7 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerCancel}
-            className={`flex-1 w-full h-full min-h-[260px] sm:min-h-[420px] lg:min-h-[500px] overflow-hidden select-none bg-color-7 flex items-center justify-center p-space-2 sm:p-space-4 sm:pt-16 ${
+            className={`relative flex-1 w-full min-h-[220px] max-h-[55dvh] sm:max-h-[62dvh] lg:min-h-0 lg:max-h-none overflow-hidden select-none bg-color-7 flex items-center justify-center p-space-2 sm:p-space-4 sm:pt-14 ${
               isPanActive ? "touch-none" : "touch-pan-y"
             } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           >
@@ -269,7 +269,10 @@ export const QuestionStage: React.FC<QuestionStageProps> = ({
               </div>
             )}
 
-            <div style={transformStyle} className="w-full h-full flex items-center justify-center">
+            <div
+              style={transformStyle}
+              className="w-full h-full min-h-0 flex items-center justify-center"
+            >
               <img
                 src={imageSrcWithRetry}
                 alt={`Hình minh họa câu ${question.questionNumber} (${question.questionIdCode})`}

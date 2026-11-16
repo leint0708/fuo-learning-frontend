@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { List, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -26,8 +26,8 @@ export interface StudyCockpitShellProps {
 /**
  * Unified 3-zone Neo-Brutalist Study & Exam Cockpit:
  * - Slim top utility bar
- * - Centered paper Question Card inside framed canvas + floating bottom-center FUO AI pill
- * - Collapsible right inspector rail (lg+) & bottom navigation bar (< Câu trước | shortcuts/drawer | Câu tiếp >)
+ * - Fit-to-screen Question Stage inside framed canvas + floating bottom-center AI Explanation pill
+ * - Permanent right inspector rail (lg+) & bottom navigation bar (< Câu trước | drawer | Câu tiếp >)
  */
 export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
   header,
@@ -49,10 +49,8 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
   aiButtonLabel = "AI Explanation",
   modals,
 }) => {
-  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
-
   return (
-    <div className="min-h-dvh flex flex-col bg-color-6 text-color-1">
+    <div className="min-h-dvh lg:h-dvh lg:overflow-hidden flex flex-col bg-color-6 text-color-1">
       {header}
 
       {/* Main 2-Column Workspace Frame */}
@@ -60,28 +58,28 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
         {/* Left/Center Main Canvas */}
         <section
           aria-label="Không gian câu hỏi"
-          className="flex-1 min-w-0 bg-color-7/70 border-2 border-color-1 rounded-3xl p-space-3 sm:p-space-5 flex flex-col justify-between gap-space-3 shadow-xs"
+          className="flex-1 min-w-0 lg:min-h-0 lg:overflow-hidden bg-color-7/70 border-2 border-color-1 rounded-3xl p-space-3 sm:p-space-4 flex flex-col justify-between gap-space-2 sm:gap-space-3 shadow-xs"
         >
-          {banners && <div className="w-full">{banners}</div>}
+          {banners && <div className="w-full shrink-0">{banners}</div>}
 
           <div
             className={
               hasVisualMedia
-                ? "w-full flex-1 flex flex-col gap-space-3 min-h-0"
-                : "w-full max-w-3xl mx-auto flex flex-col gap-space-3 my-auto"
+                ? "w-full flex-1 flex flex-col gap-space-2 min-h-0 lg:overflow-hidden"
+                : "w-full max-w-3xl mx-auto flex-1 flex flex-col justify-center gap-space-3 min-h-0 lg:overflow-y-auto custom-scrollbar"
             }
           >
             {stageContent}
 
-            {evaluationBanner}
+            {evaluationBanner && <div className="shrink-0">{evaluationBanner}</div>}
 
             {/* Mobile/Tablet inline keypad (< lg) so options stay 1 tap away */}
-            {mobileInlineKeypad && <div className="lg:hidden">{mobileInlineKeypad}</div>}
+            {mobileInlineKeypad && <div className="lg:hidden shrink-0">{mobileInlineKeypad}</div>}
           </div>
 
           {/* Floating Bottom-Center AI Explanation Pill inside Canvas */}
           {onOpenAiAnalysis && (
-            <div className="w-full flex items-center justify-between gap-space-2 pt-space-1">
+            <div className="w-full shrink-0 flex items-center justify-between gap-space-2 pt-space-1">
               <div className="hidden sm:block flex-1" aria-hidden="true" />
               <Button
                 variant="primary"
@@ -100,37 +98,14 @@ export const StudyCockpitShell: React.FC<StudyCockpitShellProps> = ({
           )}
         </section>
 
-        {/* Right Collapsible Inspector Rail (Desktop lg+) */}
-        <div
-          className={`hidden lg:flex shrink-0 transition-all duration-fast items-start ${
-            isInspectorCollapsed ? "w-auto" : "w-[320px] xl:w-[340px]"
-          }`}
-        >
-          {isInspectorCollapsed ? (
-            <button
-              type="button"
-              onClick={() => setIsInspectorCollapsed(false)}
-              aria-label="Mở rộng bảng thông tin"
-              title="Mở rộng bảng thông tin"
-              className="min-h-11 px-space-3 py-space-2 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm flex items-center gap-space-1 font-bold text-[13px] text-color-1 hover:bg-color-5 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5"
-            >
-              <ChevronLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>Mở rộng</span>
-            </button>
-          ) : (
-            <div className="w-full lg:sticky lg:top-[96px]">
-              {React.isValidElement<{ onCollapseDesktop?: () => void }>(navigatorContent)
-                ? React.cloneElement(navigatorContent, {
-                    onCollapseDesktop: () => setIsInspectorCollapsed(true),
-                  })
-                : navigatorContent}
-            </div>
-          )}
+        {/* Right Permanent Inspector Rail (Desktop lg+) */}
+        <div className="hidden lg:flex w-[320px] xl:w-[340px] shrink-0 lg:min-h-0 lg:max-h-full lg:overflow-y-auto custom-scrollbar items-start">
+          <div className="w-full">{navigatorContent}</div>
         </div>
       </div>
 
       {/* Unified Bottom Navigation Dock */}
-      <footer className="sticky bottom-0 z-20 bg-color-7 border-t-2 border-color-1 px-space-2 sm:px-space-4 py-space-1.5 sm:py-space-2 shadow-xs">
+      <footer className="sticky bottom-0 z-20 shrink-0 bg-color-7 border-t-2 border-color-1 px-space-2 sm:px-space-4 py-space-1.5 sm:py-space-2 shadow-xs">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-space-1.5 sm:gap-space-2 min-w-0">
           <Button
             variant="secondary"
