@@ -1,5 +1,17 @@
-import React, { useState } from "react";
-import { Check, X, Bot, Users, ChevronDown, ChevronUp, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Check,
+  X,
+  Bot,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  AlertTriangle,
+  Sparkles,
+} from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -10,10 +22,32 @@ import type { ReviewQuestionItem as ReviewItemType } from "@/types/review";
 export interface QuestionReviewItemProps {
   item: ReviewItemType;
   index: number;
+  elementId?: string;
+  isActive?: boolean;
+  expandSignal?: { version: number; expanded: boolean };
+  onOpenAiModal?: (item: ReviewItemType, displayNumber: number) => void;
+  onFocusQuestion?: (displayNumber: number) => void;
 }
 
-export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, index }) => {
+function parseOptionSet(value?: string | null): Set<string> {
+  if (!value) return new Set();
+  const normalized = value.toUpperCase().replace(/[^A-Z]/g, "");
+  return new Set(normalized.split("").filter(Boolean));
+}
+
+const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
+  item,
+  index,
+  elementId,
+  isActive = false,
+  expandSignal,
+  onOpenAiModal,
+  onFocusQuestion,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [retrySeed, setRetrySeed] = useState(0);
 
   const {
     zoomLevel,
@@ -33,63 +67,165 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
     isPanActive,
   } = useZoomPan({ minZoom: 0.5, maxZoom: 3.0, zoomStep: 0.25, initialZoom: 1.0 });
 
+  const displayNumber = item.questionNumber > 0 ? item.questionNumber : index + 1;
+  const resolvedSrc = resolveImageUrl(item.imageUrl);
+  const showInteractiveDiagram = Boolean(resolvedSrc) && !imageError;
+
+  const imageSrcWithRetry =
+    resolvedSrc && retrySeed > 0
+      ? `${resolvedSrc}${resolvedSrc.includes("?") ? "&" : "?"}retry=${retrySeed}`
+      : resolvedSrc;
+
+  useEffect(() => {
+    setImageError(false);
+    setIsImageLoading(Boolean(resolvedSrc));
+  }, [resolvedSrc, item.questionIdCode, retrySeed]);
+
+  useEffect(() => {
+    if (expandSignal && expandSignal.version > 0) {
+      setIsExpanded(expandSignal.expanded);
+    }
+  }, [expandSignal]);
+
   const isUserCorrect = item.isCorrect;
   const userChoice = item.selectedOptions || "Chưa chọn";
-  const correctAnswer = item.correctAnswer;
-  const hasCommunityData = item.communityStats && item.communityStats.validVoteCount > 0;
+  const correctAnswer = item.correctAnswer || "";
+  const selectedKeys = useMemo(() => parseOptionSet(item.selectedOptions), [item.selectedOptions]);
+  const correctKeys = useMemo(() => parseOptionSet(correctAnswer), [correctAnswer]);
+
+  const sortedOptions = useMemo(() => {
+    if (!item.options) return [];
+    return Object.entries(item.options).sort(([a], [b]) => a.localeCompare(b));
+  }, [item.options]);
+
+  const breakdownEntries = useMemo(() => {
+    if (!item.optionByOptionAnalysis) return [];
+    return Object.entries(item.optionByOptionAnalysis).sort(([a], [b]) => a.localeCompare(b));
+  }, [item.optionByOptionAnalysis]);
+
+  const hasCommunityData =
+    Boolean(item.communityStats) && (item.communityStats?.validVoteCount ?? 0) > 0;
+  const voteCount = item.communityStats?.validVoteCount ?? 0;
+  const agreementPercent = Math.round((item.communityStats?.agreementRatio || 0) * 100);
+
+  const handleViewportKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      zoomIn();
+    } else if (e.key === "-" || e.key === "_") {
+      e.preventDefault();
+      zoomOut();
+    } else if (e.key === "0") {
+      e.preventDefault();
+      resetZoom();
+    }
+  };
 
   return (
-    <Card className="p-space-4 sm:p-space-5 bg-color-7 border-2 border-color-1 rounded-3xl shadow-sm space-y-space-4">
+    <Card
+      id={elementId}
+      tabIndex={-1}
+      onFocus={() => onFocusQuestion?.(displayNumber)}
+      className={`p-space-4 sm:p-space-5 bg-color-7 border-2 rounded-3xl shadow-sm space-y-space-4 outline-none transition-colors duration-fast ${
+        isActive
+          ? "border-color-2 ring-4 ring-color-5/60"
+          : "border-color-1 focus-visible:ring-4 focus-visible:ring-color-5"
+      }`}
+    >
       {/* Question Header & Status */}
       <div className="flex flex-wrap items-center justify-between gap-space-2 pb-space-3 border-b-2 border-color-6">
-        <div className="flex flex-wrap items-center gap-space-2">
+        <div className="flex flex-wrap items-center gap-space-2 min-w-0">
           <span
-            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-text-xs border-2 tabular-nums ${
-              isUserCorrect
-                ? "bg-color-3 text-color-7 border-color-1"
-                : "bg-color-4 text-color-1 border-color-1"
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-text-xs border-2 border-color-1 tabular-nums shrink-0 ${
+              isUserCorrect ? "bg-color-3 text-color-7" : "bg-color-4 text-color-1"
             }`}
           >
-            {index + 1}
+            {displayNumber}
           </span>
-          <h4 className="font-bold text-text-base text-color-1">
-            Câu {index + 1} ({item.questionIdCode})
-          </h4>
+          <h3 className="font-bold text-text-base text-color-1 break-words">
+            Câu {displayNumber} ({item.questionIdCode})
+          </h3>
         </div>
 
-        <div className="flex flex-wrap items-center gap-space-2">
+        <div className="flex flex-wrap items-center gap-space-1.5">
           {isUserCorrect ? (
             <Badge variant="success" className="flex items-center gap-1">
-              <Check className="w-3.5 h-3.5" /> Trả lời đúng
+              <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>Trả lời đúng</span>
             </Badge>
           ) : (
             <Badge variant="danger" className="flex items-center gap-1">
-              <X className="w-3.5 h-3.5" /> Trả lời sai
+              <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>Trả lời sai</span>
             </Badge>
           )}
 
           {hasCommunityData ? (
-            <Badge variant="neutral" className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5 text-color-2" />
+            <Badge variant="neutral" className="flex items-center gap-1 tabular-nums">
+              <Users className="w-3.5 h-3.5 text-color-2 shrink-0" aria-hidden="true" />
               <span>
-                Cộng đồng: {item.communityStats?.communityAnswer} (
-                {Math.round((item.communityStats?.agreementRatio || 0) * 100)}%)
+                Cộng đồng: {item.communityStats?.communityAnswer} ({agreementPercent}% ·{" "}
+                {voteCount} lượt)
               </span>
             </Badge>
           ) : (
-            <Badge variant="warning" className="flex items-center gap-1">
-              Sử dụng đáp án AI (Chưa có dữ liệu cộng đồng)
+            <Badge variant="neutral" className="flex items-center gap-1">
+              <Bot className="w-3.5 h-3.5 text-color-2 shrink-0" aria-hidden="true" />
+              <span>Nguồn: Đáp án AI (chưa có bình chọn)</span>
             </Badge>
           )}
         </div>
       </div>
 
+      {/* Text Stem (shown for text-only questions or whenever diagram loading fails) */}
+      {(!showInteractiveDiagram) && item.questionText && (
+        <div className="p-space-3 sm:p-space-4 bg-color-6/60 border-2 border-color-1/25 rounded-2xl">
+          <p className="text-text-sm sm:text-text-base font-medium text-color-1 leading-relaxed whitespace-pre-wrap break-words">
+            {item.questionText}
+          </p>
+        </div>
+      )}
+
+      {/* Diagram Error Fallback with Retry */}
+      {resolvedSrc && imageError && (
+        <div
+          role="alert"
+          className="p-space-3 sm:p-space-4 bg-color-4/15 border-2 border-color-4 rounded-2xl flex flex-wrap items-center justify-between gap-space-2"
+        >
+          <div className="flex items-center gap-space-2 min-w-0">
+            <AlertTriangle className="w-5 h-5 text-color-1 shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-text-xs sm:text-text-sm font-bold text-color-1">
+                Không thể tải hình ảnh sơ đồ của câu {displayNumber}
+              </p>
+              <p className="text-text-xs text-color-1/80">
+                Kiểm tra kết nối mạng hoặc nhấn thử tải lại ảnh. Nội dung văn bản vẫn được giữ nguyên bên trên.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setRetrySeed((s) => s + 1)}
+            className="min-h-11 flex items-center gap-1.5 shrink-0"
+          >
+            <RotateCcw className="w-4 h-4" aria-hidden="true" />
+            <span>Thử tải lại ảnh</span>
+          </Button>
+        </div>
+      )}
+
       {/* Question Diagram / Image with Zoom & Pan */}
-      {resolveImageUrl(item.imageUrl) && (
+      {showInteractiveDiagram && imageSrcWithRetry && (
         <div className="flex flex-col bg-color-6/40 border-2 border-color-1 rounded-2xl overflow-hidden shadow-2xs">
           {/* Canvas Viewport Area */}
           <div
             ref={containerRef}
+            tabIndex={0}
+            role="region"
+            aria-label={`Sơ đồ câu hỏi ${displayNumber}, dùng phím + hoặc - để thu phóng`}
+            onKeyDown={handleViewportKeyDown}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -99,19 +235,36 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className={`relative flex items-center justify-center min-h-[220px] max-h-[460px] p-space-3 select-none overflow-hidden bg-color-6/30 ${
+            className={`relative flex items-center justify-center min-h-[220px] max-h-[460px] p-space-3 select-none overflow-hidden bg-color-6/30 outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
               isPanActive ? "touch-none" : "touch-pan-y"
             } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           >
             {/* Zoom Level Indicator Tag */}
-            <div className="absolute top-space-2 left-space-2 z-10 px-space-2 py-0.5 rounded-full bg-color-7/90 border border-color-1 text-text-xs font-bold shadow-2xs">
+            <div className="absolute top-space-2 left-space-2 z-10 px-space-2 py-0.5 rounded-full bg-color-7 border-2 border-color-1 text-text-xs font-bold tabular-nums shadow-2xs">
               {Math.round(zoomLevel * 100)}%
             </div>
 
+            {isImageLoading && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="absolute inset-0 flex items-center justify-center bg-color-6/60 z-10"
+              >
+                <span className="px-space-3 py-space-1 rounded-full bg-color-7 border-2 border-color-1 text-text-xs font-bold text-color-1">
+                  Đang tải hình ảnh...
+                </span>
+              </div>
+            )}
+
             <div style={transformStyle} className="flex items-center justify-center max-w-full max-h-full">
               <img
-                src={resolveImageUrl(item.imageUrl)!}
-                alt={`Câu hỏi ${index + 1}`}
+                src={imageSrcWithRetry}
+                alt={`Câu hỏi ${displayNumber}`}
+                onLoad={() => setIsImageLoading(false)}
+                onError={() => {
+                  setIsImageLoading(false);
+                  setImageError(true);
+                }}
                 className="max-h-72 w-auto object-contain rounded-xl pointer-events-none drop-shadow-xs"
                 draggable={false}
                 loading="lazy"
@@ -121,12 +274,12 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
           </div>
 
           {/* Bottom Zoom Controls Bar */}
-          <div className="px-space-3 py-1.5 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
-            <span className="text-text-2xs font-bold text-color-1/75 md:hidden">
-              Chụm 2 ngón để phóng to / thu nhỏ
+          <div className="px-space-3 py-space-1 border-t-2 border-color-1 bg-color-7 flex flex-wrap items-center justify-between gap-space-2">
+            <span className="text-text-xs font-bold text-color-1/80 md:hidden">
+              Chụm 2 ngón để thu phóng
             </span>
-            <span className="text-text-xs font-bold text-color-1/75 hidden sm:inline">
-              Kéo để di chuyển • Ctrl + Cuộn chuột để phóng to / thu nhỏ
+            <span className="text-text-xs font-bold text-color-1/80 hidden md:inline">
+              Kéo để di chuyển • Ctrl + Cuộn chuột để thu phóng
             </span>
             <div className="flex flex-wrap items-center gap-1.5 ml-auto">
               <Button
@@ -135,10 +288,10 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
                 size="sm"
                 onClick={zoomIn}
                 disabled={zoomLevel >= 3.0}
-                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs"
+                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-text-xs"
                 title="Phóng to (Ctrl + Cuộn chuột lên)"
               >
-                <ZoomIn className="w-3.5 h-3.5" />
+                <ZoomIn className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Phóng to</span>
               </Button>
 
@@ -148,10 +301,10 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
                 size="sm"
                 onClick={zoomOut}
                 disabled={zoomLevel <= 0.5}
-                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs"
+                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-text-xs"
                 title="Thu nhỏ (Ctrl + Cuộn chuột xuống)"
               >
-                <ZoomOut className="w-3.5 h-3.5" />
+                <ZoomOut className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Thu nhỏ</span>
               </Button>
 
@@ -160,10 +313,10 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
                 variant="secondary"
                 size="sm"
                 onClick={resetZoom}
-                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-[13px] sm:text-text-xs"
+                className="min-h-11 flex items-center gap-1 px-space-2 sm:px-space-3 text-text-xs"
                 title="Khôi phục kích thước gốc"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Kích thước gốc</span>
               </Button>
             </div>
@@ -171,69 +324,154 @@ export const QuestionReviewItem: React.FC<QuestionReviewItemProps> = ({ item, in
         </div>
       )}
 
-      {/* Answer Comparison Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-3 p-space-3 bg-color-6 rounded-2xl border-2 border-color-1">
-        <div className="flex items-center justify-between px-space-3 py-2 bg-color-7 rounded-xl border border-color-1/40">
-          <span className="text-text-xs font-bold text-color-1/70">Đáp án bạn chọn:</span>
+      {/* Full Option Text List (guarantees recognition instead of letter recall) */}
+      {sortedOptions.length > 0 && (
+        <ul aria-label="Danh sách các phương án" className="grid grid-cols-1 gap-space-1.5">
+          {sortedOptions.map(([key, optionText]) => {
+            const normalizedKey = key.toUpperCase();
+            const isSelected = selectedKeys.has(normalizedKey);
+            const isKeyCorrect = correctKeys.has(normalizedKey);
+
+            let rowStyle = "bg-color-7 border-color-1/25 text-color-1";
+            let statusTag: string | null = null;
+            let statusIcon: React.ReactNode = null;
+
+            if (isSelected && isKeyCorrect) {
+              rowStyle = "bg-color-3/15 border-color-3 text-color-1 font-bold";
+              statusTag = "Bạn chọn • Đúng";
+              statusIcon = <Check className="w-4 h-4 text-color-3 shrink-0" aria-hidden="true" />;
+            } else if (isSelected && !isKeyCorrect) {
+              rowStyle = "bg-color-4/15 border-color-4 text-color-1 font-bold";
+              statusTag = "Bạn chọn";
+              statusIcon = <X className="w-4 h-4 text-color-1 shrink-0" aria-hidden="true" />;
+            } else if (isKeyCorrect) {
+              rowStyle = "bg-color-3/10 border-color-3 border-dashed text-color-1 font-bold";
+              statusTag = "Đáp án đúng";
+              statusIcon = <Check className="w-4 h-4 text-color-3 shrink-0" aria-hidden="true" />;
+            }
+
+            return (
+              <li
+                key={key}
+                className={`px-space-3 py-space-2 rounded-2xl border-2 flex flex-wrap items-center justify-between gap-space-2 text-text-xs sm:text-text-sm ${rowStyle}`}
+              >
+                <span className="min-w-0 flex-1 leading-snug break-words">
+                  <span className="font-bold text-color-2 mr-space-1">{key}.</span>
+                  <span>{optionText}</span>
+                </span>
+                {statusTag && (
+                  <span className="inline-flex items-center gap-1 px-space-2 py-0.5 rounded-full bg-color-7 border border-color-1 text-text-xs font-bold text-color-1 shrink-0">
+                    {statusIcon}
+                    <span>{statusTag}</span>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* High-Contrast Answer Comparison Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-2 sm:gap-space-3 p-space-3 bg-color-6 rounded-2xl border-2 border-color-1">
+        <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-1 bg-color-7 rounded-2xl border border-color-1/30 min-w-0">
+          <span className="text-text-xs font-bold text-color-1/80">Đáp án bạn chọn:</span>
           <span
-            className={`font-bold text-text-base px-space-2 rounded-md ${
-              isUserCorrect ? "text-color-3" : "text-color-4"
+            className={`font-bold text-text-xs sm:text-text-sm px-space-2 py-0.5 rounded-full border-2 text-color-1 tabular-nums ${
+              isUserCorrect
+                ? "bg-color-3/15 border-color-3"
+                : "bg-color-4/15 border-color-4"
             }`}
           >
             {userChoice}
           </span>
         </div>
 
-        <div className="flex items-center justify-between px-space-3 py-2 bg-color-7 rounded-xl border border-color-1/40">
-          <span className="text-text-xs font-bold text-color-1/70">Đáp án chuẩn:</span>
-          <span className="font-bold text-text-base text-color-3 px-space-2 rounded-md">
-            {correctAnswer}
+        <div className="flex items-center justify-between gap-space-2 px-space-3 py-space-1 bg-color-7 rounded-2xl border border-color-1/30 min-w-0">
+          <span className="text-text-xs font-bold text-color-1/80">Đáp án chuẩn:</span>
+          <span className="font-bold text-text-xs sm:text-text-sm px-space-2 py-0.5 rounded-full border-2 border-color-3 bg-color-3/15 text-color-1 tabular-nums">
+            {correctAnswer || "Chưa có"}
           </span>
         </div>
       </div>
 
       {/* AI Explanation Box */}
-      <div className="p-space-3 sm:p-space-4 bg-color-2/5 border-2 border-color-2/30 rounded-2xl">
+      <div className="p-space-3 sm:p-space-4 bg-color-6/60 border-2 border-color-1 rounded-2xl">
         <div className="flex flex-wrap items-center justify-between gap-space-2 mb-space-2">
-          <div className="flex items-center gap-1.5 font-bold text-[13px] sm:text-text-xs text-color-2">
-            <Bot className="w-4 h-4 shrink-0" />
-            <span>Lời giải từ AI ({item.aiModel || "gemini-3-flash-preview"}):</span>
+          <div className="flex items-center gap-1.5 font-bold text-text-xs sm:text-text-sm text-color-2">
+            <Bot className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>Giải thích từ Trợ lý AI:</span>
           </div>
-          {item.optionByOptionAnalysis && (
-            <button
-              type="button"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="min-h-11 px-space-2 -mr-space-2 text-[13px] sm:text-text-xs font-bold text-color-2 hover:underline flex items-center gap-0.5 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-color-5"
-            >
-              <span>{isExpanded ? "Thu gọn phân tích" : "Chi tiết từng phương án"}</span>
-              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-          )}
+
+          <div className="flex flex-wrap items-center gap-space-2 ml-auto">
+            {onOpenAiModal && (
+              <button
+                type="button"
+                onClick={() => onOpenAiModal(item, displayNumber)}
+                className="min-h-11 px-space-3 py-space-1 rounded-full border-2 border-color-1 bg-color-7 text-text-xs font-bold text-color-1 hover:bg-color-5 transition-colors inline-flex items-center gap-1 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-color-2 shrink-0" aria-hidden="true" />
+                <span>Xem khung AI</span>
+              </button>
+            )}
+
+            {breakdownEntries.length > 0 && (
+              <button
+                type="button"
+                aria-expanded={isExpanded}
+                onClick={() => setIsExpanded((prev) => !prev)}
+                className="min-h-11 px-space-2 text-text-xs font-bold text-color-2 hover:underline flex items-center gap-1 cursor-pointer rounded-full outline-none focus-visible:ring-4 focus-visible:ring-color-5"
+              >
+                <span>{isExpanded ? "Thu gọn phân tích" : "Chi tiết từng phương án"}</span>
+                {isExpanded ? (
+                  <ChevronUp className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
-        <p className="text-text-xs text-color-1 font-medium leading-relaxed whitespace-pre-wrap">
-          {item.aiExplanation || "Đang cập nhật diễn giải cho câu hỏi này."}
+        <p className="text-text-xs sm:text-text-sm text-color-1 font-medium leading-relaxed whitespace-pre-wrap break-words">
+          {item.aiExplanation || "Chưa có diễn giải chi tiết cho câu hỏi này."}
         </p>
 
-        {/* Expanded Option Breakdown */}
-        {isExpanded && item.optionByOptionAnalysis && (
-          <div className="mt-space-3 pt-space-3 border-t border-color-2/20 grid grid-cols-1 sm:grid-cols-2 gap-space-2">
-            {Object.entries(item.optionByOptionAnalysis).map(([opt, desc]) => (
-              <div
-                key={opt}
-                className={`p-space-2 rounded-xl text-text-xs border ${
-                  opt === correctAnswer
-                    ? "bg-color-3/10 border-color-3 text-color-1 font-bold"
-                    : "bg-color-7 border-color-1/30 text-color-1/80"
-                }`}
-              >
-                <span className="font-bold text-color-2 mr-1">{opt}:</span>
-                <span>{desc}</span>
-              </div>
-            ))}
+        {/* Expanded Option Breakdown (permutation-invariant multi-choice highlighting) */}
+        {isExpanded && breakdownEntries.length > 0 && (
+          <div className="mt-space-3 pt-space-3 border-t-2 border-color-1/15 grid grid-cols-1 sm:grid-cols-2 gap-space-2">
+            {breakdownEntries.map(([opt, desc]) => {
+              const normalizedOpt = opt.toUpperCase();
+              const isOptionCorrect = correctKeys.has(normalizedOpt);
+              const isOptionChosen = selectedKeys.has(normalizedOpt);
+
+              return (
+                <div
+                  key={opt}
+                  className={`p-space-3 rounded-2xl text-text-xs border-2 ${
+                    isOptionCorrect
+                      ? "bg-color-3/15 border-color-3 text-color-1 font-bold"
+                      : isOptionChosen
+                        ? "bg-color-4/15 border-color-4 text-color-1 font-medium"
+                        : "bg-color-7 border-color-1/25 text-color-1"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-space-1 mb-1">
+                    <span className="font-bold text-color-2">{opt}.</span>
+                    {isOptionCorrect ? (
+                      <span className="text-text-xs font-bold text-color-3">Đúng</span>
+                    ) : isOptionChosen ? (
+                      <span className="text-text-xs font-bold text-color-1">Bạn chọn</span>
+                    ) : null}
+                  </div>
+                  <p className="leading-snug break-words">{desc}</p>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
     </Card>
   );
 };
+
+export const QuestionReviewItem = React.memo(QuestionReviewItemInner);
