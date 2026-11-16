@@ -8,8 +8,7 @@ export const Footer: React.FC = () => {
           <span>© 2026 FUO Learning. Hệ thống luyện thi trắc nghiệm học thuật.</span>
         </div>
         <div className="flex items-center gap-space-4">
-          <span className="text-color-2 font-bold">Coding Inspiration</span>
-          <span>Tuân thủ thiết kế DESIGN.md</span>
+          
         </div>
       </div>
     </footer>
