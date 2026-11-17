@@ -32,6 +32,7 @@ export interface QuestionReviewItemProps {
   expandSignal?: { version: number; expanded: boolean };
   contextBadges?: ReviewContextBadge[];
   statusBadgeOverride?: { label: string; variant: "success" | "danger" | "warning" | "neutral" };
+  numberCircleTone?: "success" | "warning" | "danger";
   firstSelectedLabel?: string | null;
   onOpenAiModal?: (item: ReviewItemType, displayNumber: number) => void;
   onFocusQuestion?: (displayNumber: number) => void;
@@ -51,6 +52,7 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
   expandSignal,
   contextBadges,
   statusBadgeOverride,
+  numberCircleTone,
   firstSelectedLabel,
   onOpenAiModal,
   onFocusQuestion,
@@ -138,12 +140,22 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
     }
   };
 
+  const resolvedCircleTone = numberCircleTone ?? (isUserCorrect ? "success" : "danger");
+  const circleToneClasses =
+    resolvedCircleTone === "success"
+      ? "bg-color-3 text-color-7"
+      : resolvedCircleTone === "warning"
+        ? "bg-color-5 text-color-1"
+        : "bg-color-4 text-color-1";
+  const codeSuffix = item.questionIdCode ? ` (${item.questionIdCode})` : "";
+  const diagramDescriptionId = trimmedQuestionText ? `diagram-desc-${displayNumber}-${index}` : undefined;
+
   return (
     <Card
       id={elementId}
       tabIndex={-1}
       onFocus={() => onFocusQuestion?.(displayNumber)}
-      className={`scroll-mt-24 lg:scroll-mt-[216px] p-space-4 sm:p-space-5 bg-color-7 border-2 rounded-3xl shadow-sm space-y-space-3 sm:space-y-space-4 outline-none transition-colors duration-fast ${
+      className={`scroll-mt-24 lg:scroll-mt-[236px] p-space-4 sm:p-space-5 bg-color-7 border-2 rounded-3xl shadow-sm space-y-space-3 sm:space-y-space-4 outline-none transition-colors duration-fast ${
         isActive
           ? "border-color-2 ring-4 ring-color-5/60"
           : "border-color-1 focus-visible:ring-4 focus-visible:ring-color-5"
@@ -153,20 +165,23 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-space-2 pb-space-3 border-b-2 border-color-6">
         <div className="flex flex-wrap items-center gap-space-2 min-w-0">
           <span
-            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-text-xs border-2 border-color-1 tabular-nums shrink-0 ${
-              isUserCorrect ? "bg-color-3 text-color-7" : "bg-color-4 text-color-1"
-            }`}
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-text-xs border-2 border-color-1 tabular-nums shrink-0 ${circleToneClasses}`}
           >
             {displayNumber}
           </span>
           <h3 className="font-bold text-text-base text-color-1 break-words">
-            Câu {displayNumber} ({item.questionIdCode})
+            Câu {displayNumber}{codeSuffix}
           </h3>
         </div>
 
         <div className="flex flex-wrap items-center gap-space-1">
           {statusBadgeOverride ? (
             <Badge variant={statusBadgeOverride.variant} className="flex items-center gap-1 tabular-nums">
+              {statusBadgeOverride.variant === "success" ? (
+                <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              ) : statusBadgeOverride.variant === "warning" ? (
+                <RotateCcw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              ) : null}
               <span>{statusBadgeOverride.label}</span>
             </Badge>
           ) : isUserCorrect ? (
@@ -289,10 +304,16 @@ const QuestionReviewItemInner: React.FC<QuestionReviewItemProps> = ({
               </div>
             )}
 
+            {diagramDescriptionId && (
+              <span id={diagramDescriptionId} className="sr-only">
+                {trimmedQuestionText}
+              </span>
+            )}
             <div style={transformStyle} className="flex items-center justify-center max-w-full max-h-full">
               <img
                 src={imageSrcWithRetry}
                 alt={`Câu hỏi ${displayNumber}`}
+                aria-describedby={diagramDescriptionId}
                 onLoad={() => setIsImageLoading(false)}
                 onError={() => {
                   setIsImageLoading(false);

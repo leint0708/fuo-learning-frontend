@@ -46,10 +46,10 @@ export const CramReviewSummaryCard: React.FC<CramReviewSummaryCardProps> = ({
 
   const badgeLabel =
     scope === "mistakes"
-      ? "HOÀN THÀNH ÔN CÂU TỪNG SAI"
+      ? "Hoàn thành ôn câu từng sai"
       : hasRemainingDeckCards
-        ? "HOÀN THÀNH ĐỢT ÔN TẬP"
-        : "HOÀN THÀNH PHIÊN CẤP TỐC";
+        ? "Hoàn thành đợt ôn tập"
+        : "Hoàn thành phiên cấp tốc";
 
   const headline =
     scope === "mistakes"
@@ -95,41 +95,41 @@ export const CramReviewSummaryCard: React.FC<CramReviewSummaryCardProps> = ({
       {/* 4-Column Responsive KPI Strip (matches ResultScoreCard 2-col -> 4-col @md) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-space-2 sm:gap-space-3 pt-space-4 border-t-2 border-color-6 tabular-nums">
         <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
-          <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
+          <div className="text-text-2xs sm:text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
             <BookOpen className="w-4 h-4 text-color-2 shrink-0" aria-hidden="true" />
             <span>Đã ôn trong phiên</span>
           </div>
-          <div className="text-text-lg sm:text-text-xl font-bold text-color-2 mt-space-1">
+          <div className="text-text-base sm:text-text-xl font-bold text-color-2 mt-space-1 leading-tight">
             {totalPracticed} câu
           </div>
         </div>
 
         <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
-          <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
+          <div className="text-text-2xs sm:text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
             <CheckCircle2 className="w-4 h-4 text-color-3 shrink-0" aria-hidden="true" />
             <span>Đúng ngay lần đầu</span>
           </div>
-          <div className="text-text-lg sm:text-text-xl font-bold text-color-3 mt-space-1">
-            {firstTryCorrectCount}/{totalPracticed} ({firstTryPercent}%)
+          <div className="text-text-base sm:text-text-xl font-bold text-color-3 mt-space-1 leading-tight break-words">
+            {`${firstTryCorrectCount}/${totalPracticed} (${firstTryPercent}%)`}
           </div>
         </div>
 
         <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
-          <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
+          <div className="text-text-2xs sm:text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
             <AlertCircle className="w-4 h-4 text-color-4 shrink-0" aria-hidden="true" />
             <span>Từng làm sai</span>
           </div>
-          <div className="text-text-lg sm:text-text-xl font-bold text-color-1 mt-space-1">
+          <div className="text-text-base sm:text-text-xl font-bold text-color-1 mt-space-1 leading-tight">
             {hadMistakesCount} câu
           </div>
         </div>
 
         <div className="p-space-2 sm:p-space-3 bg-color-6 rounded-2xl border-2 border-color-1/15 min-w-0">
-          <div className="text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
+          <div className="text-text-2xs sm:text-text-xs font-bold text-color-1/80 flex items-center justify-center gap-space-1">
             <Layers className="w-4 h-4 text-color-1 shrink-0" aria-hidden="true" />
             <span>Tiến độ tổng môn</span>
           </div>
-          <div className="text-text-lg sm:text-text-xl font-bold text-color-1 mt-space-1">
+          <div className="text-text-base sm:text-text-xl font-bold text-color-1 mt-space-1 leading-tight">
             {cumulativeMasteredCount}/{normalizedDeckTotal}
           </div>
         </div>

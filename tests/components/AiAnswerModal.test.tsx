@@ -166,4 +166,21 @@ describe("AiAnswerModal Component Tests", () => {
 
     expect(screen.getByText("What is the capital of Vietnam?")).toBeInTheDocument();
   });
+
+  it("renders friendly fallback provider label when aiModel is null and respects custom closeLabel", () => {
+    render(
+      <AiAnswerModal
+        isOpen={true}
+        onClose={vi.fn()}
+        questionNumber={7}
+        aiChoice="B"
+        aiModel={null}
+        aiExplanation="Logical rationale."
+        closeLabel="Đóng"
+      />
+    );
+
+    expect(screen.getByText("Trợ lý AI")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Đóng" })).toBeInTheDocument();
+  });
 });

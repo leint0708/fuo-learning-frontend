@@ -5,6 +5,7 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
+  Check,
   Zap,
   ChevronRight,
   ChevronDown,
@@ -13,9 +14,11 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   Play,
+  AlertTriangle,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { AiAnswerModal } from "@/features/exam/AiAnswerModal";
 import { QuestionReviewItem, type ReviewContextBadge } from "@/features/review/QuestionReviewItem";
 import { CramReviewSummaryCard } from "./CramReviewSummaryCard";
@@ -26,6 +29,7 @@ import {
   clearCramSessionSnapshot,
   clearCramMistakeDrill,
 } from "@/utils/cramSessionStorage";
+import { getSubjectLocalProgress } from "@/utils/practiceProgress";
 import type { CramSessionQuestionEntry } from "@/types/practice";
 import type { ReviewQuestionItem as ReviewItemType } from "@/types/review";
 
@@ -62,8 +66,10 @@ export const CramReviewView: React.FC = () => {
   const filterMode = parseCramFilterMode(searchParams.get("filter"));
 
   const [activeQuestionNumber, setActiveQuestionNumber] = useState<number | null>(null);
+  const [pendingScrollNumber, setPendingScrollNumber] = useState<number | null>(null);
   const [statusAnnouncement, setStatusAnnouncement] = useState("");
   const [isMobileMapOpen, setIsMobileMapOpen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [expandSignal, setExpandSignal] = useState<{ version: number; expanded: boolean }>({
     version: 0,
     expanded: false,
@@ -74,6 +80,10 @@ export const CramReviewView: React.FC = () => {
   } | null>(null);
 
   const snapshot = useMemo(() => loadCramSessionSnapshot(subjectCode), [subjectCode]);
+  const savedLocalCramCount = useMemo(
+    () => getSubjectLocalProgress(subjectCode).cramCount,
+    [subjectCode]
+  );
 
   useEffect(() => {
     document.title = `Ôn lại phiên Cram - ${subjectCode} | FUO Learning`;
@@ -135,15 +145,28 @@ export const CramReviewView: React.FC = () => {
 
   const focusAndScrollToQuestion = useCallback((displayNumber: number) => {
     setActiveQuestionNumber(displayNumber);
-    window.requestAnimationFrame(() => {
-      const element = document.getElementById(getCramCardId(displayNumber));
-      if (!element) return;
-      if (typeof element.scrollIntoView === "function") {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      element.focus({ preventScroll: true });
-    });
+    setPendingScrollNumber(displayNumber);
   }, []);
+
+  // Wait until filteredEntries commits before scrolling & moving keyboard focus
+  useEffect(() => {
+    if (pendingScrollNumber === null) return;
+    const isVisible = filteredEntries.some((item) => item.displayNumber === pendingScrollNumber);
+    if (!isVisible) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const element = document.getElementById(getCramCardId(pendingScrollNumber));
+      if (element) {
+        if (typeof element.scrollIntoView === "function") {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        element.focus({ preventScroll: true });
+      }
+      setPendingScrollNumber(null);
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [pendingScrollNumber, filteredEntries]);
 
   const handleSelectQuestionFromMap = useCallback(
     (displayNumber: number, hadMistakes: boolean, isFirstTry: boolean) => {
@@ -171,12 +194,17 @@ export const CramReviewView: React.FC = () => {
       return;
     }
 
-    const currentIdx =
+    const currentMistakePos =
       activeQuestionNumber !== null
-        ? mistakeEntries.findIndex((item) => item.displayNumber > activeQuestionNumber)
+        ? mistakeEntries.findIndex((item) => item.displayNumber === activeQuestionNumber)
         : -1;
-    const nextEntry = (currentIdx >= 0 ? mistakeEntries[currentIdx] : undefined) ?? firstMistake;
-    focusAndScrollToQuestion(nextEntry.displayNumber);
+    const nextEntry =
+      currentMistakePos >= 0
+        ? mistakeEntries[(currentMistakePos + 1) % mistakeEntries.length]
+        : firstMistake;
+    if (nextEntry) {
+      focusAndScrollToQuestion(nextEntry.displayNumber);
+    }
   }, [mistakeEntries, filterMode, setFilterMode, activeQuestionNumber, focusAndScrollToQuestion]);
 
   const handleToggleAllBreakdowns = useCallback(() => {
@@ -187,7 +215,7 @@ export const CramReviewView: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (indexedEntries.length === 0 || aiModalTarget) return;
+    if (indexedEntries.length === 0 || aiModalTarget || isResetConfirmOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -252,6 +280,7 @@ export const CramReviewView: React.FC = () => {
     hasAnyBreakdown,
     activeQuestionNumber,
     aiModalTarget,
+    isResetConfirmOpen,
     setFilterMode,
     handleJumpNextMistake,
     handleToggleAllBreakdowns,
@@ -272,6 +301,7 @@ export const CramReviewView: React.FC = () => {
     clearPracticeStorage(subjectCode, "cram");
     clearCramSessionSnapshot(subjectCode);
     clearCramMistakeDrill(subjectCode);
+    setIsResetConfirmOpen(false);
     navigate(cramRoute);
   };
 
@@ -283,7 +313,9 @@ export const CramReviewView: React.FC = () => {
             Chưa có phiên ôn tập cấp tốc nào được ghi nhận
           </h1>
           <p className="text-text-xs sm:text-text-sm text-color-1/80">
-            Hãy bắt đầu ôn tập cấp tốc cho môn {subjectCode} và trả lời ít nhất 1 câu để xem tổng kết chi tiết tại đây.
+            {savedLocalCramCount > 0
+              ? `Bạn đã thuộc ${savedLocalCramCount} câu môn ${subjectCode} từ các lần trước (chi tiết phiên tạm hết hạn sau khi đóng trình duyệt). Hãy tiếp tục đợt mới để xem tổng kết chi tiết tại đây.`
+              : `Hãy bắt đầu ôn tập cấp tốc cho môn ${subjectCode} và trả lời ít nhất 1 câu để xem tổng kết chi tiết tại đây.`}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-space-2">
             <Button
@@ -293,7 +325,7 @@ export const CramReviewView: React.FC = () => {
               className="min-h-11 flex items-center gap-space-1"
             >
               <Zap className="w-4 h-4" aria-hidden="true" />
-              <span>Bắt đầu luyện cấp tốc</span>
+              <span>{savedLocalCramCount > 0 ? "Tiếp tục luyện cấp tốc" : "Bắt đầu luyện cấp tốc"}</span>
             </Button>
             <Button
               variant="secondary"
@@ -315,7 +347,8 @@ export const CramReviewView: React.FC = () => {
   const masteredInSessionCount = indexedEntries.filter(
     ({ entry }) => entry.isMasteredInSession
   ).length;
-  const hasRemainingDeckCards = snapshot.cumulativeMasteredCount < snapshot.totalDeckSize;
+  const remainingDeckCount = Math.max(0, snapshot.totalDeckSize - snapshot.cumulativeMasteredCount);
+  const hasRemainingDeckCards = remainingDeckCount > 0;
 
   return (
     <div className="max-w-6xl mx-auto w-full px-space-3 sm:px-space-5 py-space-4 sm:py-space-6 flex flex-col gap-space-4 sm:gap-space-5">
@@ -354,13 +387,13 @@ export const CramReviewView: React.FC = () => {
               className="min-h-11 flex items-center gap-space-1"
             >
               <Play className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>Tiếp tục đợt chưa học</span>
+              <span>Tiếp tục đợt chưa học ({remainingDeckCount} câu)</span>
             </Button>
           ) : (
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleResetAndRestartCram}
+              onClick={() => setIsResetConfirmOpen(true)}
               className="min-h-11 flex items-center gap-space-1"
             >
               <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -387,10 +420,10 @@ export const CramReviewView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] items-start gap-space-5">
         <div className="min-w-0 space-y-space-4">
           {/* Sticky Toolbar on Desktop, Flow on Mobile/Tablet */}
-          <div className="relative lg:sticky lg:top-[66px] z-20 bg-color-6/95 lg:backdrop-blur-sm py-space-2 -mx-space-2 px-space-2 border-b-2 border-color-1/10 space-y-space-2">
+          <div className="relative lg:sticky lg:top-[66px] z-20 bg-color-6/95 lg:backdrop-blur-sm py-space-2 lg:-mx-space-2 lg:px-space-2 border-b-2 border-color-1/10 space-y-space-2">
             <div className="flex flex-wrap items-center justify-between gap-space-2">
-              <h2 className="text-text-lg font-bold text-color-1">
-                Các câu hỏi đã luyện trong phiên
+              <h2 className="text-text-base sm:text-text-lg font-bold text-color-1 shrink-0">
+                Chi tiết câu hỏi
               </h2>
 
               <div
@@ -429,7 +462,7 @@ export const CramReviewView: React.FC = () => {
                   onClick={() => setFilterMode("mistakes")}
                   className={`min-h-11 px-space-3 py-space-1 rounded-full text-text-xs font-bold transition-all flex items-center gap-1 outline-none focus-visible:ring-4 focus-visible:ring-color-5 cursor-pointer ${
                     filterMode === "mistakes"
-                      ? "bg-color-4 text-color-1 border border-color-1 shadow-xs"
+                      ? "bg-color-4 text-color-1 border-2 border-color-1 shadow-xs"
                       : "text-color-1 hover:bg-color-4/15"
                   }`}
                 >
@@ -493,8 +526,8 @@ export const CramReviewView: React.FC = () => {
             </div>
 
             {isMobileMapOpen && (
-              <div className="lg:hidden p-space-3 bg-color-7 border-2 border-color-1 rounded-2xl shadow-xs">
-                <div className="grid grid-cols-5 sm:grid-cols-8 gap-space-1 max-h-48 overflow-y-auto tabular-nums">
+              <div className="lg:hidden p-space-3 bg-color-7 border-2 border-color-1 rounded-2xl shadow-xs space-y-space-2">
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-space-1 max-h-48 overflow-y-auto tabular-nums">
                   {indexedEntries.map(({ entry, displayNumber }) => {
                     const isFirstTry = !entry.hadMistakes && entry.isMasteredInSession;
                     return (
@@ -509,19 +542,28 @@ export const CramReviewView: React.FC = () => {
                           )
                         }
                         aria-label={`Đi tới câu ${displayNumber} (${entry.hadMistakes ? "từng sai" : "đúng ngay"})`}
-                        className={`min-h-11 rounded-xl border-2 font-bold text-text-xs flex items-center justify-center cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
+                        className={`min-h-11 rounded-xl border-2 font-bold text-text-xs flex items-center justify-center gap-0.5 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
                           activeQuestionNumber === displayNumber ? "ring-2 ring-color-2" : ""
                         } ${
                           isFirstTry
                             ? "bg-color-3 text-color-7 border-color-1"
-                            : "bg-color-4/20 text-color-1 border-color-4"
+                            : "bg-color-5/30 text-color-1 border-color-1"
                         }`}
                       >
-                        {displayNumber}
+                        {isFirstTry ? (
+                          <Check className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        ) : (
+                          <RotateCcw className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        )}
+                        <span>{displayNumber}</span>
                       </button>
                     );
                   })}
                 </div>
+                <p className="text-text-2xs text-color-1/75 leading-snug pt-space-1 border-t border-color-6">
+                  Phím tắt: <strong>J/K</strong> chuyển câu • <strong>N</strong> từng sai •{" "}
+                  <strong>A</strong> khung AI • <strong>1/2/3</strong> lọc
+                </p>
               </div>
             )}
           </div>
@@ -579,17 +621,12 @@ export const CramReviewView: React.FC = () => {
           ) : (
             <div className="space-y-space-4">
               {filteredEntries.map(({ entry, reviewItem, originalIndex, displayNumber }) => {
-                const contextBadges: ReviewContextBadge[] = [];
-                if (entry.hadMistakes) {
-                  contextBadges.push({
-                    label: `Sai ${entry.mistakeCount} lần`,
-                    tone: "warning",
-                  });
-                }
-                contextBadges.push({
-                  label: "Đã thuộc trong phiên",
-                  tone: "success",
-                });
+                const contextBadges: ReviewContextBadge[] = [
+                  {
+                    label: "Đã thuộc trong phiên",
+                    tone: "success",
+                  },
+                ];
 
                 const statusBadgeOverride = !entry.hadMistakes
                   ? { label: "Đúng ngay", variant: "success" as const }
@@ -608,6 +645,7 @@ export const CramReviewView: React.FC = () => {
                     elementId={getCramCardId(displayNumber)}
                     isActive={activeQuestionNumber === displayNumber}
                     expandSignal={expandSignal}
+                    numberCircleTone={!entry.hadMistakes ? "success" : "warning"}
                     statusBadgeOverride={statusBadgeOverride}
                     contextBadges={contextBadges}
                     firstSelectedLabel={firstSelectedLabel}
@@ -641,7 +679,7 @@ export const CramReviewView: React.FC = () => {
                   className="min-h-11 flex items-center gap-space-1"
                 >
                   <Zap className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>Luyện lại câu từng sai</span>
+                  <span>Luyện lại {hadMistakesCount} câu từng sai</span>
                 </Button>
               )}
 
@@ -653,18 +691,29 @@ export const CramReviewView: React.FC = () => {
                   className="min-h-11 flex items-center gap-space-1"
                 >
                   <Play className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>Tiếp tục đợt chưa học</span>
+                  <span>Tiếp tục đợt chưa học ({remainingDeckCount} câu)</span>
                 </Button>
               ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleResetAndRestartCram}
-                  className="min-h-11 flex items-center gap-space-1"
-                >
-                  <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>Luyện lại từ đầu</span>
-                </Button>
+                <>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => navigate(subjectRoute)}
+                    className="min-h-11 flex items-center gap-space-1"
+                  >
+                    <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>Về trang môn học</span>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsResetConfirmOpen(true)}
+                    className="min-h-11 flex items-center gap-space-1"
+                  >
+                    <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
+                    <span>Luyện lại từ đầu</span>
+                  </Button>
+                </>
               )}
 
               <Button
@@ -679,54 +728,55 @@ export const CramReviewView: React.FC = () => {
             </div>
           </Card>
 
-          {/* Mobile Single Sticky Thumb Dock (<lg) */}
-          <div className="sticky bottom-space-2 z-20 lg:hidden flex items-center justify-between gap-space-1 p-space-1 bg-color-7 border-2 border-color-1 rounded-full shadow-sm">
+          {/* Mobile Single Sticky Thumb Dock (<lg, compact 2-action bar fitting 320px+) */}
+          <div className="sticky bottom-space-2 z-20 lg:hidden flex items-center gap-space-2 p-space-1 bg-color-7 border-2 border-color-1 rounded-full shadow-sm">
             {hadMistakesCount > 0 ? (
               <Button
                 type="button"
-                variant="secondary"
+                variant="accent"
                 size="sm"
-                onClick={handleJumpNextMistake}
-                className="min-h-11 flex-1 text-text-xs flex items-center justify-center gap-1 whitespace-nowrap"
+                onClick={handleLaunchMistakeDrill}
+                className="min-h-11 flex-1 min-w-0 px-space-2 text-text-xs flex items-center justify-center gap-1"
               >
-                <span>Từng sai tiếp</span>
-                <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <Zap className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">Luyện lại ({hadMistakesCount})</span>
+              </Button>
+            ) : hasRemainingDeckCards ? (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => navigate(cramRoute)}
+                className="min-h-11 flex-1 min-w-0 px-space-2 text-text-xs flex items-center justify-center gap-1"
+              >
+                <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">Tiếp tục ({remainingDeckCount})</span>
               </Button>
             ) : (
               <Button
                 type="button"
-                variant="secondary"
+                variant="primary"
                 size="sm"
-                onClick={() => setFilterMode("all")}
-                className="min-h-11 flex-1 text-text-xs whitespace-nowrap"
+                onClick={() => navigate(subjectRoute)}
+                className="min-h-11 flex-1 min-w-0 px-space-2 text-text-xs flex items-center justify-center gap-1"
               >
-                Xem tất cả ({totalPracticed})
+                <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">Về môn học</span>
               </Button>
             )}
 
             {hadMistakesCount > 0 && (
               <Button
                 type="button"
-                variant={filterMode === "mistakes" ? "primary" : "secondary"}
+                variant="secondary"
                 size="sm"
-                onClick={() => setFilterMode(filterMode === "mistakes" ? "all" : "mistakes")}
-                className="min-h-11 text-text-xs whitespace-nowrap"
+                onClick={handleJumpNextMistake}
+                className="min-h-11 shrink-0 px-space-2 text-text-xs flex items-center justify-center gap-1 whitespace-nowrap"
               >
-                {filterMode === "mistakes" ? "Hiện tất cả" : `Từng sai (${hadMistakesCount})`}
+                <span>Từng sai tiếp</span>
+                <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
               </Button>
             )}
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              aria-label="Lên đầu trang"
-              className="min-h-11 px-space-3 flex items-center gap-1 text-text-xs whitespace-nowrap"
-            >
-              <ArrowUp className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">Đầu trang</span>
-            </Button>
           </div>
         </div>
 
@@ -756,15 +806,20 @@ export const CramReviewView: React.FC = () => {
                       handleSelectQuestionFromMap(displayNumber, entry.hadMistakes, isFirstTry)
                     }
                     aria-label={`Câu ${displayNumber}: ${entry.hadMistakes ? "Từng sai" : "Đúng ngay"}`}
-                    className={`min-h-11 rounded-xl border-2 font-bold text-text-xs flex items-center justify-center transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
+                    className={`min-h-11 rounded-xl border-2 font-bold text-text-xs flex items-center justify-center gap-0.5 transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-color-5 ${
                       activeQuestionNumber === displayNumber ? "ring-2 ring-color-2 scale-[1.03]" : ""
                     } ${
                       isFirstTry
                         ? "bg-color-3 text-color-7 border-color-1 hover:opacity-90"
-                        : "bg-color-4/20 text-color-1 border-color-4 hover:bg-color-4/35"
+                        : "bg-color-5/30 text-color-1 border-color-1 hover:bg-color-5/50"
                     }`}
                   >
-                    {displayNumber}
+                    {isFirstTry ? (
+                      <Check className="w-3 h-3 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <RotateCcw className="w-3 h-3 shrink-0" aria-hidden="true" />
+                    )}
+                    <span>{displayNumber}</span>
                   </button>
                 );
               })}
@@ -781,6 +836,48 @@ export const CramReviewView: React.FC = () => {
         </aside>
       </div>
 
+      {/* Confirmation Gate for Destructive Cram Mastery Reset */}
+      <Modal
+        isOpen={isResetConfirmOpen}
+        onClose={() => setIsResetConfirmOpen(false)}
+        title="Xác nhận đặt lại tiến độ cấp tốc"
+        size="sm"
+      >
+        <div className="flex flex-col gap-space-4">
+          <div className="flex items-start gap-space-3 p-space-4 rounded-2xl bg-color-5/25 border-2 border-color-1 text-color-1">
+            <div className="w-10 h-10 rounded-full bg-color-5 text-color-1 border-2 border-color-1 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div className="flex flex-col gap-space-1">
+              <p className="text-text-sm font-bold text-color-1">
+                Xóa toàn bộ câu đã thuộc môn {subjectCode}?
+              </p>
+              <p className="text-text-xs font-medium text-color-1">
+                Hành động này sẽ xóa {snapshot.cumulativeMasteredCount} câu đã thuộc trong chế độ cấp tốc và bắt đầu lại từ đầu. Không thể hoàn tác.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-space-2 pt-space-2 border-t-2 border-color-6">
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setIsResetConfirmOpen(false)}
+              className="min-h-11"
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              onClick={handleResetAndRestartCram}
+              className="min-h-11"
+            >
+              Xóa tiến độ &amp; luyện lại
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Shared AI Modal Parity */}
       <AiAnswerModal
         isOpen={Boolean(aiModalTarget)}
@@ -796,6 +893,7 @@ export const CramReviewView: React.FC = () => {
         aiModel={aiModalTarget?.item.aiModel}
         aiExplanation={aiModalTarget?.item.aiExplanation}
         optionByOptionAnalysis={aiModalTarget?.item.optionByOptionAnalysis}
+        closeLabel="Đóng"
       />
     </div>
   );

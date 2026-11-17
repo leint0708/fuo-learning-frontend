@@ -2,6 +2,13 @@ import React from "react";
 import { Sparkles, Bot, CheckCircle2, HelpCircle, AlertTriangle, RotateCcw } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { resolveImageUrl } from "@/utils/imageUrl";
+
+function parseOptionSet(value?: string | null): Set<string> {
+  if (!value) return new Set();
+  const normalized = value.toUpperCase().replace(/[^A-Z]/g, "");
+  return new Set(normalized.split("").filter(Boolean));
+}
 
 export interface AiAnswerModalProps {
   isOpen: boolean;
@@ -20,6 +27,7 @@ export interface AiAnswerModalProps {
   isLoading?: boolean;
   errorMessage?: string | null;
   onRetry?: () => void;
+  closeLabel?: string;
 }
 
 /**
@@ -37,21 +45,25 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
   selectedOption,
   correctAnswer,
   aiChoice,
-  aiModel = "gemini-3-flash-preview",
+  aiModel = null,
   aiExplanation,
   optionByOptionAnalysis,
   isLoading = false,
   errorMessage = null,
   onRetry,
+  closeLabel = "Đã hiểu, quay lại làm bài",
 }) => {
   const resolvedChoice = aiChoice ?? correctAnswer ?? null;
+  const resolvedImageUrl = resolveImageUrl(imageUrl);
+  const selectedSet = parseOptionSet(selectedOption);
+  const choiceSet = parseOptionSet(resolvedChoice);
   const codeSuffix = questionCode ? ` (${questionCode})` : "";
   const sortedOptions = options
     ? Object.entries(options).sort(([a], [b]) => a.localeCompare(b))
     : [];
-  const showQuestionTextInModal = Boolean(questionText && !imageUrl);
+  const showQuestionTextInModal = Boolean(questionText && !resolvedImageUrl);
   const hasQuestionContext = Boolean(
-    showQuestionTextInModal || imageUrl || sortedOptions.length > 0
+    showQuestionTextInModal || resolvedImageUrl || sortedOptions.length > 0
   );
 
   return (
@@ -65,14 +77,14 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
         {hasQuestionContext && (
           <div className="p-space-3 sm:p-space-4 rounded-2xl bg-color-6 border-2 border-color-1 flex flex-col gap-space-3">
             {showQuestionTextInModal && (
-              <p className="text-text-xs sm:text-text-sm font-bold text-color-1 whitespace-pre-wrap leading-relaxed">
+              <p className="text-text-xs sm:text-text-sm font-bold text-color-1 whitespace-pre-wrap break-words leading-relaxed">
                 {questionText}
               </p>
             )}
-            {imageUrl && (
+            {resolvedImageUrl && (
               <div className="rounded-xl border-2 border-color-1 bg-color-7 p-space-2 flex justify-center">
                 <img
-                  src={imageUrl}
+                  src={resolvedImageUrl}
                   alt={`Minh họa câu ${questionNumber}`}
                   className="max-h-40 w-auto object-contain rounded-lg"
                 />
@@ -81,8 +93,9 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
             {sortedOptions.length > 0 && (
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-space-2">
                 {sortedOptions.map(([optKey, optText]) => {
-                  const isUserSelected = Boolean(selectedOption?.includes(optKey));
-                  const isAiSuggested = Boolean(resolvedChoice?.includes(optKey));
+                  const normalizedKey = optKey.toUpperCase();
+                  const isUserSelected = selectedSet.has(normalizedKey);
+                  const isAiSuggested = choiceSet.has(normalizedKey);
                   return (
                     <li
                       key={optKey}
@@ -182,7 +195,7 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
                 </div>
 
                 <div className="px-space-3 py-space-1 rounded-full bg-color-7 text-color-1 border-2 border-color-1 text-text-2xs font-bold shadow-2xs whitespace-nowrap shrink-0">
-                  {aiModel || "gemini-3-flash-preview"}
+                  {aiModel || "Trợ lý AI"}
                 </div>
               </div>
 
@@ -204,7 +217,7 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
                 </span>
                 <span>Các bước giải thích và suy luận logic:</span>
               </h5>
-              <div className="p-space-4 bg-color-6 border-2 border-color-1 rounded-2xl text-text-xs sm:text-text-sm text-color-1 font-medium leading-relaxed whitespace-pre-wrap">
+              <div className="p-space-4 bg-color-6 border-2 border-color-1 rounded-2xl text-text-xs sm:text-text-sm text-color-1 font-medium leading-relaxed whitespace-pre-wrap break-words">
                 {aiExplanation ||
                   "Hiện tại câu hỏi này chưa có diễn giải từng bước chi tiết từ mô hình AI."}
               </div>
@@ -219,11 +232,11 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
                 </h5>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-2">
                   {Object.entries(optionByOptionAnalysis).map(([opt, desc]) => {
-                    const isSelectedAi = resolvedChoice?.includes(opt);
+                    const isSelectedAi = choiceSet.has(opt.toUpperCase());
                     return (
                       <div
                         key={opt}
-                        className={`p-space-3 rounded-2xl border-2 transition-all ${
+                        className={`p-space-3 rounded-2xl border-2 transition-all min-w-0 ${
                           isSelectedAi
                             ? "bg-color-3/15 border-color-3 shadow-xs"
                             : "bg-color-7 border-color-1"
@@ -231,7 +244,7 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
                       >
                         <div className="flex items-center gap-space-2 font-bold text-text-xs mb-space-1">
                           <span
-                            className={`w-6 h-6 rounded-full inline-flex items-center justify-center text-color-7 text-text-2xs font-bold border border-color-1 ${
+                            className={`w-6 h-6 rounded-full inline-flex items-center justify-center text-color-7 text-text-2xs font-bold border border-color-1 shrink-0 ${
                               isSelectedAi ? "bg-color-3" : "bg-color-1"
                             }`}
                           >
@@ -241,7 +254,7 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
                             {isSelectedAi ? "Phương án đúng" : "Phương án sai"}
                           </span>
                         </div>
-                        <p className="text-text-xs text-color-1 leading-normal font-medium">
+                        <p className="text-text-xs text-color-1 leading-normal font-medium break-words">
                           {desc}
                         </p>
                       </div>
@@ -256,7 +269,7 @@ export const AiAnswerModal: React.FC<AiAnswerModalProps> = ({
         {/* Footer */}
         <div className="pt-space-3 border-t-2 border-color-6 flex justify-end">
           <Button variant="primary" size="sm" onClick={onClose} className="min-h-11 px-space-4">
-            Đã hiểu, quay lại làm bài
+            {closeLabel}
           </Button>
         </div>
       </div>

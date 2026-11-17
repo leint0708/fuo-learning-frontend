@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import { CramReviewView } from "@/features/practice/CramReviewView";
 import {
@@ -113,9 +113,10 @@ describe("CramReviewView Component & Cockpit Behavior", () => {
     expect(screen.getByText("1 câu")).toBeInTheDocument();
     expect(screen.getByText("10/20")).toBeInTheDocument();
 
-    // Struggled badge + first-attempt trace (and zero incomplete-session wording)
+    // Struggled badge + first-attempt trace (zero duplicate badges or incomplete-session wording)
     expect(screen.getByText("Từng sai (2 lần)")).toBeInTheDocument();
-    expect(screen.getByText("Sai 2 lần")).toBeInTheDocument();
+    expect(screen.queryByText("Sai 2 lần")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Đã thuộc trong phiên")).toHaveLength(2);
     expect(screen.queryByText(/Chưa hoàn thành/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Chưa thuộc/i)).not.toBeInTheDocument();
     expect(
@@ -161,8 +162,79 @@ describe("CramReviewView Component & Cockpit Behavior", () => {
     saveCramSessionSnapshot(sampleMixedSnapshot);
     renderCramReview("/subjects/SWE201/practice/cram/review");
 
-    fireEvent.click(screen.getByRole("button", { name: /Luyện lại 1 câu từng sai/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Luyện lại 1 câu từng sai/i })[0]!);
     expect(loadCramMistakeDrill("SWE201")).toEqual(["q_5"]);
     expect(screen.getByText("Cram Target Route")).toBeInTheDocument();
+  });
+
+  it("gates full-deck reset behind a confirmation modal and cycles N across shuffled lower-numbered mistakes", () => {
+    localStorage.setItem("fuo_cram_mastered_SWE201", JSON.stringify(["q_15", "q_3"]));
+    const shuffledSnapshot: CramSessionSnapshot = {
+      ...sampleMixedSnapshot,
+      totalDeckSize: 2,
+      cumulativeMasteredCount: 2,
+      entries: [
+        {
+          ...sampleMixedSnapshot.entries[1]!,
+          question: {
+            ...sampleMixedSnapshot.entries[1]!.question,
+            questionId: "q_15",
+            questionNumber: 15,
+            questionIdCode: "Q15",
+          },
+          sessionOrder: 1,
+        },
+        {
+          ...sampleMixedSnapshot.entries[1]!,
+          question: {
+            ...sampleMixedSnapshot.entries[1]!.question,
+            questionId: "q_3",
+            questionNumber: 3,
+            questionIdCode: "Q3",
+          },
+          sessionOrder: 2,
+        },
+      ],
+    };
+    saveCramSessionSnapshot(shuffledSnapshot);
+    renderCramReview("/subjects/SWE201/practice/cram/review");
+
+    // Verify N advances from Q15 -> lower-numbered Q3 in shuffled session order
+    fireEvent.keyDown(window, { key: "n" });
+    expect(screen.getByRole("button", { name: "Câu 15: Từng sai" }).className).toContain(
+      "ring-2"
+    );
+    fireEvent.keyDown(window, { key: "n" });
+    expect(screen.getByRole("button", { name: "Câu 3: Từng sai" }).className).toContain("ring-2");
+
+    // Clicking Luyện lại từ đầu opens confirmation modal instead of wiping mastery immediately
+    fireEvent.click(screen.getAllByRole("button", { name: /Luyện lại từ đầu/i })[0]!);
+    const confirmDialog = screen.getByRole("dialog", {
+      name: /Xác nhận đặt lại tiến độ cấp tốc/i,
+    });
+    fireEvent.click(within(confirmDialog).getByRole("button", { name: /^Hủy$/i }));
+    expect(JSON.parse(localStorage.getItem("fuo_cram_mastered_SWE201") || "[]")).toEqual([
+      "q_15",
+      "q_3",
+    ]);
+
+    // Confirming reset wipes mastery and navigates cleanly
+    fireEvent.click(screen.getAllByRole("button", { name: /Luyện lại từ đầu/i })[0]!);
+    const secondDialog = screen.getByRole("dialog", {
+      name: /Xác nhận đặt lại tiến độ cấp tốc/i,
+    });
+    fireEvent.click(
+      within(secondDialog).getByRole("button", { name: /Xóa tiến độ & luyện lại/i })
+    );
+    expect(localStorage.getItem("fuo_cram_mastered_SWE201")).toBeNull();
+    expect(screen.getByText("Cram Target Route")).toBeInTheDocument();
+  });
+
+  it("informs user of preserved localStorage mastery when browser-restart clears sessionStorage snapshot", () => {
+    localStorage.setItem("fuo_cram_mastered_MAD101", JSON.stringify(["q1", "q2", "q3"]));
+    renderCramReview("/subjects/MAD101/practice/cram/review");
+
+    expect(screen.getByText(/Bạn đã thuộc 3 câu môn MAD101 từ các lần trước/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Tiếp tục luyện cấp tốc/i })).toBeInTheDocument();
   });
 });

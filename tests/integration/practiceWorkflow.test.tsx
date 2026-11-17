@@ -114,13 +114,17 @@ describe("Practice Workflow Integration", () => {
 
     // Completing Cram deck automatically transitions to CramReviewView
     expect(
-      await screen.findByText("HOÀN THÀNH PHIÊN CẤP TỐC")
+      await screen.findByText("Hoàn thành phiên cấp tốc")
     ).toBeInTheDocument();
     expect(screen.getByText("Từng sai (1 lần)")).toBeInTheDocument();
     expect(loadCramSessionSnapshot("MAD101")?.endReason).toBe("completed");
 
     localStorage.setItem("fuo_card_stats_MAD101", JSON.stringify({ test: 1 }));
     fireEvent.click(screen.getAllByRole("button", { name: /Luyện lại từ đầu/i })[0]!);
+    expect(
+      screen.getByRole("dialog", { name: /Xác nhận đặt lại tiến độ cấp tốc/i })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Xóa tiến độ & luyện lại/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("img", { name: /Hình minh họa câu 1/i })).toBeInTheDocument();
@@ -562,7 +566,7 @@ describe("Practice Workflow Integration", () => {
       fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
     }
 
-    expect(await screen.findByText("HOÀN THÀNH ĐỢT ÔN TẬP")).toBeInTheDocument();
+    expect(await screen.findByText("Hoàn thành đợt ôn tập")).toBeInTheDocument();
     expect(screen.getByText("10 câu")).toBeInTheDocument();
     expect(loadCramSessionSnapshot("SWE201")?.entries).toHaveLength(10);
 
@@ -578,7 +582,7 @@ describe("Practice Workflow Integration", () => {
     await screen.findByText(/Chính xác! Giỏi lắm!/i);
     fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
 
-    expect(await screen.findByText("HOÀN THÀNH PHIÊN CẤP TỐC")).toBeInTheDocument();
+    expect(await screen.findByText("Hoàn thành phiên cấp tốc")).toBeInTheDocument();
     const saved = loadCramSessionSnapshot("SWE201");
     expect(saved?.endReason).toBe("completed");
     expect(saved?.entries).toHaveLength(1);
