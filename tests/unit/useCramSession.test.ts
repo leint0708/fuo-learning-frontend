@@ -166,4 +166,108 @@ describe("useCramSession hook", () => {
     const persisted = JSON.parse(localStorage.getItem("fuo_cram_mastered_MAD101") || "[]") as string[];
     expect(persisted).toEqual(expect.arrayContaining(["q_1", "q_2", "q_4"]));
   });
+
+  it("persists in-progress batch state on answer and restores exact batch, mastered markers, and missed cards on remount", () => {
+    const questions = createMockQuestions(15);
+    const firstMount = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    const originalBatchIds = firstMount.result.current.currentBatch.map((q) => q.questionId);
+    const card1 = firstMount.result.current.currentCard!;
+
+    let returnedBatch: ReturnType<typeof firstMount.result.current.recordAnswer> = null;
+    act(() => {
+      returnedBatch = firstMount.result.current.recordAnswer(card1.questionId, true);
+    });
+    expect(returnedBatch).not.toBeNull();
+    expect(returnedBatch!.masteredInBatchIds).toEqual([card1.questionId]);
+
+    const card2 = firstMount.result.current.currentCard!;
+    act(() => {
+      returnedBatch = firstMount.result.current.recordAnswer(card2.questionId, false);
+    });
+    expect(returnedBatch).not.toBeNull();
+    expect(returnedBatch!.missedIds).toContain(card2.questionId);
+
+    const expectedQueueIds = firstMount.result.current.activeQueue.map((q) => q.questionId);
+    const expectedPointer = firstMount.result.current.queuePointer;
+    firstMount.unmount();
+
+    // Remount simulating page reload or navigating away and returning
+    const secondMount = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    expect(secondMount.result.current.wasRestoredActiveBatch).toBe(true);
+    expect(secondMount.result.current.currentBatch.map((q) => q.questionId)).toEqual(originalBatchIds);
+    expect(secondMount.result.current.masteredInBatch.has(card1.questionId)).toBe(true);
+    expect(secondMount.result.current.masteredInBatch.size).toBe(1);
+    expect(secondMount.result.current.missedIds.has(card2.questionId)).toBe(true);
+    expect(secondMount.result.current.activeQueue.map((q) => q.questionId)).toEqual(expectedQueueIds);
+    expect(secondMount.result.current.queuePointer).toBe(expectedPointer);
+  });
+
+  it("clears persisted active batch and returns null when the final card in a batch is mastered", () => {
+    const questions = createMockQuestions(2);
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+      })
+    );
+
+    const first = result.current.currentCard!;
+    act(() => {
+      const b1 = result.current.recordAnswer(first.questionId, true);
+      expect(b1).not.toBeNull();
+    });
+    expect(localStorage.getItem("fuo_cram_active_batch_MAD101")).not.toBeNull();
+
+    const second = result.current.currentCard!;
+    act(() => {
+      const b2 = result.current.recordAnswer(second.questionId, true);
+      expect(b2).toBeNull();
+    });
+    expect(localStorage.getItem("fuo_cram_active_batch_MAD101")).toBeNull();
+    expect(result.current.isBatchCompleted).toBe(true);
+  });
+
+  it("restores syncedActiveBatch from server when authenticated", () => {
+    const questions = createMockQuestions(12);
+    const { result } = renderHook(() =>
+      useCramSession({
+        subjectCode: "MAD101",
+        questions,
+        syncedMasteredIds: ["q_1", "q_2", "q_3"],
+        syncedActiveBatch: {
+          scope: "deck",
+          batchQuestionIds: ["q_1", "q_2", "q_3", "q_4", "q_5"],
+          activeQueueIds: ["q_5", "q_4"],
+          queuePointer: 0,
+          masteredInBatchIds: ["q_1", "q_2", "q_3"],
+          missedIds: ["q_5"],
+          updatedAt: "2026-11-19T14:00:00.000Z",
+        },
+      })
+    );
+
+    expect(result.current.wasRestoredActiveBatch).toBe(true);
+    expect(result.current.currentBatch.map((q) => q.questionId)).toEqual([
+      "q_1",
+      "q_2",
+      "q_3",
+      "q_4",
+      "q_5",
+    ]);
+    expect(result.current.masteredInBatch.size).toBe(3);
+    expect(result.current.currentCard?.questionId).toBe("q_5");
+    expect(result.current.missedIds.has("q_5")).toBe(true);
+  });
 });

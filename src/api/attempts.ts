@@ -28,6 +28,7 @@ export async function startExamAttempt(
     if (options.durationMinutes !== undefined) {
       payload.duration_minutes = options.durationMinutes;
       payload.is_timed = options.durationMinutes !== null;
+      payload.is_unlimited = options.durationMinutes === null;
     }
     if (options.feedbackMode !== undefined) {
       payload.feedback_mode = options.feedbackMode;
@@ -36,6 +37,10 @@ export async function startExamAttempt(
       payload.benchmark_mode = options.benchmarkMode;
     }
   }
+
+  const endpoint = examId.startsWith("custom-")
+    ? `/api/v1/subjects/${encodeURIComponent(examId.slice("custom-".length))}/attempts`
+    : `/api/v1/exams/${encodeURIComponent(examId)}/attempts`;
 
   const data = await apiClient<{
     attempt_id: string;
@@ -55,7 +60,7 @@ export async function startExamAttempt(
       options: Record<string, string>;
       selected_options: string | null;
     }>;
-  }>(`/api/v1/exams/${encodeURIComponent(examId)}/attempts`, {
+  }>(endpoint, {
     method: "POST",
     body: Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined,
   });

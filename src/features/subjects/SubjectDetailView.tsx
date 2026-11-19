@@ -18,6 +18,11 @@ import { CustomExamModal } from "./CustomExamModal";
 import { SubjectPracticeActions } from "./SubjectPracticeActions";
 import { ActiveExamsSection } from "./ActiveExamsSection";
 import { getSubject, getSubjectExams } from "@/api/subjects";
+import {
+  getLocalSubjectPracticeFallback,
+  syncSubjectProgressWithServer,
+} from "@/api/practice";
+import { useAuthStore } from "@/stores/authStore";
 import { getErrorMessage } from "@/utils/error";
 import { getSubjectLocalProgress } from "@/utils/practiceProgress";
 
@@ -31,6 +36,7 @@ export const SubjectDetailView: React.FC = () => {
   const [selectedExamDuration, setSelectedExamDuration] = useState<number | undefined>(undefined);
 
   const subjectCode = code || "MAD101";
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const {
     data: subject,
@@ -53,6 +59,19 @@ export const SubjectDetailView: React.FC = () => {
     queryFn: () => getSubjectExams(subjectCode),
   });
 
+  const { data: syncedProgress } = useQuery({
+    queryKey: ["practiceProgress", subjectCode],
+    queryFn: async () => {
+      try {
+        return await syncSubjectProgressWithServer(subjectCode);
+      } catch {
+        return getLocalSubjectPracticeFallback(subjectCode);
+      }
+    },
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
   useEffect(() => {
     document.title = `${subjectCode} - ${subject?.title || "Ngân hàng đề thi"} | FUO Learning`;
   }, [subjectCode, subject?.title]);
@@ -63,8 +82,16 @@ export const SubjectDetailView: React.FC = () => {
       ? exams.reduce((sum, e) => sum + e.totalQuestions, 0)
       : 0;
 
-  const { cramCount: cramMasteredCount, learnCount: learnGraduatedCount } =
-    React.useMemo(() => getSubjectLocalProgress(subjectCode), [subjectCode]);
+  const localProgress = React.useMemo(
+    () => getSubjectLocalProgress(subjectCode),
+    [subjectCode]
+  );
+  const cramMasteredCount = syncedProgress
+    ? syncedProgress.cramMasteredIds.length
+    : localProgress.cramCount;
+  const learnGraduatedCount = syncedProgress
+    ? syncedProgress.learnMasteredIds.length
+    : localProgress.learnCount;
 
   const handleOpenNewCustomExam = () => {
     setSelectedExamId(undefined);
@@ -322,7 +349,7 @@ export const SubjectDetailView: React.FC = () => {
         isOpen={isCustomModalOpen}
         onClose={() => setIsCustomModalOpen(false)}
         subjectCode={subjectCode}
-        defaultExamId={selectedExamId || exams?.[0]?.id}
+        defaultExamId={isCustomExamMode ? undefined : selectedExamId}
         maxAvailableQuestions={totalBankQuestions}
         isCustomExam={isCustomExamMode}
         fixedQuestionCount={fixedExamQuestions}

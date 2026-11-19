@@ -21,6 +21,31 @@ export interface PracticeProgressSummary {
   stats: Record<string, CardMasteryRecord>;
 }
 
+export interface PracticeProgressSummaryItem {
+  subjectCode: string;
+  cramCount: number;
+  learnCount: number;
+}
+
+export interface CramActiveBatch {
+  scope: CramSessionScope;
+  scopedQuestionIds?: string[];
+  batchQuestionIds: string[];
+  activeQueueIds: string[];
+  queuePointer: number;
+  masteredInBatchIds: string[];
+  missedIds: string[];
+  updatedAt: string;
+}
+
+export interface SubjectPracticeProgress {
+  subjectCode: string;
+  cramMasteredIds: string[];
+  learnMasteredIds: string[];
+  cardStats: Record<string, CardMasteryRecord>;
+  cramActiveBatch?: CramActiveBatch | null;
+}
+
 export interface CramSessionState {
   subjectCode: string;
   mode: "cram";

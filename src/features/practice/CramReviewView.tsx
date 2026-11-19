@@ -24,6 +24,12 @@ import { QuestionReviewItem, type ReviewContextBadge } from "@/features/review/Q
 import { CramReviewSummaryCard } from "./CramReviewSummaryCard";
 import { clearPracticeStorage } from "./usePracticeWorkspaceAdapter";
 import {
+  resetSubjectPracticeProgress,
+  syncSubjectProgressWithServer,
+} from "@/api/practice";
+import { queryClient } from "@/lib/queryClient";
+import { useAuthStore } from "@/stores/authStore";
+import {
   loadCramSessionSnapshot,
   saveCramMistakeDrill,
   clearCramSessionSnapshot,
@@ -79,10 +85,33 @@ export const CramReviewView: React.FC = () => {
     displayNumber: number;
   } | null>(null);
 
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const [syncedCramCount, setSyncedCramCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setSyncedCramCount(null);
+      return;
+    }
+    let cancelled = false;
+    void syncSubjectProgressWithServer(subjectCode)
+      .then((progress) => {
+        if (!cancelled) {
+          setSyncedCramCount(progress.cramMasteredIds.length);
+        }
+      })
+      .catch(() => {
+        // Fallback to localStorage count when offline
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, subjectCode]);
+
   const snapshot = useMemo(() => loadCramSessionSnapshot(subjectCode), [subjectCode]);
   const savedLocalCramCount = useMemo(
-    () => getSubjectLocalProgress(subjectCode).cramCount,
-    [subjectCode]
+    () => syncedCramCount ?? getSubjectLocalProgress(subjectCode).cramCount,
+    [subjectCode, syncedCramCount]
   );
 
   useEffect(() => {
@@ -297,10 +326,20 @@ export const CramReviewView: React.FC = () => {
     navigate(mistakeDrillRoute);
   };
 
-  const handleResetAndRestartCram = () => {
+  const handleResetAndRestartCram = async () => {
     clearPracticeStorage(subjectCode, "cram");
     clearCramSessionSnapshot(subjectCode);
     clearCramMistakeDrill(subjectCode);
+    setSyncedCramCount(0);
+    if (isAuthenticated) {
+      try {
+        await resetSubjectPracticeProgress(subjectCode, "cram");
+        void queryClient.invalidateQueries({ queryKey: ["practiceProgressSummary"] });
+        void queryClient.invalidateQueries({ queryKey: ["practiceProgress", subjectCode] });
+      } catch {
+        // Ignore network errors during local reset
+      }
+    }
     setIsResetConfirmOpen(false);
     navigate(cramRoute);
   };

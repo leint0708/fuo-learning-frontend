@@ -96,6 +96,52 @@ export const handlers = [
     ]);
   }),
 
+  http.post("*/api/v1/subjects/:code/attempts", async ({ request, params }) => {
+    const { code } = params;
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
+    const isUntimed =
+      body?.is_unlimited === true ||
+      body?.is_timed === false ||
+      body?.duration_minutes === null;
+    const durationMinutes = isUntimed ? null : (body?.duration_minutes ?? 60);
+    const timeRemainingSeconds = isUntimed ? null : durationMinutes! * 60;
+    const requestedCount =
+      typeof body?.question_count === "number" && body.question_count > 0
+        ? body.question_count
+        : 50;
+
+    return HttpResponse.json(
+      {
+        attempt_id: `att_custom_${String(code)}_${requestedCount}`,
+        exam_id: "exam_1",
+        exam_title: `Đề tùy chỉnh - ${String(code)} (${requestedCount} câu)`,
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+        expires_at: isUntimed
+          ? null
+          : new Date(Date.now() + (timeRemainingSeconds ?? 3600) * 1000).toISOString(),
+        time_remaining_seconds: timeRemainingSeconds,
+        questions: Array.from({ length: requestedCount }, (_, idx) => ({
+          question_id: `custom_q_${idx + 1}`,
+          question_number: idx + 1,
+          question_id_code: `Q${idx + 1}`,
+          question_type: "single_choice",
+          question_text: `Custom question ${idx + 1}`,
+          image_url: null,
+          options: { A: "A", B: "B", C: "C", D: "D" },
+          selected_options: null,
+        })),
+      },
+      { status: 201 }
+    );
+  }),
+
   // Attempts handlers
   http.post("*/api/v1/exams/:examId/attempts", async ({ request, params }) => {
     const { examId } = params;
@@ -264,6 +310,40 @@ export const handlers = [
         C: "Đúng theo công thức",
         D: "Sai vì lý do 4",
       },
+    });
+  }),
+
+  // Practice progress sync handlers
+  http.get("*/api/v1/users/me/practice-progress", () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.get("*/api/v1/subjects/:code/practice/progress", ({ params }) => {
+    return HttpResponse.json({
+      subject_code: String(params.code || "MAD101").toUpperCase(),
+      cram_mastered_ids: [],
+      learn_mastered_ids: [],
+      card_stats: {},
+    });
+  }),
+
+  http.put("*/api/v1/subjects/:code/practice/progress", async ({ params, request }) => {
+    const body = (await request.json()) as {
+      cram_mastered_ids?: string[];
+      learn_mastered_ids?: string[];
+      card_stats?: Record<string, unknown>;
+    };
+    return HttpResponse.json({
+      subject_code: String(params.code || "MAD101").toUpperCase(),
+      cram_mastered_ids: body.cram_mastered_ids ?? [],
+      learn_mastered_ids: body.learn_mastered_ids ?? [],
+      card_stats: body.card_stats ?? {},
+    });
+  }),
+
+  http.post("*/api/v1/subjects/:code/practice/reset", ({ params }) => {
+    return HttpResponse.json({
+      message: `Practice progress for subject ${String(params.code || "MAD101")} has been reset.`,
     });
   }),
 ];

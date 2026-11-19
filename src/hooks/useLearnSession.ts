@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { Question } from "@/types/exam";
 import type {
   CardMasteryRecord,
@@ -10,6 +10,8 @@ export interface UseLearnSessionOptions {
   subjectCode: string;
   questions: Question[];
   initialGraduatedIds?: string[];
+  syncedGraduatedIds?: string[];
+  syncedStats?: Record<string, CardMasteryRecord>;
   maxActivePoolSize?: number;
 }
 
@@ -31,11 +33,16 @@ export function useLearnSession({
   subjectCode,
   questions,
   initialGraduatedIds,
+  syncedGraduatedIds,
+  syncedStats,
   maxActivePoolSize = 7,
 }: UseLearnSessionOptions) {
+  const hasRecordedAnswerRef = useRef(false);
+
   // Load graduated IDs from localStorage
   const [graduatedIds, setGraduatedIds] = useState<Set<string>>(() => {
-    if (initialGraduatedIds) return new Set(initialGraduatedIds);
+    const seed = syncedGraduatedIds ?? initialGraduatedIds;
+    if (seed) return new Set(seed);
     try {
       const stored = localStorage.getItem(`fuo_learn_mastered_${subjectCode}`);
       return stored ? new Set(JSON.parse(stored)) : new Set();
@@ -46,6 +53,7 @@ export function useLearnSession({
 
   // Card stats tracking
   const [stats, setStats] = useState<Record<string, CardMasteryRecord>>(() => {
+    if (syncedStats) return syncedStats;
     try {
       const stored = localStorage.getItem(`fuo_card_stats_${subjectCode}`);
       return stored ? JSON.parse(stored) : {};
@@ -75,8 +83,34 @@ export function useLearnSession({
   const [roundReviewItems, setRoundReviewItems] = useState<RoundReviewItem[]>([]);
   const [currentRoundDiagnostic, setCurrentRoundDiagnostic] = useState<RoundDiagnostic | null>(null);
 
-  // Sync pools when questions load asynchronously from server
+  const lastAppliedSyncKeyRef = useRef<string | null>(null);
+
+  // Unified initialization & server-sync hydration effect (avoids stale closure overwrites)
   useEffect(() => {
+    if (hasRecordedAnswerRef.current) return;
+
+    if (syncedGraduatedIds) {
+      const syncKey = `${questions.map((q) => q.questionId).join(",")}|${syncedGraduatedIds.join(",")}|${Object.keys(syncedStats ?? {}).length}`;
+      if (lastAppliedSyncKeyRef.current === syncKey) return;
+      lastAppliedSyncKeyRef.current = syncKey;
+
+      const nextGraduatedSet = new Set(syncedGraduatedIds);
+      setGraduatedIds(nextGraduatedSet);
+      if (syncedStats) {
+        setStats(syncedStats);
+      }
+      if (questions.length > 0) {
+        const unmastered = questions.filter((q) => !nextGraduatedSet.has(q.questionId));
+        const active = unmastered.slice(0, maxActivePoolSize);
+        const waiting = unmastered.slice(maxActivePoolSize);
+        const graduated = questions.filter((q) => nextGraduatedSet.has(q.questionId));
+        setPools({ waiting, active, graduated });
+        setRoundQueue(shuffleArray(active));
+        setRoundPointer(0);
+      }
+      return;
+    }
+
     if (
       questions.length > 0 &&
       pools.active.length === 0 &&
@@ -92,6 +126,8 @@ export function useLearnSession({
       setRoundPointer(0);
     }
   }, [
+    syncedGraduatedIds,
+    syncedStats,
     questions,
     graduatedIds,
     maxActivePoolSize,
@@ -140,9 +176,10 @@ export function useLearnSession({
       correctAnswer: string,
       isCorrect: boolean,
       explanation?: string
-    ) => {
+    ): CardMasteryRecord | null => {
       const question = roundQueue.find((q) => q.questionId === cardId);
-      if (!question) return;
+      if (!question) return null;
+      hasRecordedAnswerRef.current = true;
 
       const currentStat: CardMasteryRecord = stats[cardId] || {
         questionId: cardId,
@@ -199,6 +236,15 @@ export function useLearnSession({
           persistGraduatedIds(next, updatedStats);
           return next;
         });
+      } else {
+        try {
+          localStorage.setItem(
+            `fuo_card_stats_${subjectCode}`,
+            JSON.stringify(updatedStats)
+          );
+        } catch {
+          // Safe quota catch
+        }
       }
 
       const reviewItem: RoundReviewItem = {
@@ -233,8 +279,11 @@ export function useLearnSession({
           items: nextReviewItems,
         });
       }
+
+      return updatedStat;
     },
     [
+      subjectCode,
       roundQueue,
       stats,
       roundReviewItems,

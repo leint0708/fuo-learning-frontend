@@ -3,20 +3,22 @@ import { Link } from "react-router-dom";
 import { ChevronRight, CheckCircle2, Layers } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { getSubjectLocalProgress } from "@/utils/practiceProgress";
+import { getSubjectLocalProgress, type SubjectLocalProgress } from "@/utils/practiceProgress";
 import type { Subject } from "@/types/catalog";
 
 export interface SubjectCardProps {
   subject: Subject;
+  progress?: SubjectLocalProgress;
 }
 
-export const SubjectCard: React.FC<SubjectCardProps> = ({ subject }) => {
+export const SubjectCard: React.FC<SubjectCardProps> = ({ subject, progress }) => {
   const [imgError, setImgError] = useState(false);
 
-  const { cramCount, learnCount, hasProgress } = useMemo(
+  const localProgress = useMemo(
     () => getSubjectLocalProgress(subject.code),
     [subject.code]
   );
+  const { cramCount, learnCount, hasProgress } = progress ?? localProgress;
 
   const progressLabel =
     learnCount >= cramCount && learnCount > 0

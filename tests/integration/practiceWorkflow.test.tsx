@@ -7,6 +7,7 @@ import { server } from "../mocks/server";
 import { PracticeWorkspaceView } from "@/features/practice/PracticeWorkspaceView";
 import { CramReviewView } from "@/features/practice/CramReviewView";
 import { loadCramSessionSnapshot } from "@/utils/cramSessionStorage";
+import { useAuthStore } from "@/stores/authStore";
 
 describe("Practice Workflow Integration", () => {
   let queryClient: QueryClient;
@@ -14,6 +15,12 @@ describe("Practice Workflow Integration", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    useAuthStore.setState({
+      accessToken: null,
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -616,7 +623,7 @@ describe("Practice Workflow Integration", () => {
 
     const cramRender = renderPractice("/subjects/NWC204/practice/cram");
     await waitFor(() => {
-      expect(screen.getByText(/Đợt 1\/7/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Đợt 1\/7/i).length).toBeGreaterThan(0);
     });
     expect(requestedUrls[0]).toContain("subject_code=NWC204");
     expect(requestedUrls[0]).toContain("all=true");
@@ -629,5 +636,227 @@ describe("Practice Workflow Integration", () => {
       expect(screen.getByText(/Đang học \(7\)/i)).toBeInTheDocument();
       expect(screen.getByText(/Chưa học \(58\)/i)).toBeInTheDocument();
     });
+  });
+
+  it("hydrates Cram progress from server when authenticated and syncs new mastery back", async () => {
+    useAuthStore.setState({
+      accessToken: "tok",
+      user: {
+        id: "u1",
+        email: "sv@fpt.edu.vn",
+        fullName: "Student",
+        createdAt: "2026-11-16T00:00:00Z",
+      },
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const syncedPutBodies: any[] = [];
+    server.use(
+      http.get("*/api/v1/questions/drills", () => {
+        return HttpResponse.json([
+          {
+            question_id: "sync_q1",
+            subject_code: "MAD101",
+            question_type: "single_choice",
+            question_text: "Already mastered on PC",
+            image_url: null,
+            options: { A: "A1", B: "B1", C: "C1", D: "D1" },
+          },
+          {
+            question_id: "sync_q2",
+            subject_code: "MAD101",
+            question_type: "single_choice",
+            question_text: "Unmastered question on Mobile",
+            image_url: null,
+            options: { A: "A2", B: "B2", C: "C2", D: "D2" },
+          },
+        ]);
+      }),
+      http.get("*/api/v1/subjects/MAD101/practice/progress", () => {
+        return HttpResponse.json({
+          subject_code: "MAD101",
+          cram_mastered_ids: ["sync_q1"],
+          learn_mastered_ids: [],
+          card_stats: {},
+        });
+      }),
+      http.put("*/api/v1/subjects/MAD101/practice/progress", async ({ request }) => {
+        const body = await request.json();
+        syncedPutBodies.push(body);
+        return HttpResponse.json({
+          subject_code: "MAD101",
+          cram_mastered_ids: ["sync_q1", "sync_q2"],
+          learn_mastered_ids: [],
+          card_stats: {},
+        });
+      })
+    );
+
+    renderPractice("/subjects/MAD101/practice/cram");
+
+    // Skips sync_q1 (already mastered on PC) and shows sync_q2
+    expect(
+      await screen.findByText("Unmastered question on Mobile", {}, { timeout: 3000 })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Already mastered on PC")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("progressbar", { name: "Tiến độ Cram: 1/2 câu" })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án C: C2/i }));
+    expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
+
+    await waitFor(() => {
+      expect(syncedPutBodies.length).toBeGreaterThanOrEqual(1);
+    });
+    expect(syncedPutBodies[0].cram_mastered_ids).toEqual(["sync_q2"]);
+    expect(syncedPutBodies[0].cram_active_batch).toBeNull();
+  });
+
+  it("preserves exact Cram batch questions, completed marks, and missed badge across reload/return", async () => {
+    const deck = Array.from({ length: 12 }, (_, idx) => ({
+      question_id: `batch_q_${idx + 1}`,
+      subject_code: "MAD101",
+      question_type: "single_choice",
+      question_text: `Batch question stem #${idx + 1}`,
+      image_url: null,
+      options: { A: "A", B: "B", C: "C", D: "D" },
+    }));
+
+    server.use(
+      http.get("*/api/v1/questions/drills", () => HttpResponse.json(deck))
+    );
+
+    const firstRender = renderPractice("/subjects/MAD101/practice/cram");
+
+    // Wait for first card to load
+    await waitFor(() => {
+      expect(screen.getByText(/Batch question stem #/i)).toBeInTheDocument();
+    });
+
+    // Answer 2 questions correctly (C is correct in default MSW handler)
+    for (let i = 0; i < 2; i += 1) {
+      fireEvent.click(screen.getByRole("button", { name: /Đáp án C:/i }));
+      expect(await screen.findByText(/Chính xác! Giỏi lắm!/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
+    }
+
+    // Answer 1 question incorrectly (A is wrong)
+    fireEvent.click(screen.getByRole("button", { name: /Đáp án A:/i }));
+    expect(await screen.findByText(/Chưa chính xác/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Tiếp tục$/i }));
+
+    // Verify 2/10 mastered in batch before reload
+    await waitFor(() => {
+      expect(screen.getByText("2 đã thuộc")).toBeInTheDocument();
+      expect(screen.getAllByText(/Còn 8 thẻ/i).length).toBeGreaterThan(0);
+    });
+
+    const savedBeforeReload = JSON.parse(
+      localStorage.getItem("fuo_cram_active_batch_MAD101") || "null"
+    );
+    expect(savedBeforeReload).not.toBeNull();
+    expect(savedBeforeReload.batchQuestionIds).toHaveLength(10);
+    expect(savedBeforeReload.masteredInBatchIds).toHaveLength(2);
+    expect(savedBeforeReload.missedIds).toHaveLength(1);
+
+    // Simulate reload / returning to Cram page with a fresh QueryClient
+    firstRender.unmount();
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    renderPractice("/subjects/MAD101/practice/cram");
+
+    // Must still show 2/10 in the exact same batch (not 0/10 with newly swapped questions!)
+    await waitFor(() => {
+      expect(screen.getByText("2 đã thuộc")).toBeInTheDocument();
+      expect(screen.getAllByText(/Còn 8 thẻ/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getByRole("progressbar", { name: "Tiến độ Cram: 2/12 câu" })
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("syncs in-progress Cram active batch to server and restores it on another device", async () => {
+    useAuthStore.setState({
+      accessToken: "tok",
+      user: {
+        id: "u1",
+        email: "sv@fpt.edu.vn",
+        fullName: "Student",
+        createdAt: "2026-11-16T00:00:00Z",
+      },
+      isAuthenticated: true,
+      isLoading: false,
+    });
+
+    const deck = Array.from({ length: 12 }, (_, idx) => ({
+      question_id: `xdev_q_${idx + 1}`,
+      subject_code: "MAD101",
+      question_type: "single_choice",
+      question_text: `Cross-device question #${idx + 1}`,
+      image_url: null,
+      options: { A: "A", B: "B", C: "C", D: "D" },
+    }));
+
+    server.use(
+      http.get("*/api/v1/questions/drills", () => HttpResponse.json(deck)),
+      http.get("*/api/v1/subjects/MAD101/practice/progress", () => {
+        return HttpResponse.json({
+          subject_code: "MAD101",
+          cram_mastered_ids: [
+            "xdev_q_1",
+            "xdev_q_2",
+            "xdev_q_3",
+            "xdev_q_4",
+            "xdev_q_5",
+            "xdev_q_6",
+            "xdev_q_7",
+          ],
+          learn_mastered_ids: [],
+          card_stats: {},
+          cram_active_batch: {
+            scope: "deck",
+            batch_question_ids: [
+              "xdev_q_1",
+              "xdev_q_2",
+              "xdev_q_3",
+              "xdev_q_4",
+              "xdev_q_5",
+              "xdev_q_6",
+              "xdev_q_7",
+              "xdev_q_8",
+              "xdev_q_9",
+              "xdev_q_10",
+            ],
+            active_queue_ids: ["xdev_q_9", "xdev_q_8", "xdev_q_10"],
+            queue_pointer: 0,
+            mastered_in_batch_ids: [
+              "xdev_q_1",
+              "xdev_q_2",
+              "xdev_q_3",
+              "xdev_q_4",
+              "xdev_q_5",
+              "xdev_q_6",
+              "xdev_q_7",
+            ],
+            missed_ids: ["xdev_q_9"],
+            updated_at: "2026-11-19T14:30:00.000Z",
+          },
+        });
+      })
+    );
+
+    renderPractice("/subjects/MAD101/practice/cram");
+
+    // Restores 7/10 completed in the batch with xdev_q_9 as the current card and missed badge
+    expect(await screen.findByText("Cross-device question #9")).toBeInTheDocument();
+    expect(screen.getByText("7 đã thuộc")).toBeInTheDocument();
+    expect(
+      screen.getByRole("progressbar", { name: "Tiến độ Cram: 7/12 câu" })
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Còn 3 thẻ/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Nhắc lại sau lỗi").length).toBeGreaterThan(0);
   });
 });

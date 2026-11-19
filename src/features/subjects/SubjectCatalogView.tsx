@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Search,
   BookOpen,
@@ -16,8 +16,15 @@ import { Button } from "@/components/ui/Button";
 import { getErrorMessage } from "@/utils/error";
 import { getSubjects } from "@/api/subjects";
 import {
+  getPracticeProgressSummary,
+  syncSubjectProgressWithServer,
+} from "@/api/practice";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  computeUnsyncedLocalDelta,
   getSubjectLocalProgress,
   normalizeSearchText,
+  type SubjectLocalProgress,
 } from "@/utils/practiceProgress";
 
 export const SubjectCatalogView: React.FC = () => {
@@ -52,18 +59,98 @@ export const SubjectCatalogView: React.FC = () => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const [syncRevision, setSyncRevision] = useState(0);
+
   const { data: subjects, isLoading, error, refetch } = useQuery({
     queryKey: ["subjects"],
     queryFn: getSubjects,
   });
 
+  const { data: serverSummary, isSuccess: isServerSummaryLoaded } = useQuery({
+    queryKey: ["practiceProgressSummary"],
+    queryFn: getPracticeProgressSummary,
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const syncedInMountRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!isAuthenticated || !subjects || subjects.length === 0 || !isServerSummaryLoaded) {
+      return;
+    }
+
+    const summaryByCode = new Map(
+      (serverSummary ?? []).map((item) => [item.subjectCode.toUpperCase(), item])
+    );
+
+    const subjectsToReconcile = subjects.filter((s) => {
+      const code = s.code.toUpperCase();
+      if (syncedInMountRef.current.has(code)) return false;
+      const delta = computeUnsyncedLocalDelta(s.code);
+      if (delta.hasChanges) return true;
+      const local = getSubjectLocalProgress(s.code);
+      const remote = summaryByCode.get(code);
+      const remoteCram = remote?.cramCount ?? 0;
+      const remoteLearn = remote?.learnCount ?? 0;
+      return local.cramCount !== remoteCram || local.learnCount !== remoteLearn;
+    });
+
+    if (subjectsToReconcile.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      let anySynced = false;
+      for (const s of subjectsToReconcile) {
+        const code = s.code.toUpperCase();
+        syncedInMountRef.current.add(code);
+        try {
+          await syncSubjectProgressWithServer(s.code);
+          anySynced = true;
+        } catch {
+          // Ignore offline/network sync failures silently
+        }
+      }
+      if (!cancelled && anySynced) {
+        setSyncRevision((r) => r + 1);
+        void queryClient.invalidateQueries({ queryKey: ["practiceProgressSummary"] });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, subjects, serverSummary, isServerSummaryLoaded, queryClient]);
+
   const progressMap = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof getSubjectLocalProgress>>();
+    const map = new Map<string, SubjectLocalProgress>();
+    const summaryByCode = new Map(
+      (serverSummary ?? []).map((item) => [item.subjectCode.toUpperCase(), item])
+    );
     for (const s of subjects || []) {
-      map.set(s.code, getSubjectLocalProgress(s.code));
+      const local = getSubjectLocalProgress(s.code);
+      const remote = summaryByCode.get(s.code.toUpperCase());
+      if (isAuthenticated && isServerSummaryLoaded) {
+        const delta = computeUnsyncedLocalDelta(s.code);
+        const cramCount = delta.hasChanges
+          ? Math.max(local.cramCount, remote?.cramCount ?? 0)
+          : (remote?.cramCount ?? 0);
+        const learnCount = delta.hasChanges
+          ? Math.max(local.learnCount, remote?.learnCount ?? 0)
+          : (remote?.learnCount ?? 0);
+        map.set(s.code, {
+          cramCount,
+          learnCount,
+          hasProgress: cramCount > 0 || learnCount > 0,
+        });
+      } else {
+        map.set(s.code, local);
+      }
     }
     return map;
-  }, [subjects]);
+  }, [subjects, serverSummary, isAuthenticated, isServerSummaryLoaded, syncRevision]);
 
   const inProgressSubjects = useMemo(
     () => (subjects || []).filter((s) => progressMap.get(s.code)?.hasProgress),
@@ -393,7 +480,11 @@ export const SubjectCatalogView: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-4 sm:gap-space-5">
             {filteredSubjects.map((subject) => (
-              <SubjectCard key={subject.id} subject={subject} />
+              <SubjectCard
+                key={subject.id}
+                subject={subject}
+                progress={progressMap.get(subject.code)}
+              />
             ))}
           </div>
         )}

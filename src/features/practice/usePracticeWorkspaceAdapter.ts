@@ -1,9 +1,25 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getPracticeQuestions, checkPracticeAnswer } from "@/api/practice";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getPracticeQuestions,
+  checkPracticeAnswer,
+  getLocalSubjectPracticeFallback,
+  resetSubjectPracticeProgress,
+  syncSubjectPracticeProgress,
+  syncSubjectProgressWithServer,
+} from "@/api/practice";
 import { useCramSession } from "@/hooks/useCramSession";
 import { useLearnSession } from "@/hooks/useLearnSession";
+import { useAuthStore } from "@/stores/authStore";
 import { useExamUiStore } from "@/stores/examUiStore";
+import {
+  addLocalSyncedIds,
+  clearLocalCramActiveBatch,
+  clearLocalCramActiveEntries,
+  clearLocalPracticeSyncMarkers,
+  readLocalCramActiveEntries,
+  writeLocalCramActiveEntries,
+} from "@/utils/practiceProgress";
 import {
   compareAnswers,
   didFallbackToAi,
@@ -156,6 +172,11 @@ export function clearPracticeStorage(subjectCode: string, mode: PracticeMode): v
       mode === "cram" ? `fuo_cram_mastered_${subjectCode}` : `fuo_learn_mastered_${subjectCode}`
     );
     localStorage.removeItem(`fuo_card_stats_${subjectCode}`);
+    clearLocalPracticeSyncMarkers(subjectCode, mode);
+    if (mode === "cram") {
+      clearLocalCramActiveBatch(subjectCode);
+      clearLocalCramActiveEntries(subjectCode);
+    }
   } catch {
     // Ignore storage access errors in restricted environments
   }
@@ -171,6 +192,9 @@ export function usePracticeWorkspaceAdapter(
   onTriggerRemountReset: () => void,
   scopedQuestionIds?: string[]
 ): PracticeWorkspaceAdapterResult {
+  const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   const {
     data: questions,
     isLoading,
@@ -181,19 +205,41 @@ export function usePracticeWorkspaceAdapter(
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: syncedProgress, isLoading: isProgressLoading } = useQuery({
+    queryKey: ["practiceProgress", subjectCode],
+    queryFn: async () => {
+      try {
+        return await syncSubjectProgressWithServer(subjectCode);
+      } catch {
+        return getLocalSubjectPracticeFallback(subjectCode);
+      }
+    },
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
   const validQuestions = useMemo(() => questions ?? [], [questions]);
+  const isHydrating = isLoading || (isAuthenticated && isProgressLoading);
+  const hydratedQuestions = useMemo(
+    () => (isHydrating ? [] : validQuestions),
+    [isHydrating, validQuestions]
+  );
   const isScopedMistakeDrill =
     practiceMode === "cram" && Boolean(scopedQuestionIds && scopedQuestionIds.length > 0);
 
   const cram = useCramSession({
     subjectCode,
-    questions: validQuestions,
+    questions: hydratedQuestions,
+    syncedMasteredIds: isAuthenticated ? syncedProgress?.cramMasteredIds : undefined,
+    syncedActiveBatch: isAuthenticated ? syncedProgress?.cramActiveBatch : undefined,
     scopedQuestionIds,
   });
 
   const learn = useLearnSession({
     subjectCode,
-    questions: validQuestions,
+    questions: hydratedQuestions,
+    syncedGraduatedIds: isAuthenticated ? syncedProgress?.learnMasteredIds : undefined,
+    syncedStats: isAuthenticated ? syncedProgress?.cardStats : undefined,
   });
 
   const engineCard = practiceMode === "cram" ? cram.currentCard : learn.currentCard;
@@ -214,9 +260,25 @@ export function usePracticeWorkspaceAdapter(
   const [fallbackQuestionId, setFallbackQuestionId] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<WorkspaceEvaluationResult | null>(null);
   const [pendingCommit, setPendingCommit] = useState<PendingEvaluationCommit | null>(null);
-  const [cramMissedIds, setCramMissedIds] = useState<Set<string>>(() => new Set());
   const [cramSessionEntries, setCramSessionEntries] = useState<CramSessionQuestionEntry[]>([]);
   const cramSessionEntriesRef = useRef<CramSessionQuestionEntry[]>([]);
+  const hasHydratedCramEntriesRef = useRef(false);
+
+  // Restore saved in-progress Cram entries when resuming a persisted active batch
+  useEffect(() => {
+    if (practiceMode !== "cram" || hasHydratedCramEntriesRef.current) return;
+    if (!cram.wasRestoredActiveBatch || cram.currentBatch.length === 0) return;
+
+    hasHydratedCramEntriesRef.current = true;
+    const batchIdSet = new Set(cram.currentBatch.map((q) => q.questionId));
+    const storedEntries = readLocalCramActiveEntries(subjectCode).filter((entry) =>
+      batchIdSet.has(entry.question.questionId)
+    );
+    if (storedEntries.length > 0 && cramSessionEntriesRef.current.length === 0) {
+      cramSessionEntriesRef.current = storedEntries;
+      setCramSessionEntries(storedEntries);
+    }
+  }, [practiceMode, subjectCode, cram.wasRestoredActiveBatch, cram.currentBatch]);
   const [isAdvancingDeferred, setIsAdvancingDeferred] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiExplanations, setAiExplanations] = useState<Record<string, CachedAiRationale>>({});
@@ -408,28 +470,60 @@ export function usePracticeWorkspaceAdapter(
   const commitToEngine = useCallback(
     (commit: PendingEvaluationCommit) => {
       if (practiceMode === "cram") {
-        if (!commit.isCorrect) {
-          setCramMissedIds((prev) => {
-            const next = new Set(prev);
-            next.add(commit.cardId);
-            return next;
-          });
-        }
         const updatedEntries = upsertCramSessionEntry(cramSessionEntriesRef.current, commit);
         cramSessionEntriesRef.current = updatedEntries;
         setCramSessionEntries(updatedEntries);
-        cram.recordAnswer(commit.cardId, commit.isCorrect);
+        const nextActiveBatch = cram.recordAnswer(commit.cardId, commit.isCorrect);
+
+        if (nextActiveBatch) {
+          writeLocalCramActiveEntries(subjectCode, updatedEntries);
+        }
+
+        if (isAuthenticated) {
+          void syncSubjectPracticeProgress(subjectCode, {
+            cramMasteredIds: commit.isCorrect ? [commit.cardId] : undefined,
+            cramActiveBatch: nextActiveBatch,
+          })
+            .then(() => {
+              if (commit.isCorrect) {
+                addLocalSyncedIds(subjectCode, "cram", [commit.cardId]);
+              }
+              void queryClient.invalidateQueries({ queryKey: ["practiceProgressSummary"] });
+              void queryClient.invalidateQueries({ queryKey: ["practiceProgress", subjectCode] });
+            })
+            .catch(() => {
+              // Offline fallback: remains in localStorage as unsynced delta
+            });
+        }
       } else {
-        learn.recordAnswer(
+        const updatedStat = learn.recordAnswer(
           commit.cardId,
           commit.selectedOptions,
           commit.correctAnswer,
           commit.isCorrect,
           commit.explanation
         );
+
+        if (isAuthenticated && updatedStat) {
+          const isLearned = updatedStat.status === "learned";
+          void syncSubjectPracticeProgress(subjectCode, {
+            learnMasteredIds: isLearned ? [commit.cardId] : undefined,
+            cardStats: { [commit.cardId]: updatedStat },
+          })
+            .then(() => {
+              if (isLearned) {
+                addLocalSyncedIds(subjectCode, "learn", [commit.cardId]);
+              }
+              void queryClient.invalidateQueries({ queryKey: ["practiceProgressSummary"] });
+              void queryClient.invalidateQueries({ queryKey: ["practiceProgress", subjectCode] });
+            })
+            .catch(() => {
+              // Offline fallback: remains in localStorage as unsynced delta
+            });
+        }
       }
     },
-    [practiceMode, cram, learn]
+    [practiceMode, cram, learn, isAuthenticated, subjectCode, queryClient]
   );
 
   const advanceNext = useCallback(() => {
@@ -606,15 +700,34 @@ export function usePracticeWorkspaceAdapter(
       cramSessionEntriesRef.current = [];
       setCramSessionEntries([]);
     }
+    if (isAuthenticated) {
+      queryClient.setQueryData(
+        ["practiceProgress", subjectCode],
+        (prev: ReturnType<typeof getLocalSubjectPracticeFallback> | undefined) => {
+          const base = prev ?? getLocalSubjectPracticeFallback(subjectCode);
+          if (practiceMode === "cram") {
+            return { ...base, cramMasteredIds: [], cramActiveBatch: null };
+          }
+          return { ...base, learnMasteredIds: [], cardStats: {} };
+        }
+      );
+      void resetSubjectPracticeProgress(subjectCode, practiceMode)
+        .then(() => {
+          void queryClient.invalidateQueries({ queryKey: ["practiceProgressSummary"] });
+          void queryClient.invalidateQueries({ queryKey: ["practiceProgress", subjectCode] });
+        })
+        .catch(() => {
+          // Ignore network errors during local reset
+        });
+    }
     clearCardTransientState();
-    setCramMissedIds(new Set());
     onTriggerRemountReset();
-  }, [subjectCode, practiceMode, clearCardTransientState, onTriggerRemountReset]);
+  }, [subjectCode, practiceMode, isAuthenticated, queryClient, clearCardTransientState, onTriggerRemountReset]);
 
   const masteryBadge = useMemo<WorkspaceCardBadge | null>(() => {
     if (!currentCard) return null;
     if (practiceMode === "cram") {
-      if (cramMissedIds.has(currentCard.questionId)) {
+      if (cram.missedIds.has(currentCard.questionId)) {
         return { label: "Nhắc lại sau lỗi", tone: "warning" };
       }
       return null;
@@ -632,13 +745,13 @@ export function usePracticeWorkspaceAdapter(
       return { label: "Lần đầu đúng", tone: "accent" };
     }
     return null;
-  }, [currentCard, practiceMode, cramMissedIds, learn.stats]);
+  }, [currentCard, practiceMode, cram.missedIds, learn.stats]);
 
   const navigatorItems = useMemo<WorkspaceNavigatorItem[]>(() => {
     if (practiceMode === "cram") {
       return cram.currentBatch.map((q) => {
         const isDone = cram.masteredInBatch.has(q.questionId);
-        const isRequeued = !isDone && cramMissedIds.has(q.questionId);
+        const isRequeued = !isDone && cram.missedIds.has(q.questionId);
         return {
           id: q.questionId,
           number: q.questionNumber,
@@ -674,7 +787,7 @@ export function usePracticeWorkspaceAdapter(
     practiceMode,
     cram.currentBatch,
     cram.masteredInBatch,
-    cramMissedIds,
+    cram.missedIds,
     learn.activePool,
     learn.stats,
     learn.roundReviewItems,
@@ -689,7 +802,7 @@ export function usePracticeWorkspaceAdapter(
   const isSessionCompleted =
     practiceMode === "cram" ? cram.isSessionCompleted : learn.isSessionCompleted;
 
-  const sessionStatus: PracticeWorkspaceAdapterResult["sessionStatus"] = isLoading
+  const sessionStatus: PracticeWorkspaceAdapterResult["sessionStatus"] = isHydrating
     ? "loading"
     : error
       ? "error"
