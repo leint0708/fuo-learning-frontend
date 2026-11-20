@@ -312,7 +312,32 @@ export function useCramSession({
   ]);
 
   const activePool = batchState.sessionPool;
-  const totalBatches = Math.max(1, Math.ceil(activePool.length / batchSize));
+  const totalBatches =
+    currentScope === "deck"
+      ? Math.max(1, Math.ceil(questions.length / batchSize))
+      : Math.max(1, Math.ceil(activePool.length / batchSize));
+
+  const displayBatchIndex = useMemo(() => {
+    if (currentScope !== "deck") {
+      return batchState.batchIndex;
+    }
+    const currentBatchIdSet = new Set(batchState.currentBatch.map((q) => q.questionId));
+    let priorMasteredCount = 0;
+    for (const q of questions) {
+      if (masteredIds.has(q.questionId) && !currentBatchIdSet.has(q.questionId)) {
+        priorMasteredCount++;
+      }
+    }
+    return Math.min(Math.floor(priorMasteredCount / batchSize), totalBatches - 1);
+  }, [
+    currentScope,
+    batchState.batchIndex,
+    batchState.currentBatch,
+    questions,
+    masteredIds,
+    batchSize,
+    totalBatches,
+  ]);
 
   const currentCard: Question | null = useMemo(() => {
     if (batchState.activeQueue.length === 0) return null;
@@ -451,7 +476,7 @@ export function useCramSession({
     masteredInBatch: batchState.masteredInBatch,
     missedIds: batchState.missedIds,
     wasRestoredActiveBatch: batchState.wasRestored,
-    batchIndex: batchState.batchIndex,
+    batchIndex: displayBatchIndex,
     totalBatches,
     isBatchCompleted,
     isSessionCompleted,
