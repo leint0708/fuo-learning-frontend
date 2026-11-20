@@ -19,7 +19,7 @@ import {
   removeActiveExam,
   upsertActiveExam,
 } from "@/utils/activeExams";
-import type { BenchmarkMode, FeedbackMode, Question } from "@/types/exam";
+import type { BenchmarkMode, CommunityStats, FeedbackMode, Question } from "@/types/exam";
 import type {
   WorkspaceEvaluationResult,
   WorkspaceNavigatorItem,
@@ -32,6 +32,8 @@ interface CachedInstantResult {
   correctAnswer: string;
   aiExplanation: string;
   optionByOptionAnalysis?: Record<string, string>;
+  benchmarkSource?: BenchmarkMode | null;
+  communityStats?: CommunityStats | null;
   communityFallbackNotice?: string | null;
 }
 
@@ -372,15 +374,16 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
     });
     try {
       const result = await checkInstantAnswer(qId, selected, preferredBenchmarkMode);
-      if (
-        didFallbackToAi(
-          preferredBenchmarkMode,
-          result.communityStats,
-          result.benchmarkSource
-        )
-      ) {
+      const fellBackToAi = didFallbackToAi(
+        preferredBenchmarkMode,
+        result.communityStats,
+        result.benchmarkSource
+      );
+      if (fellBackToAi) {
         setFallbackQuestionId(qId);
       }
+      const resolvedBenchmarkSource: BenchmarkMode =
+        result.benchmarkSource ?? (fellBackToAi ? "ai" : preferredBenchmarkMode);
       const communityFallbackNotice = getCommunityFallbackNotice(
         preferredBenchmarkMode,
         result.communityStats,
@@ -393,6 +396,8 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
           correctAnswer: result.correctAnswer,
           aiExplanation: result.aiExplanation,
           optionByOptionAnalysis: result.optionByOptionAnalysis,
+          benchmarkSource: resolvedBenchmarkSource,
+          communityStats: result.communityStats ?? null,
           communityFallbackNotice,
         },
       }));
@@ -611,6 +616,8 @@ export function useExamWorkspaceAdapter(safeAttemptId: string): ExamWorkspaceAda
             correctAnswer: currentInstant.correctAnswer,
             aiExplanation: currentInstant.aiExplanation,
             optionByOptionAnalysis: currentInstant.optionByOptionAnalysis ?? null,
+            benchmarkSource: currentInstant.benchmarkSource ?? null,
+            communityStats: currentInstant.communityStats ?? null,
             communityFallbackNotice: currentInstant.communityFallbackNotice ?? null,
           }
         : currentInstantError

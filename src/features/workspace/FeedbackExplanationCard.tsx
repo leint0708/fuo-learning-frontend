@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, XCircle, ArrowRight, RotateCcw } from "lucide-react";
+import { CheckCircle2, XCircle, ArrowRight, RotateCcw, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { WorkspaceEvaluationResult } from "./types";
 
@@ -81,25 +81,52 @@ export const FeedbackExplanationCard: React.FC<FeedbackExplanationCardProps> = (
         evaluation.isCorrect ? "bg-color-3/15 text-color-1" : "bg-color-4/15 text-color-1"
       }`}
     >
-      <div className="flex items-center gap-space-3 min-w-0">
-        <span
-          className={`w-9 h-9 rounded-full border-2 border-color-1 flex items-center justify-center shrink-0 ${
-            evaluation.isCorrect
-              ? "bg-color-3 text-color-7"
-              : "bg-color-4 text-color-1"
-          }`}
-        >
-          {evaluation.isCorrect ? (
-            <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-          ) : (
-            <XCircle className="w-5 h-5" aria-hidden="true" />
-          )}
-        </span>
-        <span className="font-bold text-text-sm sm:text-text-base text-color-1 min-w-0 break-words">
-          {evaluation.isCorrect
-            ? "Chính xác! Giỏi lắm!"
-            : `Chưa chính xác — Đáp án đúng: ${evaluation.correctAnswer ?? ""}`}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-space-2 min-w-0">
+        <div className="flex items-center gap-space-3 min-w-0">
+          <span
+            className={`w-9 h-9 rounded-full border-2 border-color-1 flex items-center justify-center shrink-0 ${
+              evaluation.isCorrect
+                ? "bg-color-3 text-color-7"
+                : "bg-color-4 text-color-1"
+            }`}
+          >
+            {evaluation.isCorrect ? (
+              <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+            ) : (
+              <XCircle className="w-5 h-5" aria-hidden="true" />
+            )}
+          </span>
+          <span className="font-bold text-text-sm sm:text-text-base text-color-1 min-w-0 break-words">
+            {evaluation.isCorrect
+              ? "Chính xác! Giỏi lắm!"
+              : `Chưa chính xác — Đáp án đúng: ${evaluation.correctAnswer ?? ""}`}
+          </span>
+        </div>
+
+        {evaluation.benchmarkSource && (
+          <span
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border-2 border-color-1 bg-color-7 text-color-1 text-text-xs font-bold shrink-0"
+            data-testid="answer-source-badge"
+          >
+            {evaluation.benchmarkSource === "community" ? (
+              <>
+                <Users className="w-3.5 h-3.5 text-color-2" aria-hidden="true" />
+                <span>
+                  Nguồn: Cộng đồng
+                  {evaluation.communityStats &&
+                  evaluation.communityStats.validVoteCount > 0
+                    ? ` (${evaluation.communityStats.topAnswerVotes}/${evaluation.communityStats.validVoteCount})`
+                    : ""}
+                </span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-color-2" aria-hidden="true" />
+                <span>Nguồn: Đáp án AI</span>
+              </>
+            )}
+          </span>
+        )}
       </div>
 
       {evaluation.communityFallbackNotice && (

@@ -347,15 +347,16 @@ export function usePracticeWorkspaceAdapter(
         );
         const isMatch =
           result.isCorrect || compareAnswers(choiceToEvaluate, result.correctAnswer);
-        if (
-          didFallbackToAi(
-            preferredBenchmarkMode,
-            result.communityStats,
-            result.benchmarkSource
-          )
-        ) {
+        const fellBackToAi = didFallbackToAi(
+          preferredBenchmarkMode,
+          result.communityStats,
+          result.benchmarkSource
+        );
+        if (fellBackToAi) {
           setFallbackQuestionId(targetCard.questionId);
         }
+        const resolvedBenchmarkSource: BenchmarkMode =
+          result.benchmarkSource ?? (fellBackToAi ? "ai" : preferredBenchmarkMode);
         const communityFallbackNotice = getCommunityFallbackNotice(
           preferredBenchmarkMode,
           result.communityStats,
@@ -368,6 +369,8 @@ export function usePracticeWorkspaceAdapter(
           correctAnswer: result.correctAnswer,
           aiExplanation: result.aiExplanation,
           optionByOptionAnalysis: result.optionByOptionAnalysis ?? null,
+          benchmarkSource: resolvedBenchmarkSource,
+          communityStats: result.communityStats ?? null,
           communityFallbackNotice,
           resolvedAt: Date.now(),
         });

@@ -1,4 +1,4 @@
-import type { Question, QuestionType } from "@/types/exam";
+import type { BenchmarkMode, CommunityStats, Question, QuestionType } from "@/types/exam";
 import type { RoundReviewItem } from "@/types/practice";
 
 /**
@@ -59,6 +59,8 @@ export interface WorkspaceEvaluationResult {
   optionByOptionAnalysis?: Record<string, string> | null;
   aiModel?: string;
   errorMessage?: string | null;
+  benchmarkSource?: BenchmarkMode | null;
+  communityStats?: CommunityStats | null;
   communityFallbackNotice?: string | null;
   resolvedAt?: number;
 }
